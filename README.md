@@ -68,7 +68,14 @@ defaults in `lib/seed.mjs`:
 | `milestones` | Fixed dates: exam entries, application deadlines |
 
 Anything you leave out falls back to a default. `profile.example.json` shows the
-full shape, with invented values throughout.
+full shape, with invented values throughout. It carries `"_example": true` —
+delete that line once the file is genuinely yours, because while it is there the
+dashboard treats the profile as a placeholder and will never let it overwrite
+real data it already holds.
+
+When hosting, there is no data directory to put the profile in and it is not in
+the repo, so point `PROFILE_PATH` at a secret file (Render mounts these under
+`/etc/secrets/`), or pass the JSON inline in `PROFILE_JSON`.
 
 Reference data (calendar, timetable, subject targets, topic lists) is restored
 from the seed on a schema bump, so a corrected spec reaches you automatically.

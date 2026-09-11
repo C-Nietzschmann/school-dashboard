@@ -10,6 +10,13 @@ services:
     envVars:
       - key: DASHBOARD_PASSWORD    # set this yourself — without it the dashboard is public
         sync: false
+      # Your profile is deliberately not in the repo, so a host cannot see it.
+      # Add it as a Render Secret File (Settings → Secret Files) named
+      # profile.json and point this at it. Without it the host keeps whatever
+      # school data is already in the database, but a schema bump can no longer
+      # refresh your calendar or rota.
+      - key: PROFILE_PATH          # e.g. /etc/secrets/profile.json
+        sync: false
       - key: SESSION_SECRET        # generated once; keeps you signed in across restarts
         generateValue: true
       - key: ANTHROPIC_API_KEY    # powers the Claude features; without it they hide themselves

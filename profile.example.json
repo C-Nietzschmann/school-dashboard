@@ -1,5 +1,6 @@
 {
-  "_comment": "Copied to <data dir>/profile.json on first run. Everything here is invented. Edit your copy, not this file — and never commit your copy.",
+  "_example": true,
+  "_comment": "Copied to <data dir>/profile.json on first run. Everything here is invented. Edit your copy, not this file — and never commit your copy. Delete the _example line once it is really yours: while it is here, the dashboard treats this profile as a placeholder and will never let it overwrite real data it already holds.",
   "_dataDir": "The data directory is $SCHOOL_DASHBOARD_DATA, or ~/.school-dashboard.",
   "_howBands": "bandStart/nextBand are the approximate boundaries of that grade, so the dashboard can tell a high 7 from a low one. Omit them if you do not know.",
 
