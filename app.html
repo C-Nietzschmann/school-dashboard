@@ -1,0 +1,3344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="A Level">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<link rel="manifest" href="/icons/manifest.webmanifest">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
+<title>A Level Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f7f7f5; --surface-1:#fcfcfb; --surface-2:#f0efec; --line:#e2e1dc; --line-strong:#cfcec8;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#84837c;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --radius:11px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 16px -6px rgba(0,0,0,.07);
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --bg:#141413; --surface-1:#1a1a19; --surface-2:#242422; --line:#302f2c; --line-strong:#43423e;
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#8e8d84;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#141413; --surface-1:#1a1a19; --surface-2:#242422; --line:#302f2c; --line-strong:#43423e;
+  --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#8e8d84;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 16px -6px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+/* display:flex on .row would otherwise beat the UA's [hidden] rule */
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text-primary);
+  font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;
+  font-feature-settings:'ss01','cv05'}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.015em;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;font-family:var(--sans);color:var(--text-primary);background:var(--surface-1);
+  border:1px solid var(--line-strong);border-radius:8px;padding:7px 9px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);margin-bottom:22px}
+.top-in{max-width:1180px;margin:0 auto;padding:14px 20px 0;display:flex;flex-direction:column;gap:12px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:19px;letter-spacing:-.03em}
+.brand .sub{color:var(--text-muted);font-size:13px}
+.spacer{flex:1}
+.tabwrap{position:relative}
+.tabwrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:36px;pointer-events:none;
+  background:linear-gradient(to right,transparent,var(--bg));opacity:.9}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{background:none;border:0;padding:9px 13px;border-bottom:2px solid transparent;
+  color:var(--text-secondary);font-size:14px;white-space:nowrap;border-radius:6px 6px 0 0}
+nav.tabs button:hover{color:var(--text-primary);background:var(--surface-2)}
+nav.tabs button[aria-selected="true"]{color:var(--text-primary);border-bottom-color:var(--s1);font-weight:550}
+
+.card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);
+  padding:19px 20px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;margin-bottom:2px}
+.card .hint{color:var(--text-muted);font-size:12.5px;margin-bottom:14px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(198px,1fr))}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.view{display:none}.view.active{display:block}
+
+/* ---------- bits ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;
+  font-size:12px;font-weight:550;background:var(--surface-2);color:var(--text-secondary);
+  border:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:3px;flex:none}
+.btn{background:var(--surface-1);border:1px solid var(--line-strong);border-radius:8px;
+  padding:7px 13px;font-size:14px;font-weight:500;transition:background .12s,border-color .12s,transform .08s}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,nav.tabs button:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--s1);border-color:var(--s1);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:none;color:var(--text-muted);padding:5px 8px}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text-primary)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.empty{color:var(--text-muted);font-size:13.5px;padding:22px 4px;text-align:center;line-height:1.65}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:550;color:var(--text-muted);font-size:12px;text-transform:uppercase;
+  letter-spacing:.04em;padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.num,.stat .value,.block-min,.qmeta,.hbar+*{font-variant-numeric:tabular-nums}
+.num{font-family:var(--mono);font-size:13.5px}
+.stat .value{font-family:var(--mono);letter-spacing:-.03em}
+.stat .label,.uni-label,.cardface-meta,th,.chip,.pill,.block-min span{font-family:var(--mono)}
+th{font-size:10.5px}
+
+.stat{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 16px;transition:border-color .12s}
+.stat:hover{border-color:var(--line-strong)}
+.stat .label{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.stat .value{font-size:27px;font-weight:600;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums}
+.stat .foot{font-size:12.5px;color:var(--text-secondary);margin-top:3px}
+
+.status{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:550}
+.status.good{color:var(--good)} .status.warn{color:var(--serious)} .status.bad{color:var(--critical)}
+
+/* ---------- revision queue ---------- */
+.queue{display:flex;flex-direction:column;gap:1px;background:var(--line);border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.qrow{display:grid;grid-template-columns:4px 1fr auto auto;gap:12px;align-items:center;
+  background:var(--surface-1);padding:11px 14px 11px 0}
+.qrow:hover{background:var(--surface-2)}
+.qbar{height:100%;min-height:42px;border-radius:0 3px 3px 0}
+.qname{font-weight:550;font-size:14px}
+.qmeta{font-size:12.5px;color:var(--text-muted);margin-top:2px}
+.conf{display:flex;gap:3px}
+.conf button{width:19px;height:19px;border-radius:5px;border:1px solid var(--line-strong);
+  background:var(--surface-2);padding:0;font-size:10px;color:var(--text-muted)}
+.conf button.on{background:var(--s1);border-color:var(--s1);color:#fff}
+.trow{display:flex;gap:9px;align-items:center;padding:4px 6px;border-radius:6px;font-size:13.5px}
+.trow:hover{background:var(--surface-2)}
+.trow .chip{margin-left:auto}
+.subjfold{border:1px solid var(--line);border-radius:9px;margin-bottom:10px;overflow:hidden}
+.subjfold summary{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;
+  list-style:none;font-size:14px;background:var(--surface-2)}
+.subjfold summary::-webkit-details-marker{display:none}
+.subjfold summary::before{content:'▸';color:var(--text-muted);font-size:11px;width:11px}
+.subjfold[open] summary::before{content:'▾'}
+.subjfold[open] summary{border-bottom:1px solid var(--line)}
+.subjfold > div{padding:12px 13px}
+.subjfold summary .chip{margin-left:auto}
+.tstat{font-family:var(--mono);font-size:10px;letter-spacing:.03em;padding:3px 7px;border-radius:5px;
+  border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-muted);
+  min-width:78px;text-align:center;flex:none}
+.tstat.s1{border-color:var(--s4);color:var(--s4);background:color-mix(in srgb,var(--s4) 10%,transparent)}
+.tstat.s2{border-color:var(--good);color:var(--good);background:color-mix(in srgb,var(--good) 10%,transparent)}
+.phase{font-size:11.5px;line-height:1.5;color:var(--text-secondary);margin:8px 0 0;padding:7px 10px;
+  border-radius:7px;background:var(--surface-2);border-left:3px solid var(--line-strong)}
+.phase-learning{border-left-color:var(--s4)}
+.phase-building{border-left-color:var(--s1)}
+.phase-exam{border-left-color:var(--good)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:16px}
+.cal-h{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-muted);text-align:center;padding:0 0 6px}
+.cal-d{min-height:86px;border:1px solid var(--line);border-radius:7px;padding:5px 6px;
+  background:var(--surface-1);display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.cal-d.empty{border:0;background:none}
+.cal-d.wknd{background:var(--bg)}
+.cal-d.offterm{opacity:.5}
+.cal-d.hol{background:color-mix(in srgb,var(--s4) 11%,var(--surface-1));border-color:color-mix(in srgb,var(--s4) 30%,var(--line))}
+.cal-d.today{border-color:var(--s1);box-shadow:inset 0 0 0 1px var(--s1)}
+.cal-n{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:right}
+.cal-d.today .cal-n{color:var(--s1);font-weight:600}
+.cal-e{font-size:10.5px;line-height:1.3;padding:2px 4px;border-radius:4px;background:var(--surface-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.cal-e .dot{width:6px;height:6px;border-radius:2px;flex:none}
+.cal-e.due{background:color-mix(in srgb,var(--critical) 15%,transparent)}
+.cal-e.done{opacity:.5;text-decoration:line-through}
+.cal-e.milestone{background:color-mix(in srgb,var(--serious) 20%,transparent);font-weight:550}
+.cal-e.term{background:color-mix(in srgb,var(--s1) 16%,transparent);font-weight:550}
+.cal-e.paper{background:color-mix(in srgb,var(--good) 15%,transparent)}
+.cal-e.holiday{background:transparent;color:var(--text-muted);font-style:italic}
+.cal-more{font-size:9.5px;color:var(--text-muted);padding-left:4px}
+.key{width:11px;height:11px;border-radius:3px;flex:none;background:var(--surface-2);border:1px solid var(--line)}
+.key.hol{background:color-mix(in srgb,var(--s4) 40%,transparent)}
+.key.due{background:var(--critical)}
+.key.milestone{background:var(--serious)}
+.key.term{background:var(--s1)}
+.key.paper{background:var(--good)}
+@media (max-width:560px){.cal-d{min-height:58px;padding:3px 4px}.cal-e{font-size:9px}}
+.spare{margin-top:11px;padding:9px 11px;border-radius:7px;background:var(--surface-2);
+  border:1px dashed var(--line-strong);font-size:12px;line-height:1.55;color:var(--text-muted)}
+
+/* ---------- whiteboard ---------- */
+.wb-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.swatch{width:24px;height:24px;border-radius:6px;border:2px solid var(--line-strong);padding:0}
+.swatch.on{border-color:var(--text-primary);transform:scale(1.12)}
+#wbCanvas{width:100%;height:min(62vh,560px);display:block;background:var(--surface-1);
+  border:1px solid var(--line-strong);border-radius:8px;touch-action:none;cursor:crosshair}
+
+/* ---------- charts ---------- */
+.chart-svg{width:100%;height:auto;display:block;overflow:visible}
+.axis-line{stroke:var(--line-strong);stroke-width:1}
+.grid-line{stroke:var(--line);stroke-width:1}
+.tick{fill:var(--text-muted);font-size:11px}
+.bar-label{fill:var(--text-primary);font-size:12px;font-weight:550}
+.spark-name{fill:var(--text-secondary);font-size:11.5px;font-weight:550}
+.spark-val{fill:var(--text-primary);font-size:14px;font-weight:600}
+.sm-cell{background:var(--surface-1);border:1px solid var(--line);border-radius:8px;padding:11px 12px}
+
+.tt{position:fixed;pointer-events:none;z-index:60;background:var(--surface-1);color:var(--text-primary);
+  border:1px solid var(--line-strong);border-radius:7px;padding:7px 10px;font-size:12.5px;
+  box-shadow:var(--shadow);opacity:0;transition:opacity .1s;max-width:240px}
+.tt.on{opacity:1}
+
+/* ---------- timetable ---------- */
+.tt-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.tt-day h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);
+  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.tt-slot{border-left:3px solid var(--line-strong);padding:6px 0 6px 9px;margin-bottom:7px;font-size:13px;border-radius:0 5px 5px 0}
+.tt-slot .t{color:var(--text-muted);font-size:11.5px}
+.tt-slot:hover{background:var(--surface-2)}
+.tt-slot.free{border-left-style:dashed}
+.tt-study{font-size:11.5px;color:var(--s1);margin-top:3px;line-height:1.4}
+.lesson-alert{display:flex;gap:11px;align-items:center;background:var(--surface-1);
+  border:1px solid var(--line-strong);border-left:3px solid var(--s1);border-radius:10px;
+  padding:12px 14px;margin-bottom:16px;box-shadow:var(--shadow);font-size:14px}
+.alert-when{color:var(--text-muted);font-size:12.5px;margin-left:8px;font-family:var(--mono)}
+.alert-study{font-size:12.5px;color:var(--text-secondary);margin-top:3px}
+.today-col{background:color-mix(in srgb,var(--s1) 7%,transparent);border-radius:8px;padding:6px;margin:-6px}
+
+/* ---------- misc ---------- */
+.overdue{color:var(--critical);font-weight:550}
+.soon{color:var(--serious);font-weight:550}
+.done{opacity:.45;text-decoration:line-through}
+.linkish{color:var(--s1);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--s1) 35%,transparent)}
+.linkish:hover{border-bottom-color:var(--s1)}
+.chip{font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--surface-2);
+  border:1px solid var(--line);color:var(--text-secondary)}
+.uni-card{border:1px solid var(--line);border-radius:10px;padding:15px 16px;background:var(--surface-1)}
+.uni-card.dream{border-color:var(--s1);box-shadow:inset 3px 0 0 var(--s1)}
+.uni-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);
+  margin:12px 0 5px;display:flex;gap:8px;align-items:center}
+.uni-list{margin:0;padding-left:18px;font-size:13px;color:var(--text-secondary)}
+.uni-list li{margin-bottom:2px}
+.uni-p{margin:0 0 4px;font-size:13px;line-height:1.55;color:var(--text-secondary)}
+.finding{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);
+  font-size:13.5px;line-height:1.55}
+.finding:last-child{border-bottom:0}
+.hbar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.hbar span{display:block;height:100%;border-radius:4px}
+.block{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.block:last-child{border-bottom:0}
+.block-min{min-width:46px;font-weight:600;font-size:16px;line-height:1;display:flex;
+  flex-direction:column;align-items:center;gap:2px;font-variant-numeric:tabular-nums}
+.block-min span{font-size:9.5px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+.block-why{color:var(--text-muted);font-size:12.5px;margin-top:2px;line-height:1.5}
+.issue{display:flex;gap:10px;align-items:flex-start;padding:9px 0}
+.odds-box{border:1px solid var(--line);border-radius:10px;padding:15px 16px;background:var(--surface-1)}
+.odds-box.good{border-color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
+.odds-num{font-family:var(--mono);font-size:38px;font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:2px 0 6px}
+.odds-f{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);
+  font-size:13px;line-height:1.5;color:var(--text-secondary)}
+.odds-f:last-child{border-bottom:0}
+.odds-mult{font-family:var(--mono);font-size:12.5px;font-weight:600;min-width:48px;color:var(--text-muted)}
+.odds-mult.up{color:var(--good)} .odds-mult.down{color:var(--critical)}
+.unifold summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.unifold summary::-webkit-details-marker{display:none}
+.unifold summary::before{content:'▸';color:var(--text-muted);font-size:12px}
+.unifold[open] summary::before{content:'▾'}
+.unifold summary h2{display:inline}
+/* --- the route: application campaign as a line with stations --- */
+.rline{overflow-x:auto;padding:4px 0 2px;margin:16px 0 4px}
+.rline-in{position:relative;min-width:660px;height:78px}
+.rtrack{position:absolute;left:10px;right:10px;top:11px;height:4px;background:var(--line);border-radius:2px}
+.rtrack-fill{position:absolute;left:10px;top:11px;height:4px;background:var(--s1);border-radius:2px}
+.rstop{position:absolute;top:0;transform:translateX(-50%);width:112px;background:none;border:0;padding:0;
+  cursor:pointer;color:inherit;font:inherit;text-align:center}
+.rstop .rdot{width:14px;height:14px;border-radius:50%;background:var(--surface-1);
+  border:4px solid var(--line-strong);margin:4px auto 8px;box-sizing:border-box}
+.rstop.past .rdot{border-color:var(--s1);background:var(--s1)}
+.rstop.now .rdot{border-color:var(--s1);box-shadow:0 0 0 5px color-mix(in srgb,var(--s1) 18%,transparent)}
+.rstop .rname{display:block;font-size:12.5px;font-weight:600;line-height:1.3}
+.rstop.now .rname{color:var(--s1)}
+.rstop .rwhen{display:block;font-size:10.5px;color:var(--text-muted);margin-top:1px}
+.rtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.rtab{font-size:13px;font-weight:550;padding:6px 13px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface-1);color:var(--text-secondary)}
+.rtab[aria-pressed="true"]{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg)}
+.rfilter{font-size:11.5px;padding:3px 9px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface-1);color:var(--text-secondary)}
+.rfilter[aria-pressed="true"]{background:var(--surface-2);border-color:var(--line-strong);color:var(--text-primary)}
+.rphase{display:grid;grid-template-columns:158px 1fr;gap:20px;padding:20px 0;border-top:1px solid var(--line)}
+.rphase:first-of-type{border-top:0;padding-top:6px}
+.rphase.now .rstation{color:var(--s1)}
+.rstation{font-size:17px;font-weight:600;line-height:1.2}
+.rwhenbig{font-size:12.5px;color:var(--text-muted);margin-top:3px}
+.rhere{display:inline-block;font-size:10.5px;font-weight:600;color:var(--bg);background:var(--s1);
+  border-radius:4px;padding:2px 7px;margin-top:7px}
+.rtask{display:grid;grid-template-columns:19px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--surface-2)}
+.rtask:first-of-type{border-top:0}
+.rtask input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--s1);cursor:pointer}
+.rtask label{cursor:pointer;font-size:13.5px;line-height:1.5}
+.rtask.done .rt{color:var(--text-muted);text-decoration:line-through;text-decoration-color:var(--line-strong)}
+.rtask.crit .rt::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--critical);margin-right:7px;vertical-align:2px}
+.rnote{display:block;font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.55}
+.rtags{display:inline-flex;gap:4px;margin-left:6px;flex-wrap:wrap;vertical-align:1px}
+.rtag{font-size:10px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:var(--text-muted)}
+.rtag.cost{border-color:var(--s4);color:var(--s4)}
+.rdep{display:grid;grid-template-columns:76px 1fr auto;gap:10px;padding:8px 0;
+  border-top:1px solid var(--surface-2);align-items:baseline;font-size:13px}
+.rdep:first-of-type{border-top:0}
+.rdep .rd{font-family:var(--mono);font-size:12px;font-weight:600}
+.rdep .ryr{display:block;font-size:10.5px;color:var(--text-muted);font-weight:400}
+.rdep .rleft{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--s4)}
+.rverdict{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;margin-top:6px}
+.rv-good{background:color-mix(in srgb,var(--good) 13%,transparent);color:var(--good)}
+.rv-mid{background:color-mix(in srgb,var(--s4) 16%,transparent);color:var(--s4)}
+.rv-reach{background:color-mix(in srgb,var(--critical) 12%,transparent);color:var(--critical)}
+.rmoney{font-size:12.5px;color:var(--text-secondary);line-height:1.6;background:var(--surface-2);
+  border-radius:8px;padding:10px 12px;margin-top:12px}
+.rproj{border:1px solid var(--line);border-radius:10px;padding:17px 18px;margin-bottom:14px;background:var(--surface-1)}
+.rproj.flag{border-color:var(--s1);box-shadow:inset 3px 0 0 var(--s1)}
+.rkind{font-size:11px;font-weight:600;color:var(--s1);letter-spacing:.02em}
+.rmeta{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 11px}
+.rladder{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--surface-2)}
+.rladder:first-of-type{border-top:0}
+.rlevel{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text-muted)}
+.rladder.top .rlevel{color:var(--s1)}
+.rboost{border:1px solid var(--line);border-radius:9px;padding:14px 15px;background:var(--surface-1)}
+.rboost h4{font-size:14px;margin:0 0 3px;font-weight:600}
+.rboost p{font-size:12.5px;line-height:1.6;color:var(--text-secondary);margin:7px 0 0}
+.rboost .why{color:var(--text-muted)}
+@media(max-width:720px){
+  .rphase{grid-template-columns:1fr;gap:6px}
+  .rphase:first-of-type{padding-top:0}
+}
+.cardface{border:1px solid var(--line-strong);border-radius:12px;padding:30px 26px;text-align:center;
+  background:var(--surface-2);min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.cardface-meta{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.cardface-front{font-size:19px;font-weight:550;line-height:1.45}
+.cardface-back{font-size:16px;line-height:1.6;color:var(--text-secondary);
+  border-top:1px solid var(--line-strong);padding-top:14px}
+.exam-box{border-left:3px solid var(--serious);padding:8px 0 2px 11px;margin:2px 0 8px;
+  background:color-mix(in srgb,var(--serious) 7%,transparent);border-radius:0 6px 6px 0}
+.timeline{display:flex;flex-direction:column;gap:1px;margin-top:14px}
+.ms{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:11px 0;
+  border-bottom:1px solid var(--line);font-size:13.5px;align-items:baseline}
+.ms:last-child{border-bottom:0}
+.ms.past{opacity:.45}
+.ms-when{display:flex;flex-direction:column;gap:1px}
+.ms-when span{color:var(--text-muted);font-size:12px}
+.ms-note{color:var(--text-secondary);font-size:12.5px;margin-top:2px;line-height:1.5}
+@media (max-width:560px){.ms{grid-template-columns:1fr;gap:4px}}
+.savebar{position:fixed;bottom:18px;right:18px;z-index:50;font-size:12.5px;color:var(--text-muted);
+  background:var(--surface-1);border:1px solid var(--line);border-radius:999px;padding:6px 14px;
+  box-shadow:var(--shadow);opacity:0;transition:opacity .25s}
+.savebar.on{opacity:1}
+details.adder{margin-top:14px}
+details.adder summary{cursor:pointer;color:var(--s1);font-size:13.5px;font-weight:550;list-style:none}
+details.adder summary::-webkit-details-marker{display:none}
+details.adder summary::before{content:"+ ";font-weight:700}
+details.adder[open] summary::before{content:"− "}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:12px;align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-muted)}
+body.no-coach [data-coach]{display:none}
+.coach-out{margin-top:14px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:9px;font-size:14px;line-height:1.6}
+.coach-out.thinking{color:var(--text-muted);font-style:italic}
+.coach-out h4{font-size:13.5px;margin:15px 0 5px;letter-spacing:.01em}
+.coach-out h4:first-child{margin-top:0}
+.coach-out p{margin:0 0 9px}
+.coach-out p:last-child,.coach-out ul:last-child{margin-bottom:0}
+.coach-out ul{margin:0 0 9px;padding-left:19px}
+.coach-out li{margin-bottom:4px}
+.coach-out code{background:var(--surface-1);padding:1px 5px;border-radius:4px;font-size:12.5px;
+  border:1px solid var(--line)}
+.coach-tag{margin-top:11px;padding-top:9px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:720px){
+  .tt-grid{grid-template-columns:1fr}
+  .qrow{grid-template-columns:4px 1fr auto;row-gap:8px}
+}
+
+/* ---------- phone ---------- */
+@media (max-width:560px){
+  body{font-size:14.5px}
+  .wrap{padding:0 12px 60px}
+  .top-in{padding:11px 12px 0}
+  .brand h1{font-size:17px}
+  .card{padding:14px}
+  .grid{gap:11px}
+  /* stat tiles two-up instead of one enormous card each */
+  .g3{grid-template-columns:repeat(2,1fr);gap:9px}
+  .g2{grid-template-columns:1fr}
+  .stat{padding:11px 12px}
+  .stat .label{font-size:10px}
+  .stat .value{font-size:21px;margin-top:3px}
+  .stat .foot{font-size:11px;line-height:1.35}
+  /* thumb-sized rating buttons */
+  .conf button{width:28px;height:28px;font-size:12px}
+  .qrow{padding:10px 10px 10px 0}
+  .form-row{grid-template-columns:1fr !important;gap:9px}
+  .form-row .btn{width:100%;padding:11px}
+  table{font-size:13.5px}
+  td,th{padding-right:6px}
+  #wbCanvas{height:56vh}
+  .savebar{bottom:12px;right:12px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>A Level Dashboard</h1>
+      <span class="sub" id="termLine"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="themeBtn" title="Toggle theme">◐</button>
+    </div>
+    <div class="tabwrap"><nav class="tabs" role="tablist">
+      <button role="tab" data-view="today" aria-selected="true">Today</button>
+      <button role="tab" data-view="calendar" aria-selected="false">Calendar</button>
+      <button role="tab" data-view="plan" aria-selected="false">Plan</button>
+      <button role="tab" data-view="revision" aria-selected="false">Revision</button>
+      <button role="tab" data-view="cards" aria-selected="false">Cards</button>
+      <button role="tab" data-view="track" aria-selected="false">On track</button>
+      <button role="tab" data-view="uni" aria-selected="false">Uni</button>
+      <!-- Route tab: the plan data and styles exist (ROUTE in lib/seed.mjs, .r* rules
+           in the stylesheet) but views.route is not written yet. Restore this button
+           and the #view-route section below once it is. -->
+      <button role="tab" data-view="homework" aria-selected="false">Homework</button>
+      <button role="tab" data-view="study" aria-selected="false">Study log</button>
+      <button role="tab" data-view="papers" aria-selected="false">Papers</button>
+      <button role="tab" data-view="analysis" aria-selected="false">Analysis</button>
+      <button role="tab" data-view="timetable" aria-selected="false">Timetable</button>
+      <button role="tab" data-view="whiteboard" aria-selected="false">Whiteboard</button>
+      <button role="tab" data-view="files" aria-selected="false">Files</button>
+    </nav></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="lesson-alert" id="lessonAlert" hidden></div>
+  <section class="view active" id="view-today"></section>
+  <section class="view" id="view-calendar"></section>
+  <section class="view" id="view-plan"></section>
+  <section class="view" id="view-revision"></section>
+  <section class="view" id="view-cards"></section>
+  <section class="view" id="view-track"></section>
+  <section class="view" id="view-homework"></section>
+  <section class="view" id="view-study"></section>
+  <section class="view" id="view-papers"></section>
+  <section class="view" id="view-analysis"></section>
+  <section class="view" id="view-timetable"></section>
+  <section class="view" id="view-whiteboard"></section>
+  <section class="view" id="view-uni"></section>
+  <section class="view" id="view-files"></section>
+</div>
+
+<div class="tt" id="tooltip"></div>
+<div class="savebar" id="savebar">saved</div>
+
+<script>
+/* ==================================================================== state */
+let S = null;                 // the whole dashboard state
+let saveTimer = null;
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+const DAY = 864e5;
+// Local calendar date, never UTC — toISOString() would report yesterday
+// between local midnight and 02:00 in CEST, shifting every date on the page.
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayISO = () => isoOf(new Date());
+const parseD  = (s) => { const [y,m,d] = String(s).split('-').map(Number); return new Date(y, m-1, d); };
+const daysBetween = (a, b) => Math.round((parseD(b) - parseD(a)) / DAY);
+const fmtDay = (iso) => parseD(iso).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
+// Milestones span two academic years, so they carry the year too.
+const fmtFull = (iso) => parseD(iso).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const subjectById = (id) => S.subjects.find((s) => s.id === id);
+const colorOf = (id) => { const s = subjectById(id); return s ? `var(--s${s.slot})` : 'var(--text-muted)'; };
+const nameOf  = (id) => id === 'free' ? 'Free period' : (subjectById(id)?.name ?? 'Unknown');
+// Tutorial and PE are on the timetable but are not A Level subjects; a slot can
+// carry its own title so they show without pretending to be one.
+const slotName = (l) => l.title || nameOf(l.subjectId);
+
+/* ------------------------------------------------- school calendar (from
+   your school's own 2026-27 PDF: 3 terms, 10 holiday periods) */
+const CAL = () => S.calendar || { terms: [], holidays: [] };
+const holidayOn = (iso) => CAL().holidays.find((h) => iso >= h.start && iso <= h.end) || null;
+const termOn    = (iso) => CAL().terms.find((t) => iso >= t.start && iso <= t.end) || null;
+const nextBreak = (iso) => CAL().holidays.filter((h) => h.start > iso)
+  .sort((a, b) => a.start.localeCompare(b.start))[0] || null;
+const schoolWeek = (iso) => { const t = termOn(iso); return t ? Math.floor(daysBetween(t.start, iso) / 7) + 1 : null; };
+
+// A day you're actually in school: inside a term, on a weekday, not a holiday.
+function isSchoolDay(iso) {
+  if (!termOn(iso) || holidayOn(iso)) return false;
+  const wd = parseD(iso).getDay();
+  return wd >= 1 && wd <= 5;
+}
+function schoolDaysLeft(iso) {
+  const end = CAL().lastDay; if (!end || iso > end) return 0;
+  let n = 0; const d = parseD(iso);
+  while (isoOf(d) <= end) { if (isSchoolDay(isoOf(d))) n++; d.setDate(d.getDate() + 1); }
+  return n;
+}
+
+/* ============================================================ persistence */
+async function load() {
+  S = await (await fetch('/api/state')).json();
+}
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    await fetch('/api/state', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(S),
+    });
+    const bar = $('#savebar');
+    bar.classList.add('on');
+    setTimeout(() => bar.classList.remove('on'), 1100);
+  }, 400);
+}
+function mutate(fn) { fn(); save(); renderAll(); }
+
+/* ====================================================== the revision engine
+   Spaced repetition applied to spec topics. A topic you rate 0/5 comes back
+   tomorrow; one you rate 5/5 comes back in a month. Priority is how far past
+   that interval you are, nudged by how much the subject is worth to you and
+   whether something is due in it soon. Only topics you've marked as taught
+   can enter the queue — no point revising what school hasn't covered.        */
+const INTERVALS = [1, 2, 4, 8, 16, 32];
+
+function priorityOf(topic, today = todayISO()) {
+  if (!topic.finished) return null;   // still being taught — that is consolidation, not recall
+  const interval = INTERVALS[topic.confidence] ?? 1;
+  const since = topic.lastStudied ? daysBetween(topic.lastStudied, today) : interval * 2;
+  const overdue = Math.max(0, since) / interval;
+
+  const subj = subjectById(topic.subjectId);
+  const maxH = Math.max(...S.subjects.map((s) => s.weeklyHours || 1), 1);
+  const weight = 0.55 + 0.45 * ((subj?.weeklyHours || 1) / maxH);
+
+  // anything due in this subject within 10 days pulls its topics up the queue
+  const soon = S.homework.some((h) => !h.done && h.subjectId === topic.subjectId
+    && h.due && daysBetween(today, h.due) >= 0 && daysBetween(today, h.due) <= 10);
+
+  return overdue * weight * (soon ? 1.45 : 1);
+}
+
+function revisionQueue(limit = 0) {
+  const today = todayISO();
+  const q = S.topics
+    .map((t) => ({ t, p: priorityOf(t, today) }))
+    .filter((x) => x.p !== null && x.p > 0.75)
+    .sort((a, b) => b.p - a.p);
+  return limit ? q.slice(0, limit) : q;
+}
+
+/* ================================================== grades & projection */
+function gradeFor(pct) {
+  if (pct == null) return null;
+  const b = Object.entries(S.settings.boundaries).sort((x, y) => y[1] - x[1]);
+  for (const [g, cut] of b) if (pct >= cut) return g;
+  return 'U';
+}
+const gradeRank = (g) => ['U','E','D','C','B','A','A*'].indexOf(g);
+const EXAM_START = () => S.profile.examStart || '2028-05-15';
+const weeksToExams = () => Math.max(0, daysBetween(todayISO(), EXAM_START()) / 7);
+
+/* How the weekly budget should be split. Every subject keeps a maintenance
+   share of its timetabled load; the rest is distributed by how far the
+   prediction sits below target, with a floor so nothing gets abandoned. */
+function workloadPlan() {
+  const budget = S.settings.weeklyTargetHours || 20;
+  const cut = Object.fromEntries(Object.entries(S.settings.boundaries));
+  const rows = S.subjects.map((s) => {
+    const pred = predictedFor(s.id);
+    const target = cut[s.target] ?? 70;
+    const need = Math.max(1.5, pred == null ? 8 : target - pred);   // 1.5 = consolidation
+    return { s, pred, target, need, floor: (s.weeklyHours || 1) * 0.4 };
+  });
+  const floors = rows.reduce((a, r) => a + r.floor, 0);
+  const spare = Math.max(0, budget - floors);
+  const totalNeed = rows.reduce((a, r) => a + r.need, 0) || 1;
+  return rows.map((r) => ({ ...r, hours: r.floor + spare * (r.need / totalNeed) }));
+}
+
+const art = (g) => (/^A/.test(g) ? 'an ' : 'a ') + g;   // "an A*", "a B"
+
+// Recency-weighted mean of past-paper percentages (half-life: 3 papers), so a
+// bad mock in September stops dragging the projection down by Christmas.
+function projectedPct(subjectId) {
+  const ps = S.papers.filter((p) => p.subjectId === subjectId && p.total > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!ps.length) return null;
+  let num = 0, den = 0;
+  ps.forEach((p, i) => {
+    const w = Math.pow(0.5, (ps.length - 1 - i) / 3);
+    num += (p.mark / p.total) * 100 * w; den += w;
+  });
+  return num / den;
+}
+
+/* ---------------------------------------------- IGCSE -> A Level prediction
+   Two refinements over a flat grade lookup:
+   1. Where inside the grade band the mark sat. A 7 two marks short of an 8 is
+      not the same candidate as a 7 that scraped in.
+   2. Subject difficulty. Further Maths is examined harder and taken by a
+      self-selected cohort, so the same student lands below their Maths grade. */
+const SUBJECT_DIFFICULTY = { maths: 0, fmaths: -5, physics: 0, cs: 0, german: 0 };
+
+function effectiveGrade(r) {
+  if (r.native) return 9.4;                       // native speaker, ceiling case
+  if (r.pct == null || r.bandStart == null) return r.grade;
+  const frac = Math.max(0, Math.min(0.95, (r.pct - r.bandStart) / (r.nextBand - r.bandStart)));
+  return r.grade + frac;
+}
+
+// The school rule of thumb: A Level lands about a grade below GCSE — a 9 near
+// A*, an 8 near A, a 7 near B. Ten percentage points per grade off a 62% anchor.
+const gradeToALevel = (eff) => 62 + (eff - 7) * 10;
+
+// Headline IGCSE statistics. The overall mean flatters an engineering
+// applicant, because languages pull it up and the sciences are what count.
+function igcseStats() {
+  const rows = S.igcse || [];
+  if (!rows.length) return null;
+  const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const sci = ['Mathematics A (Higher)', 'Physics', 'Chemistry', 'Biology'];
+  const lang = ['German', 'English Literature', 'English (Second Lang.)', 'Spanish'];
+  const g = (list) => rows.filter((r) => list.includes(r.subject)).map((r) => r.grade);
+  return {
+    rows,
+    all: mean(rows.map((r) => r.grade)),
+    stem: g(sci).length ? mean(g(sci)) : null,
+    lang: g(lang).length ? mean(g(lang)) : null,
+    best: Math.max(...rows.map((r) => r.grade)),
+    worst: Math.min(...rows.map((r) => r.grade)),
+  };
+}
+
+function igcseSummary() {
+  const st = igcseStats();
+  if (!st) return 'No IGCSE results recorded.';
+  return 'IGCSE results (Pearson, June 2026): '
+    + st.rows.map((r) => `${r.subject} ${r.grade}${r.pct ? ` (${r.pct}%)` : ''}`).join(', ')
+    + `. Mean ${st.all.toFixed(2)} overall, ${st.stem?.toFixed(2)} across maths and sciences, `
+    + `${st.lang?.toFixed(2)} across languages.`;
+}
+
+function igcseBaselineFor(subjectId) {
+  const rows = (S.igcse || []).filter((r) => (r.maps || []).includes(subjectId));
+  const direct = rows.length > 0;
+  const pick = direct ? rows : (S.igcse || []).filter((r) => (r.maps || []).length && !r.native);
+  if (!pick.length) return null;
+  const eff = pick.reduce((a, r) => a + effectiveGrade(r), 0) / pick.length;
+  const pct = gradeToALevel(eff) + (SUBJECT_DIFFICULTY[subjectId] ?? 0);
+  return { pct: Math.max(0, Math.min(100, pct)), eff, direct };
+}
+
+// Before you have papers the IGCSE baseline carries the projection; after three
+// papers it is entirely your real marks.
+function predictedFor(subjectId) {
+  const subj = subjectById(subjectId);
+  if (subj?.locked) return S.settings.boundaries[subj.target] + 8;   // treated as certain
+  const proj = projectedPct(subjectId);
+  const base = igcseBaselineFor(subjectId);
+  const n = S.papers.filter((p) => p.subjectId === subjectId && p.total > 0).length;
+  if (!base) return proj;
+  if (proj == null) return base.pct;
+  const w = Math.min(1, n / 3);
+  return base.pct * (1 - w) + proj * w;
+}
+
+/* --------------------------------------------------- ETH entrance-exam odds
+   Starts from the published ~30% pass rate and adjusts by the things that
+   actually differ for you. Every factor is shown on the page — it is a model
+   with its assumptions on display, not a number to take literally. */
+function ethOdds(ideal = false) {
+  const eth = (S.unis || []).find((u) => u.id === 'eth');
+  const base = eth?.exam?.passRate ?? 0.30;
+  const m = predictedFor('maths'), f = predictedFor('fmaths'), ph = predictedFor('physics');
+  const mathsAvg = ideal ? 80 : (m + f) / 2;
+  const doingChem = S.subjects.some((x) => /chem/i.test(x.name) && x.active);
+  const chemReady = ideal || doingChem;
+
+  const factors = [
+    { label: 'Native German — the exam is sat in German, unlike most candidates', mult: 1.30 },
+    { label: ideal ? 'Maths + Further Maths lifted to A*/A'
+        : `Maths + Further Maths predicted ${gradeFor(m)} / ${gradeFor(f)}`,
+      mult: mathsAvg >= 75 ? 1.35 : mathsAvg >= 68 ? 1.15 : 0.95 },
+    { label: `Physics predicted ${gradeFor(ideal ? 80 : ph)}`, mult: (ideal ? 80 : ph) >= 75 ? 1.15 : 1.0 },
+    { label: chemReady ? 'Chemistry prepared for the exam'
+        : 'Chemistry is examined but you dropped it after IGCSE — your weakest result',
+      mult: chemReady ? 1.0 : 0.70 },
+  ];
+  const p = Math.max(0.05, Math.min(0.85, factors.reduce((a, x) => a * x.mult, base)));
+  return { base, factors, p };
+}
+
+function trackStatus(subjectId) {
+  const pct = predictedFor(subjectId);
+  const subj = subjectById(subjectId);
+  if (pct == null) return { pct: null, grade: null, target: subj.target, state: 'nodata' };
+  const grade = gradeFor(pct);
+  if (subj.locked) return { pct, grade: subj.target, target: subj.target, state: 'locked' };
+  const diff = gradeRank(grade) - gradeRank(subj.target);
+  return { pct, grade, target: subj.target,
+    state: diff >= 0 ? 'good' : diff === -1 ? 'warn' : 'bad' };
+}
+
+/* ============================================================ study stats */
+function weekStart(d = new Date()) {
+  const x = new Date(d); const day = (x.getDay() + 6) % 7;   // Monday = 0
+  x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x;
+}
+function minutesThisWeek(subjectId = null) {
+  const from = isoOf(weekStart());
+  return S.sessions
+    .filter((s) => s.date >= from && (!subjectId || s.subjectId === subjectId))
+    .reduce((a, s) => a + (Number(s.minutes) || 0), 0);
+}
+function streakDays() {
+  const days = new Set(S.sessions.map((s) => s.date));
+  let n = 0; const d = new Date();
+  // today not being logged yet shouldn't break a streak — start from yesterday
+  if (!days.has(isoOf(d))) d.setDate(d.getDate() - 1);
+  while (days.has(isoOf(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+/* ============================================================ chart tools */
+const tip = $('#tooltip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.classList.add('on');
+  const pad = 14;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  const r = tip.getBoundingClientRect();
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - pad;
+  if (y + r.height > innerHeight - 8) y = e.clientY - r.height - pad;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => tip.classList.remove('on');
+document.addEventListener('mouseleave', hideTip);
+
+// Horizontal bars: magnitude by subject, always direct-labelled (the light-mode
+// palette needs visible labels, not colour alone, to carry identity).
+function barChart(rows, { max = null, unit = '' } = {}) {
+  if (!rows.length) return '<div class="empty">Nothing logged yet.</div>';
+  const hi = max ?? Math.max(...rows.map((r) => Math.max(r.value, r.target || 0)), 1);
+  const W = 600, H = 40, BAR = 400;   // user units ≈ px at typical card width
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${rows.length * H}"
+            role="img" aria-label="Study time by subject">${rows.map((r, i) => {
+    const y = i * H;
+    const w = Math.max(2, (r.value / hi) * BAR);
+    const tw = r.target ? (r.target / hi) * BAR : null;
+    return `
+      <text x="0" y="${y + 15}" class="bar-label">${esc(r.label)}</text>
+      <text x="${W}" y="${y + 15}" text-anchor="end" class="bar-label"
+            style="fill:var(--text-secondary)">${r.display ?? r.value}${unit}</text>
+      <rect x="0" y="${y + 21}" width="${BAR}" height="9" rx="4" fill="var(--surface-2)"></rect>
+      <rect x="0" y="${y + 21}" width="${w.toFixed(1)}" height="9" rx="4" fill="${r.color}"
+            data-tip="${esc(r.label)}: ${esc(String(r.display ?? r.value))}${unit}${r.target ? ' · target ' + r.target + ' h' : ''}"></rect>
+      ${tw != null ? `<line x1="${tw.toFixed(1)}" y1="${y + 17}" x2="${tw.toFixed(1)}" y2="${y + 34}"
+            stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="3 2"></line>` : ''}`;
+  }).join('')}</svg>`;
+}
+
+// One small multiple per subject — a single series per panel, so identity never
+// rests on telling two colours apart.
+function sparkline(points, color, { w = 220, h = 46 } = {}) {
+  if (points.length === 0) return '';
+  if (points.length === 1) {
+    return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}"><circle cx="${w/2}" cy="${h/2}" r="3.5" fill="${color}"/></svg>`;
+  }
+  const xs = points.map((p) => parseD(p.date).getTime());
+  const lo = Math.min(...xs), hi = Math.max(...xs), span = hi - lo || 1;
+  const pad = 6;
+  const X = (t) => pad + ((t - lo) / span) * (w - pad * 2);
+  const Y = (v) => h - pad - (Math.max(0, Math.min(100, v)) / 100) * (h - pad * 2);
+  const d = points.map((p, i) => `${i ? 'L' : 'M'}${X(parseD(p.date).getTime()).toFixed(1)},${Y(p.pct).toFixed(1)}`).join(' ');
+  return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" role="img">
+    <line x1="${pad}" y1="${Y(S.settings.boundaries.A)}" x2="${w-pad}" y2="${Y(S.settings.boundaries.A)}"
+          class="grid-line" stroke-dasharray="2 3"></line>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${points.map((p) => `<circle cx="${X(parseD(p.date).getTime()).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}"
+        r="3.2" fill="${color}" stroke="var(--surface-1)" stroke-width="1.5"
+        data-tip="${esc(p.name)}<br>${p.pct.toFixed(0)}% · ${esc(fmtDay(p.date))}"></circle>`).join('')}
+  </svg>`;
+}
+
+// One delegated listener drives every chart tooltip on the page.
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest('[data-tip]');
+  if (el) showTip(e, el.dataset.tip); else hideTip();
+});
+document.addEventListener('mousemove', (e) => {
+  const el = e.target.closest('[data-tip]');
+  if (el) showTip(e, el.dataset.tip);
+});
+
+// The academic year as one band: term time solid, breaks cut out, today marked.
+function yearStrip() {
+  const c = CAL(); if (!c.terms.length) return '';
+  const from = c.terms[0].start, to = c.holidays.at(-1)?.end || c.lastDay;
+  const span = daysBetween(from, to) || 1;
+  const W = 900, TOP = 16, BAR = 22;      // labels sit below the bar, never on it
+  const X = (iso) => (daysBetween(from, iso) / span) * W;
+  const today = todayISO();
+  const inRange = today >= from && today <= to;
+
+  return `<svg class="chart-svg" viewBox="0 0 ${W} 62" role="img"
+            aria-label="Academic year timeline with terms and holidays">
+    ${c.terms.map((t) => `<rect x="${X(t.start).toFixed(1)}" y="${TOP}" rx="4"
+        width="${Math.max(2, X(t.end) - X(t.start)).toFixed(1)}" height="${BAR}"
+        fill="var(--s1)"
+        data-tip="${esc(t.name)}<br>${esc(fmtDay(t.start))} – ${esc(fmtDay(t.end))}"></rect>`).join('')}
+    ${c.holidays.map((h) => `<rect x="${X(h.start).toFixed(1)}" y="${TOP}" rx="2"
+        width="${Math.max(1.5, X(h.end) - X(h.start) + 1.5).toFixed(1)}" height="${BAR}"
+        fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="0.5"
+        data-tip="${esc(h.label)}<br>${esc(fmtDay(h.start))}${h.start !== h.end ? ' – ' + esc(fmtDay(h.end)) : ''}"></rect>`).join('')}
+    ${c.terms.map((t) => `<text x="${((X(t.start) + X(t.end)) / 2).toFixed(1)}" y="${TOP + BAR + 14}"
+        text-anchor="middle" style="fill:var(--text-secondary);font-size:11.5px;font-weight:550"
+        >${esc(t.name)}</text>`).join('')}
+    ${inRange ? `<line x1="${X(today).toFixed(1)}" y1="${TOP - 6}" x2="${X(today).toFixed(1)}" y2="${TOP + BAR + 4}"
+        stroke="var(--critical)" stroke-width="2"></line>
+      <text x="${X(today).toFixed(1)}" y="${TOP - 9}" text-anchor="middle"
+        style="fill:var(--critical);font-size:11px;font-weight:600">today</text>` : ''}
+  </svg>`;
+}
+
+/* ========================================================== flashcards
+   Leitner boxes: a card you get right moves up and comes back later; a card you
+   miss drops to box 1 and comes back tomorrow. Independent of the topic queue —
+   topics schedule study sessions, cards schedule recall. */
+const BOX_DAYS = [1, 3, 7, 16, 35];
+
+const cardsDue = (iso = todayISO()) =>
+  (S.cards || []).filter((c) => !c.due || c.due <= iso);
+
+function gradeCard(id, got) {
+  mutate(() => {
+    const c = (S.cards || []).find((x) => x.id === id);
+    if (!c) return;
+    c.box = got ? Math.min(5, (c.box || 1) + 1) : 1;
+    if (!got) c.lapses = (c.lapses || 0) + 1;
+    c.reviewed = todayISO();
+    const d = parseD(todayISO());
+    d.setDate(d.getDate() + BOX_DAYS[c.box - 1]);
+    c.due = isoOf(d);
+  });
+}
+
+/* =================================================== past-paper analysis
+   A percentage tells you that you dropped marks. Question-level entries tell
+   you where and why, which is the part you can act on. */
+const ERROR_TYPES = {
+  careless:  { label: 'Careless',   note: 'Knew it, lost it — sign errors, misread, transcription.' },
+  method:    { label: 'Method',     note: 'Right idea, wrong route or an incomplete argument.' },
+  knowledge: { label: 'Knowledge',  note: "Didn't know the content." },
+  timing:    { label: 'Timing',     note: 'Ran out of time before attempting it.' },
+};
+
+function lostMarks() {
+  const byTopic = {}, byType = {}, bySubject = {};
+  let total = 0;
+  for (const p of S.papers) {
+    for (const q of (p.questions || [])) {
+      const m = Number(q.marksLost) || 0;
+      if (!m) continue;
+      total += m;
+      const key = q.topicId || (p.subjectId + ':unassigned');
+      byTopic[key] = (byTopic[key] || 0) + m;
+      byType[q.type] = (byType[q.type] || 0) + m;
+      bySubject[p.subjectId] = (bySubject[p.subjectId] || 0) + m;
+    }
+  }
+  return { byTopic, byType, bySubject, total };
+}
+
+function weakSpots(limit = 8) {
+  const { byTopic } = lostMarks();
+  return Object.entries(byTopic)
+    .map(([key, marks]) => {
+      const t = S.topics.find((x) => x.id === key);
+      return { key, marks, topic: t,
+        name: t ? t.name : 'Unassigned',
+        subjectId: t ? t.subjectId : key.split(':')[0] };
+    })
+    .sort((a, b) => b.marks - a.marks)
+    .slice(0, limit);
+}
+
+/* --------------------------------------------------------------- phases
+   Past papers in week two are theatre: you cannot be tested on material you
+   have not been taught. Each subject moves through three phases based on how
+   much of its spec school has actually finished. */
+const PHASES = {
+  learning: { label: 'Learning',  note: 'Too early for papers. Consolidate each topic while the lesson is fresh, and build recall.' },
+  building: { label: 'Building',  note: 'Enough covered to drill topic by topic. Past-paper questions by topic, not whole papers yet.' },
+  exam:     { label: 'Exam prep', note: 'Most of the spec is done. Full papers under timed conditions.' },
+};
+
+function phaseOf(subjectId) {
+  const all = S.topics.filter((t) => t.subjectId === subjectId);
+  const fin = all.filter((t) => t.finished).length;
+  if (fin < 4) return 'learning';
+  return fin / (all.length || 1) < 0.45 ? 'building' : 'exam';
+}
+
+/* ========================================================== the study plan
+   Deterministic and always current: it rebuilds from your predictions, the
+   revision queue, due cards and where you actually lost marks. Log a session or
+   a paper and the next render already reflects it. */
+function studyPlan() {
+  const hours = Object.fromEntries(workloadPlan().map((p) => [p.s.id, p.hours]));
+  const weak = weakSpots(30);
+  const queue = revisionQueue();
+  const due = cardsDue();
+
+  return S.subjects.filter((s) => s.active).map((s) => {
+    const budget = hours[s.id] || 0;
+    const phase = phaseOf(s.id);
+    let left = Math.round(budget * 60);
+    const blocks = [];
+    const push = (mins, title, why, topicId) => {
+      if (left < 15 || mins <= 0) return;
+      const m = Math.min(mins, left);
+      blocks.push({ mins: m, title, why, topicId });
+      left -= m;
+    };
+
+    // 1. whatever school is teaching RIGHT NOW — consolidate while it is fresh
+    const live = S.topics.filter((t) => t.subjectId === s.id && t.started && !t.finished);
+    for (const t of live.slice(0, 3)) {
+      push(40, t.name, 'in lessons now — work through the examples while it is fresh', t.id);
+    }
+    // 2. marks you actually lost, once there are any
+    for (const w of weak.filter((w) => w.subjectId === s.id).slice(0, 2)) {
+      push(45, w.name, `${w.marks} marks lost here across your papers`, w.topic?.id);
+    }
+    // 3. the spaced-repetition queue, which only holds finished topics
+    for (const { t, p } of queue.filter((q) => q.t.subjectId === s.id).slice(0, 3)) {
+      push(40, t.name, `due for recall — last done ${t.lastStudied ? daysBetween(t.lastStudied, todayISO()) + 'd ago' : 'never'}, confidence ${t.confidence}/5`, t.id);
+    }
+    // 4. flashcards
+    const dueHere = due.filter((c) => c.subjectId === s.id).length;
+    if (dueHere) push(20, `${dueHere} flashcard${dueHere === 1 ? '' : 's'} due`, 'active recall — the cheapest marks on this list', null);
+
+    // 5. the filler depends on the phase, because a past paper in week two is theatre
+    const finished = S.topics.filter((t) => t.subjectId === s.id && t.finished);
+    if (phase === 'learning') {
+      // Rotate through what you're actually being taught. When that runs out,
+      // stop inventing work — in week one there genuinely isn't more to do.
+      const pool = [...live, ...finished];
+      for (let i = 0; i < pool.length * 2 && left >= 25; i++) {
+        const t = pool[i % pool.length];
+        push(Math.min(45, left), `Textbook exercises — ${t.name}`,
+          'practice on what you were just taught, while it is still fresh', t.id);
+      }
+    } else if (phase === 'building') {
+      for (let i = 0; i < finished.length * 2 && left >= 30; i++) {
+        const t = finished[i % finished.length];
+        push(Math.min(50, left), `Past-paper questions — ${t.name}`,
+          'questions on finished topics only, not whole papers yet', t.id);
+      }
+    } else {
+      let paper = 1;
+      while (left >= 45) {
+        push(Math.min(90, left), `Past paper${paper > 1 ? ' #' + paper : ''} under timed conditions`,
+          'builds exam pace, and feeds the Analysis tab', null);
+        if (++paper > 6) break;
+      }
+    }
+    return { subject: s, budget, phase, blocks, spare: left };
+  });
+}
+
+/* ======================================================== lesson alerts
+   A quiet banner before each lesson: what it is, where it is, and — for a free
+   period — what to study. Adjacent slots of the same subject are merged, so a
+   double lesson alerts once, not twice. Never makes a sound. */
+const FREE = 'free';
+let alertTimer = null, lastAlertId = null, dismissedId = null;
+
+const hhmm = (d = new Date()) =>
+  String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+const toMins = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + m; };
+
+// Merge back-to-back slots of the same subject into one entry.
+function mergedDay(dayKey, iso = todayISO()) {
+  const slots = dayPlan(dayKey, iso).slice()
+    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const out = [];
+  for (const sl of slots) {
+    const prev = out[out.length - 1];
+    const contiguous = prev && prev.subjectId === sl.subjectId && prev.end && sl.start
+      && toMins(sl.start) - toMins(prev.end) <= 15;
+    if (contiguous) { prev.end = sl.end; prev.double = true; }
+    else out.push({ ...sl });
+  }
+  return out;
+}
+
+/* Week A / week B. The week containing weekAStart is A; they alternate from
+   there, so the answer holds across holidays and into next year. */
+function weekOf(iso = todayISO()) {
+  const monday = (d) => { const x = parseD(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+  const weeks = Math.round((monday(iso) - monday(S.profile.weekAStart || S.profile.termStart)) / (7 * DAY));
+  return ((weeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
+}
+const dayPlan = (dayKey, iso = todayISO()) => (S.timetable?.[weekOf(iso)]?.[dayKey]) || [];
+
+const dayKeyOf = (d = new Date()) => ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
+
+// What to do with a free period: whatever is top of the queue, else cards due.
+function studyFor(slot) {
+  const mins = slot.start && slot.end ? toMins(slot.end) - toMins(slot.start) : 50;
+  const q = revisionQueue(1)[0];
+  if (q) return { text: `${q.t.name} — ${nameOf(q.t.subjectId)}`,
+    why: `top of the queue, confidence ${q.t.confidence}/5`, mins };
+  const due = cardsDue().length;
+  if (due) return { text: `${due} flashcard${due === 1 ? '' : 's'} due`, why: 'active recall', mins };
+  const plan = studyPlan().find((p) => p.blocks.length);
+  if (plan) return { text: plan.blocks[0].title, why: plan.subject.name + ' — from your plan', mins };
+  return { text: 'Nothing queued', why: 'mark some topics as taught', mins };
+}
+
+function upcomingSlot(now = new Date()) {
+  if (holidayOn(todayISO()) || !termOn(todayISO())) return null;
+  const nowM = toMins(hhmm(now));
+  for (const sl of mergedDay(dayKeyOf(now))) {
+    const start = toMins(sl.start);
+    if (start >= nowM && start - nowM <= 10) return { ...sl, inMins: start - nowM };
+  }
+  return null;
+}
+
+function renderAlert() {
+  const host = $('#lessonAlert'); if (!host) return;
+  const sl = upcomingSlot();
+  if (!sl) { host.hidden = true; return; }
+
+  const id = todayISO() + '|' + sl.start + '|' + sl.subjectId;
+  if (dismissedId === id) { host.hidden = true; return; }
+
+  const free = sl.subjectId === FREE;
+  const study = free ? studyFor(sl) : null;
+  host.hidden = false;
+  host.innerHTML = `
+    <span class="dot" style="background:${free ? 'var(--text-muted)' : colorOf(sl.subjectId)}"></span>
+    <div style="flex:1">
+      <b>${esc(slotName(sl))}</b>
+      <span class="alert-when">in ${sl.inMins === 0 ? 'now' : sl.inMins + ' min'}${
+        sl.double ? ' · double' : ''}${sl.room && !free ? ' · ' + esc(sl.room) : ''}</span>
+      ${study ? `<div class="alert-study">Study: <b>${esc(study.text)}</b> — ${esc(study.why)}</div>` : ''}
+    </div>
+    <button class="btn ghost sm" id="alertDismiss">Dismiss</button>`;
+
+  // Silent OS notification, once per slot, only where the browser allows it.
+  if (lastAlertId !== id) {
+    lastAlertId = id;
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(free ? 'Free period' : nameOf(sl.subjectId), {
+          body: (free && study ? 'Study: ' + study.text
+                : (sl.room ? 'Room ' + sl.room + ' · ' : '') + 'starts in ' + sl.inMins + ' min'),
+          tag: id, silent: true, requireInteraction: false,
+        });
+      }
+    } catch { /* blocked in this context — the banner already covers it */ }
+  }
+}
+
+function startAlerts() {
+  clearInterval(alertTimer);
+  renderAlert();
+  alertTimer = setInterval(renderAlert, 60000);
+}
+
+async function askNotifications(btn) {
+  if (typeof Notification === 'undefined') {
+    btn.textContent = 'Not available here'; return;
+  }
+  try {
+    const r = await Notification.requestPermission();
+    btn.textContent = r === 'granted' ? 'Notifications on' : 'Banner only';
+    btn.disabled = r === 'granted';
+  } catch { btn.textContent = 'Banner only'; }
+}
+
+/* ================================================================== views */
+const views = {};
+
+views.today = () => {
+  const today = todayISO();
+  const toTerm = daysBetween(today, S.profile.termStart);
+  const mins = minutesThisWeek();
+  const targetMins = (S.settings.weeklyTargetHours || 20) * 60;
+  const dueSoon = S.homework.filter((h) => !h.done && h.due)
+    .sort((a, b) => a.due.localeCompare(b.due));
+  const overdue = dueSoon.filter((h) => daysBetween(today, h.due) < 0);
+  const next = revisionQueue(5);
+  const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  const lessons = holidayOn(today) ? [] : mergedDay(dayKey, today);
+  const term = termOn(today), hol = holidayOn(today), brk = nextBreak(today);
+
+  return `
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="stat">
+      <div class="label">${hol ? 'Holiday' : term ? term.name : toTerm > 0 ? 'Term starts in' : 'Out of term'}</div>
+      <div class="value">${hol ? esc(hol.label)
+        : term ? 'Week ' + schoolWeek(today)
+        : toTerm > 0 ? toTerm + (toTerm === 1 ? ' day' : ' days') : '—'}</div>
+      <div class="foot">${hol ? 'back ' + esc(fmtDay(nextSchoolDay(today)))
+        : term ? esc(fmtDay(term.start)) + ' – ' + esc(fmtDay(term.end))
+        : esc(fmtDay(S.profile.termStart)) + ' · Year ' + S.profile.yearGroup}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Next break</div>
+      <div class="value" style="font-size:20px">${brk ? esc(brk.label) : '—'}</div>
+      <div class="foot">${brk ? `in ${daysBetween(today, brk.start)} days · ${esc(fmtDay(brk.start))}` : 'end of the year'}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Studied this week</div>
+      <div class="value">${(mins / 60).toFixed(1)}<span style="font-size:15px;color:var(--text-muted)"> h</span></div>
+      <div class="foot">of ${S.settings.weeklyTargetHours} h target · ${Math.round(mins / targetMins * 100)}%</div>
+    </div>
+    <div class="stat">
+      <div class="label">Study streak</div>
+      <div class="value">${streakDays()}<span style="font-size:15px;color:var(--text-muted)"> d</span></div>
+      <div class="foot">${S.sessions.length} sessions logged</div>
+    </div>
+    <div class="stat">
+      <div class="label">Homework open</div>
+      <div class="value">${dueSoon.length}</div>
+      <div class="foot">${overdue.length ? `<span class="overdue">${overdue.length} overdue</span>` : 'nothing overdue'}</div>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2>Revise this next</h2>
+      <div class="hint">Ranked by how far past its spaced-repetition interval each topic is.</div>
+      ${next.length ? `<div class="queue">${next.map(({ t, p }) => qrow(t, p)).join('')}</div>`
+        : `<div class="empty">Nothing queued yet.<br>Go to <b>Revision</b> and tick the topics school has actually taught you —<br>the queue fills itself from there.</div>`}
+    </div>
+
+    <div class="card">
+      <h2>Today · ${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</h2>
+      <div class="hint">${lessons.length ? 'Your lessons' : 'No lessons set for today'}</div>
+      ${lessons.length ? lessons.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map((l) => `
+        <div class="tt-slot" style="border-left-color:${colorOf(l.subjectId)}">
+          <div>${esc(slotName(l))}</div>
+          <div class="t">${esc(l.start || '')}${l.end ? '–' + esc(l.end) : ''}${l.room ? ' · ' + esc(l.room) : ''}</div>
+        </div>`).join('')
+        : `<div class="empty">${hol ? esc(hol.label) + ' — no lessons today.' : 'Add your timetable once you get it on Monday.'}</div>`}
+
+      <h2 style="margin-top:20px">Due soon</h2>
+      <div class="hint">Next seven days</div>
+      ${dueSoon.length ? dueSoon.slice(0, 6).map((h) => {
+        const d = daysBetween(today, h.due);
+        const cls = d < 0 ? 'overdue' : d <= 2 ? 'soon' : '';
+        return `<div class="row" style="justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+          <span class="row" style="gap:8px">
+            <span class="dot" style="background:${colorOf(h.subjectId)}"></span>${esc(h.title)}
+          </span>
+          <span class="${cls}" style="font-size:13px">${d < 0 ? Math.abs(d) + 'd late' : d === 0 ? 'today' : d + 'd'}</span>
+        </div>`;
+      }).join('') : '<div class="empty">Nothing due. Enjoy it while it lasts.</div>'}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>The year ahead</h2>
+    <div class="hint">From your school calendar — ${CAL().terms.length} terms, ${CAL().holidays.length} holiday periods.
+      ${schoolDaysLeft(today)} school days left until ${esc(fmtDay(CAL().lastDay))}. Hover any block.</div>
+    ${yearStrip()}
+  </div>`;
+};
+
+// First school day on or after a date — used for "back on ..." after a holiday.
+function nextSchoolDay(iso) {
+  const d = parseD(iso);
+  for (let i = 0; i < 400; i++) {
+    d.setDate(d.getDate() + 1);
+    if (isSchoolDay(isoOf(d))) return isoOf(d);
+  }
+  return iso;
+}
+
+function qrow(t, p) {
+  const since = t.lastStudied ? daysBetween(t.lastStudied, todayISO()) : null;
+  return `
+  <div class="qrow">
+    <div class="qbar" style="background:${colorOf(t.subjectId)}"></div>
+    <div style="padding-left:2px">
+      <div class="qname">${esc(t.name)}</div>
+      <div class="qmeta">${esc(nameOf(t.subjectId))} · ${esc(t.unit)} ·
+        ${since === null ? 'never revised' : since === 0 ? 'revised today' : since + 'd ago'}
+        · priority ${p.toFixed(1)}</div>
+    </div>
+    <div class="conf" title="Rate it after you revise — this also marks it revised today">
+      ${[0,1,2,3,4,5].map((n) => `<button class="${t.confidence === n ? 'on' : ''}"
+          data-rate="${t.id}" data-conf="${n}" title="${n}/5 confident">${n}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+views.revision = () => {
+  const q = revisionQueue();
+  const taught = S.topics.filter((t) => t.finished).length;
+  return `
+  <div class="card" style="margin-bottom:16px" data-coach>
+    <h2>Ask Claude about a topic</h2>
+    <div class="hint">The queue below decides what to revise. This turns it into something to actually do.</div>
+    <div class="row">
+      <select id="coachTopic" style="flex:1;min-width:200px"></select>
+      <button class="btn" data-coachact="plan">Plan a session</button>
+      <button class="btn" data-coachact="questions">Practice questions</button>
+    </div>
+    <div id="coachOut"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Revision queue</h2>
+    <div class="hint">
+      ${S.topics.filter((t) => t.finished).length} finished, ${S.topics.filter((t) => t.started && !t.finished).length} in progress,
+      of ${S.topics.length}. Rate a topic 0–5 after you revise it: 0 brings it back tomorrow, 5 parks it for a month.
+    </div>
+    ${q.length ? `<div class="queue">${q.slice(0, 40).map(({ t, p }) => qrow(t, p)).join('')}</div>`
+      : `<div class="empty">${taught ? 'Everything is inside its interval — nothing is due for recall today.'
+        : 'Nothing finished yet, so the recall queue is empty — which is correct in week one.<br>Mark topics <b>Started</b> below and the Plan tab will give you consolidation work instead.'}</div>`}
+  </div>
+
+  <div class="card">
+    <h2>Spec coverage</h2>
+    <div class="hint">Cross topics off as school moves through them. <b>Started</b> means you're in it now —
+      the plan gives you consolidation while it's fresh. <b>Finished</b> means school has completed it —
+      only then does it enter the recall queue, and only then can papers test you on it.
+      Seeded from the real specs — Pearson Edexcel International A Level (unit-coded: P1, P2, S1, M1,
+      FP1, FP2, WPH11-16) for Maths, Further Maths and Physics, Cambridge International 9618
+      (2027-2029 syllabus) for Computer Science; edit freely.</div>
+    <div class="row" style="margin-bottom:14px">
+      <select id="revSubj">
+        <option value="">All subjects</option>
+        ${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+      <select id="revYear">
+        <option value="">Both years</option><option value="1">Year 1</option><option value="2">Year 2</option>
+      </select>
+      <button class="btn sm" id="revStartAll">Mark shown as started</button>
+      <button class="btn sm" id="revFinishAll">Mark shown as finished</button>
+    </div>
+    <div id="topicList"></div>
+  </div>`;
+};
+
+// Which subjects are unfolded in the spec-coverage list. Kept outside the
+// render function so cycling a topic (which re-renders everything) does not
+// snap every subject shut again.
+const openSubjects = new Set();
+
+function renderTopicList() {
+  const host = $('#topicList'); if (!host) return;
+  const fs = $('#revSubj')?.value || '', fy = $('#revYear')?.value || '';
+  const list = S.topics.filter((t) => (!fs || t.subjectId === fs) && (!fy || String(t.year) === fy));
+
+  const bySubject = {};
+  for (const t of list) (bySubject[t.subjectId] ||= []).push(t);
+  const order = S.subjects.filter((s) => bySubject[s.id]);
+
+  // Filtering to one subject, or opening the panel for the first time, should
+  // show something rather than a wall of closed headers.
+  if (fs && !openSubjects.size) openSubjects.add(fs);
+  if (!openSubjects.size && order[0]) openSubjects.add(order[0].id);
+
+  host.innerHTML = order.map((s) => {
+    const ts = bySubject[s.id];
+    const finished = ts.filter((t) => t.finished).length;
+    const started = ts.filter((t) => t.started && !t.finished).length;
+    const open = openSubjects.has(s.id);
+
+    const byUnit = {};
+    for (const t of ts) (byUnit[t.unit] ||= []).push(t);
+
+    return `<details class="subjfold" data-subjfold="${s.id}" ${open ? 'open' : ''}>
+      <summary>
+        <span class="dot" style="background:${colorOf(s.id)}"></span>
+        <b>${esc(s.name)}</b>
+        <span class="chip">${finished}/${ts.length} finished${started ? ` · ${started} in progress` : ''}</span>
+      </summary>
+      <div style="margin-top:10px">
+        ${Object.entries(byUnit).map(([unit, us]) => `<div style="margin-bottom:16px">
+          <div class="row" style="gap:8px;margin-bottom:7px">
+            <span class="chip">${esc(unit)}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:2px">
+            ${us.map((t) => {
+              const st = t.finished ? 2 : t.started ? 1 : 0;
+              return `<div class="trow">
+                <button class="tstat s${st}" data-cycle="${t.id}" title="Click to change: not started → started → finished">${
+                  ['Not started', 'Started', 'Finished'][st]}</button>
+                <span style="${st ? '' : 'color:var(--text-muted)'}">${esc(t.name)}</span>
+                <span class="chip">Y${t.year}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('')}
+      </div>
+    </details>`;
+  }).join('') || '<div class="empty">No topics match that filter.</div>';
+}
+
+views.track = () => {
+  const cards = S.subjects.map((s) => {
+    const st = trackStatus(s.id);
+    const icon = st.state === 'locked' ? '🔒' : st.state === 'good' ? '✓' : st.state === 'warn' ? '!' : st.state === 'bad' ? '✕' : '–';
+    const word = st.state === 'locked' ? 'locked' : st.state === 'good' ? 'on track' : st.state === 'warn' ? 'one grade short' :
+                 st.state === 'bad' ? 'off target' : 'no papers yet';
+    const cls  = st.state === 'locked' ? 'good' : st.state === 'good' ? 'good' : st.state === 'warn' ? 'warn' : st.state === 'bad' ? 'bad' : '';
+    return `<div class="stat">
+      <div class="row" style="gap:7px">
+        <span class="dot" style="background:${colorOf(s.id)}"></span>
+        <span class="label" style="letter-spacing:.02em">${esc(s.name)}</span>
+      </div>
+      <div class="value">${st.grade ?? '—'}
+        <span style="font-size:14px;color:var(--text-muted);font-weight:500">
+          ${st.pct != null ? '· ' + st.pct.toFixed(0) + '%' : ''}</span></div>
+      <div class="foot">target ${esc(s.target)} ·
+        <span class="status ${cls}">${icon} ${word}</span></div>
+    </div>`;
+  }).join('');
+
+  const trends = S.subjects.map((s) => {
+    const pts = S.papers.filter((p) => p.subjectId === s.id && p.total > 0)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((p) => ({ date: p.date, pct: (p.mark / p.total) * 100, name: p.name }));
+    const last = pts.at(-1);
+    return `<div class="sm-cell">
+      <div class="row" style="justify-content:space-between;margin-bottom:4px">
+        <span class="row" style="gap:6px">
+          <span class="dot" style="background:${colorOf(s.id)}"></span>
+          <span class="spark-name">${esc(s.name)}</span>
+        </span>
+        <span class="spark-val">${last ? last.pct.toFixed(0) + '%' : '—'}</span>
+      </div>
+      ${pts.length ? sparkline(pts, colorOf(s.id))
+        : '<div style="height:46px;display:flex;align-items:center;color:var(--text-muted);font-size:12px">no papers logged</div>'}
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${pts.length} paper${pts.length===1?'':'s'} · dashed line = grade A</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <h2>Am I on track?</h2>
+    <div class="hint">Projection is a recency-weighted mean of your past-paper percentages — recent papers count roughly double those three papers back. Grade boundaries below are approximate; set them to your board's real ones.</div>
+    <div class="grid g3">${cards}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Paper scores over time</h2>
+    <div class="hint">One panel per subject.</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">${trends}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px" data-coach>
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Where am I losing marks?</h2>
+        <div class="hint" style="margin:0">Reads your scores, targets and low-confidence topics.</div></div>
+      <button class="btn" data-coachact="analysis">Analyse</button>
+    </div>
+    <div id="trackCoachOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>Targets &amp; boundaries</h2>
+    <div class="hint">Your target grade per subject, and the percentage each grade needs.</div>
+    <table>
+      <thead><tr><th>Subject</th><th>Target</th><th>Hours/week</th><th>Projected</th></tr></thead>
+      <tbody>${S.subjects.map((s) => {
+        const st = trackStatus(s.id);
+        return `<tr>
+          <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(s.id)}"></span>${esc(s.name)}</span></td>
+          <td><select data-target="${s.id}" style="padding:4px 7px">
+            ${['A*','A','B','C','D','E'].map((g) => `<option ${g===s.target?'selected':''}>${g}</option>`).join('')}
+          </select></td>
+          <td><input type="number" step="0.5" min="0" max="30" value="${s.weeklyHours}" data-hours="${s.id}"
+                     style="width:74px;padding:4px 7px" class="num"></td>
+          <td class="num">${st.pct != null ? st.pct.toFixed(1) + '%' : '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+    <div class="form-row" style="max-width:640px">
+      ${Object.keys(S.settings.boundaries).map((g) => `<label class="f">Grade ${g} ≥
+        <input type="number" min="0" max="100" value="${S.settings.boundaries[g]}" data-bound="${g}" class="num"></label>`).join('')}
+    </div>
+  </div>`;
+};
+
+views.homework = () => {
+  const open = S.homework.filter((h) => !h.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const done = S.homework.filter((h) => h.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
+  const today = todayISO();
+  const row = (h) => {
+    const d = h.due ? daysBetween(today, h.due) : null;
+    const cls = h.done ? '' : d === null ? '' : d < 0 ? 'overdue' : d <= 2 ? 'soon' : '';
+    return `<tr>
+      <td style="width:28px"><input type="checkbox" data-hw="${h.id}" ${h.done ? 'checked' : ''} style="width:auto"></td>
+      <td class="${h.done ? 'done' : ''}">
+        <span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(h.subjectId)}"></span>
+        <span>${esc(h.title)}</span></span>
+        ${h.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-left:17px">${esc(h.notes)}</div>` : ''}
+      </td>
+      <td style="font-size:13px;white-space:nowrap" class="${cls}">
+        ${h.due ? esc(fmtDay(h.due)) + (h.done || d === null ? '' : d < 0 ? ` · ${Math.abs(d)}d late` : d === 0 ? ' · today' : ` · ${d}d`) : '—'}</td>
+      <td style="width:34px"><button class="btn ghost sm" data-hwdel="${h.id}" title="Delete">✕</button></td>
+    </tr>`;
+  };
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <h2>Open — ${open.length}</h2>
+    <div class="hint">Soonest first. Overdue in red, due within two days in orange.</div>
+    ${open.length ? `<table><tbody>${open.map(row).join('')}</tbody></table>`
+      : '<div class="empty">Nothing open.</div>'}
+    <details class="adder" open>
+      <summary>Add homework</summary>
+      <div class="form-row">
+        <label class="f">Subject<select id="hwSubj">${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+        <label class="f">Task<input id="hwTitle" placeholder="Exercise 3B q1–12"></label>
+        <label class="f">Due<input type="date" id="hwDue" value="${today}"></label>
+        <label class="f">Note<input id="hwNote" placeholder="optional"></label>
+        <button class="btn primary" id="hwAdd">Add</button>
+      </div>
+    </details>
+  </div>
+  ${done.length ? `<div class="card"><h2>Done — ${done.length}</h2><div class="hint">Most recent first.</div>
+    <table><tbody>${done.slice(0, 25).map(row).join('')}</tbody></table></div>` : ''}`;
+};
+
+views.study = () => {
+  const rows = S.subjects.map((s) => {
+    const m = minutesThisWeek(s.id);
+    return { label: s.name, value: m / 60, display: (m / 60).toFixed(1) + ' h',
+             target: s.weeklyHours, color: colorOf(s.id) };
+  });
+  const recent = S.sessions.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
+  const total = minutesThisWeek() / 60;
+
+  return `
+  <div class="grid g2" style="margin-bottom:16px">
+    <div class="card">
+      <h2>This week — ${total.toFixed(1)} h</h2>
+      <div class="hint">Dashed marker is your weekly target for that subject.</div>
+      ${barChart(rows, { unit: '' })}
+    </div>
+    <div class="card">
+      <h2>Log a session</h2>
+      <div class="hint">Logging against a topic also updates its place in the revision queue.</div>
+      <div class="form-row">
+        <label class="f">Subject<select id="ssSubj">${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+        <label class="f">Topic<select id="ssTopic"></select></label>
+        <label class="f">Minutes<input type="number" id="ssMins" value="45" min="1" max="600" class="num"></label>
+        <label class="f">Date<input type="date" id="ssDate" value="${todayISO()}"></label>
+        <label class="f">How did it go?<select id="ssConf">
+          ${[0,1,2,3,4,5].map((n) => `<option value="${n}" ${n===3?'selected':''}>${n} / 5</option>`).join('')}
+        </select></label>
+        <button class="btn primary" id="ssAdd">Log it</button>
+      </div>
+      <div class="hint" style="margin:12px 0 0">Rating here sets the topic's confidence, which sets when it comes back round.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent sessions</h2>
+    <div class="hint">Last 20.</div>
+    ${recent.length ? `<table>
+      <thead><tr><th>Date</th><th>Subject</th><th>Topic</th><th>Mins</th><th></th></tr></thead>
+      <tbody>${recent.map((s) => `<tr>
+        <td style="white-space:nowrap">${esc(fmtDay(s.date))}</td>
+        <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(s.subjectId)}"></span>${esc(nameOf(s.subjectId))}</span></td>
+        <td style="color:var(--text-secondary)">${esc(S.topics.find((t) => t.id === s.topicId)?.name || '—')}</td>
+        <td class="num">${s.minutes}</td>
+        <td style="width:34px"><button class="btn ghost sm" data-ssdel="${s.id}">✕</button></td>
+      </tr>`).join('')}</tbody></table>` : '<div class="empty">No sessions logged yet.</div>'}
+  </div>`;
+};
+
+views.papers = () => {
+  const list = S.papers.slice().sort((a, b) => b.date.localeCompare(a.date));
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <h2>Past papers &amp; tests</h2>
+    <div class="hint">Every score you log moves the projection on the <b>On track</b> tab.</div>
+    <details class="adder" open>
+      <summary>Log a score</summary>
+      <div class="form-row">
+        <label class="f">Subject<select id="ppSubj">${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+        <label class="f">Paper<input id="ppName" placeholder="June 2024 Paper 1"></label>
+        <label class="f">Mark<input type="number" id="ppMark" min="0" class="num"></label>
+        <label class="f">Out of<input type="number" id="ppTotal" min="1" value="75" class="num"></label>
+        <label class="f">Date<input type="date" id="ppDate" value="${todayISO()}"></label>
+        <button class="btn primary" id="ppAdd">Add</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>All scores — ${list.length}</h2>
+    <div class="hint">Grades use the boundaries set on the On track tab.</div>
+    ${list.length ? `<table>
+      <thead><tr><th>Date</th><th>Subject</th><th>Paper</th><th>Mark</th><th>%</th><th>Grade</th><th></th></tr></thead>
+      <tbody>${list.map((p) => {
+        const pct = (p.mark / p.total) * 100;
+        return `<tr>
+          <td style="white-space:nowrap">${esc(fmtDay(p.date))}</td>
+          <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(p.subjectId)}"></span>${esc(nameOf(p.subjectId))}</span></td>
+          <td>${esc(p.name)}</td>
+          <td class="num">${p.mark}/${p.total}</td>
+          <td class="num">${pct.toFixed(0)}%</td>
+          <td><span class="pill">${gradeFor(pct)}</span></td>
+          <td style="width:34px"><button class="btn ghost sm" data-ppdel="${p.id}">✕</button></td>
+        </tr>`;
+      }).join('')}</tbody></table>` : '<div class="empty">No scores yet.</div>'}
+  </div>`;
+};
+
+/* A timetable typed from a printed sheet is easy to get subtly wrong. Every
+   A Level subject should appear the same number of times each week, so state
+   the expectation and let the page check it. */
+function timetableCheck() {
+  // The invariant is per FORTNIGHT, not per week: Further Maths runs 4 in week A
+  // and 6 in week B, so a per-week rule flags a correct timetable as broken.
+  const want = S.settings.periodsPerFortnight || 10;
+  const out = [];
+  for (const s of S.subjects.filter((x) => x.active && !x.locked)) {
+    const per = { A: 0, B: 0 };
+    for (const wk of ['A', 'B']) {
+      per[wk] = ['mon','tue','wed','thu','fri']
+        .reduce((a, d) => a + (S.timetable[wk]?.[d] || []).filter((l) => l.subjectId === s.id).length, 0);
+    }
+    const n = per.A + per.B;
+    if (n !== want) out.push({ subject: s, have: n, want, per });
+  }
+  return out;
+}
+
+views.timetable = () => {
+  const days = [['mon','Monday'],['tue','Tuesday'],['wed','Wednesday'],['thu','Thursday'],['fri','Friday']];
+  const todayKey = dayKeyOf();
+  const now = weekOf();
+
+  const grid = (wk) => `
+    <div class="card" style="margin-bottom:16px${wk === now ? ';box-shadow:inset 3px 0 0 var(--s1)' : ''}">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2>Week ${wk}</h2>
+        ${wk === now ? '<span class="pill">this week</span>' : '<span class="chip">next week</span>'}
+      </div>
+      <div class="tt-grid" style="margin-top:14px">
+        ${days.map(([k, label]) => `
+          <div class="tt-day ${wk === now && k === todayKey ? 'today-col' : ''}">
+            <h3>${label}${wk === now && k === todayKey ? ' · today' : ''}</h3>
+            ${(S.timetable[wk]?.[k] || []).slice()
+              .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
+              .map((l) => {
+                const free = l.subjectId === 'free';
+                const study = free ? studyFor(l) : null;
+                return `
+                <div class="tt-slot${free ? ' free' : ''}" style="border-left-color:${free ? 'var(--line-strong)' : colorOf(l.subjectId)}">
+                  <div class="row" style="justify-content:space-between">
+                    <span>${esc(slotName(l))}</span>
+                    <button class="btn ghost sm" data-ttdel="${wk}.${k}:${l.id}" style="padding:0 4px">✕</button>
+                  </div>
+                  <div class="t">${esc(l.period || '')}${l.period ? ' · ' : ''}${esc(l.start || '')}${l.end ? '–' + esc(l.end) : ''}${l.room && !free ? ' · ' + esc(l.room) : ''}</div>
+                  ${study ? `<div class="tt-study">→ ${esc(study.text)}</div>` : ''}
+                </div>`;
+              }).join('') || '<div style="color:var(--text-muted);font-size:12.5px;padding:4px 0">—</div>'}
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h2>Timetable — two-week rota</h2>
+        <div class="hint" style="margin:0">You are in <b>week ${now}</b>. Week A is the one containing
+          ${esc(fmtFull(S.profile.weekAStart))}, and they alternate from there — across holidays too.
+          Mark free periods and the dashboard tells you what to revise in them.</div></div>
+      <button class="btn sm" id="notifyAsk">Enable notifications</button>
+    </div>
+    ${(() => {
+      const bad = timetableCheck();
+      if (!bad.length) return `<div class="hint" style="margin:10px 0 0;color:var(--good)">
+        ✓ Every subject gets ${S.settings.periodsPerFortnight || 10} periods a fortnight.</div>`;
+      return `<div class="exam-box" style="margin-top:12px">
+        <p class="uni-p"><b>The rota does not add up.</b> Each subject should get
+        ${S.settings.periodsPerFortnight || 10} periods a fortnight:</p>
+        <ul class="uni-list">${bad.map((b) => `<li><b>${esc(b.subject.name)}</b>:
+          ${b.have} of ${b.want} (week A ${b.per.A}, week B ${b.per.B})</li>`).join('')}</ul>
+      </div>`;
+    })()}
+    <div class="hint" style="margin:10px 0 0">A silent banner appears ten minutes before each lesson with the room.
+      On iPhone or iPad you must add this page to your Home Screen first, or you only get the in-page banner.</div>
+    <details class="adder">
+      <summary>Add a lesson</summary>
+      <div class="form-row">
+        <label class="f">Week<select id="ttWeek"><option>A</option><option>B</option></select></label>
+        <label class="f">Day<select id="ttDay">${days.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+        <label class="f">Period<select id="ttPeriod">${(S.settings.periods || []).map((p) => `<option value="${p.id}">${p.id}${p.label ? ' — ' + p.label : ''} (${p.start})</option>`).join('')}</select></label>
+        <label class="f">Subject<select id="ttSubj">${S.subjects.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}<option value="free">Free / study</option></select></label>
+        <label class="f">Room<input id="ttRoom" placeholder="optional"></label>
+        <button class="btn primary" id="ttAdd">Add</button>
+      </div>
+    </details>
+  </div>
+  ${grid(now)}
+  ${grid(now === 'A' ? 'B' : 'A')}`;
+};
+
+views.whiteboard = () => `
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div>
+        <h2>Whiteboard</h2>
+        <div class="hint" style="margin:0">For working through problems. Saved on your Mac, one file per board.</div>
+      </div>
+      <div class="row">
+        <select id="wbPick" style="min-width:190px"></select>
+        <button class="btn sm" id="wbNew">New board</button>
+        <button class="btn ghost sm" id="wbDel" title="Delete this board">✕</button>
+      </div>
+    </div>
+    <div class="wb-tools">
+      ${[['ink','var(--text-primary)'],['#2a78d6','#2a78d6'],['#eb6834','#eb6834'],['#1baf7a','#1baf7a'],['#e34948','#e34948']]
+        .map(([v, css], i) => `
+        <button class="swatch ${i === 0 ? 'on' : ''}" data-pen="${v}" style="background:${css}"
+                title="${v === 'ink' ? 'Follows the theme' : v}"></button>`).join('')}
+      <span style="width:8px"></span>
+      ${[2,4,8].map((w, i) => `<button class="btn sm ${i === 1 ? 'primary' : ''}" data-width="${w}">${w}px</button>`).join('')}
+      <button class="btn sm" data-erase="1">Eraser</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn sm" id="wbUndo">Undo</button>
+      <button class="btn sm" id="wbClear">Clear</button>
+    </div>
+    <canvas id="wbCanvas"></canvas>
+    <div class="hint" style="margin-top:8px" id="wbStatus"></div>
+  </div>`;
+
+/* ============================================================== calendar
+   Everything dated, on one grid: holidays and term boundaries from the school
+   calendar, homework due dates, papers you sat, and the fixed ETH milestones. */
+let calMonth = null;                      // {y, m} — null means "this month"
+
+const monthOf = () => calMonth || { y: new Date().getFullYear(), m: new Date().getMonth() };
+
+function shiftMonth(by) {
+  const { y, m } = monthOf();
+  const d = new Date(y, m + by, 1);
+  calMonth = { y: d.getFullYear(), m: d.getMonth() };
+  renderAll();
+}
+
+// Everything that lands on a given day, in the order it should be read.
+function eventsOn(iso) {
+  const out = [];
+  const hol = holidayOn(iso);
+  if (hol) out.push({ kind: 'holiday', label: hol.label });
+  for (const t of (S.calendar?.terms || [])) {
+    if (t.start === iso) out.push({ kind: 'term', label: t.name + ' starts' });
+    if (t.end === iso) out.push({ kind: 'term', label: t.name + ' ends' });
+  }
+  for (const m of (S.milestones || [])) {
+    if (m.date === iso) out.push({ kind: 'milestone', label: m.label, note: m.note });
+  }
+  for (const h of S.homework) {
+    if (h.due === iso) out.push({ kind: h.done ? 'done' : 'due', label: h.title, subjectId: h.subjectId });
+  }
+  for (const p of S.papers) {
+    if (p.date === iso) out.push({ kind: 'paper', subjectId: p.subjectId,
+      label: `${p.name} — ${Math.round(p.mark / p.total * 100)}%` });
+  }
+  return out;
+}
+
+views.calendar = () => {
+  const { y, m } = monthOf();
+  const today = todayISO();
+  const first = new Date(y, m, 1);
+  const lead = (first.getDay() + 6) % 7;                 // Monday-first grid
+  const days = new Date(y, m + 1, 0).getDate();
+  const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(null);
+  for (let d = 1; d <= days; d++) cells.push(isoOf(new Date(y, m, d)));
+  while (cells.length % 7) cells.push(null);
+
+  // what is coming up, regardless of which month you are looking at
+  const soon = [];
+  for (let i = 0; i < 45 && soon.length < 8; i++) {
+    const d = parseD(today); d.setDate(d.getDate() + i);
+    const iso = isoOf(d);
+    for (const e of eventsOn(iso)) if (e.kind !== 'holiday' || i === 0) soon.push({ iso, ...e });
+  }
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between;align-items:baseline;flex-wrap:nowrap">
+      <h2>${esc(title)}</h2>
+      <div class="row">
+        <button class="btn sm" data-cal="-1">←</button>
+        <button class="btn sm" data-cal="0">Today</button>
+        <button class="btn sm" data-cal="1">→</button>
+      </div>
+    </div>
+    <div class="hint">Holidays shaded, term boundaries and ETH dates marked, homework on its due date,
+      papers on the day you sat them.</div>
+
+    <div class="cal">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => `<div class="cal-h">${d}</div>`).join('')}
+      ${cells.map((iso) => {
+        if (!iso) return '<div class="cal-d empty"></div>';
+        const ev = eventsOn(iso);
+        const hol = holidayOn(iso);
+        const wknd = [5, 6].includes((parseD(iso).getDay() + 6) % 7);
+        const cls = [ 'cal-d', iso === today ? 'today' : '', hol ? 'hol' : '', wknd ? 'wknd' : '',
+                      !termOn(iso) ? 'offterm' : '' ].filter(Boolean).join(' ');
+        return `<div class="${cls}">
+          <div class="cal-n">${Number(iso.slice(8))}</div>
+          ${ev.slice(0, 3).map((e) => `<div class="cal-e ${e.kind}"
+              title="${esc(e.label)}">${e.subjectId
+                ? `<span class="dot" style="background:${colorOf(e.subjectId)}"></span>` : ''}${esc(e.label)}</div>`).join('')}
+          ${ev.length > 3 ? `<div class="cal-more">+${ev.length - 3} more</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="row" style="gap:14px;margin-top:14px;font-size:11.5px;color:var(--text-muted)">
+      <span class="row" style="gap:6px"><span class="key hol"></span>holiday</span>
+      <span class="row" style="gap:6px"><span class="key due"></span>homework due</span>
+      <span class="row" style="gap:6px"><span class="key milestone"></span>ETH milestone</span>
+      <span class="row" style="gap:6px"><span class="key term"></span>term boundary</span>
+      <span class="row" style="gap:6px"><span class="key paper"></span>paper sat</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Next up</h2>
+    <div class="hint">The next six weeks, whatever month you are looking at.</div>
+    ${soon.length ? soon.map((e) => {
+      const away = daysBetween(today, e.iso);
+      return `<div class="finding">
+        <span class="key ${e.kind}" style="margin-top:5px"></span>
+        <div style="flex:1">
+          <div class="row" style="justify-content:space-between">
+            <b>${e.subjectId ? esc(nameOf(e.subjectId)) + ' · ' : ''}${esc(e.label)}</b>
+            <span class="num" style="color:var(--text-muted)">${away === 0 ? 'today' : away === 1 ? 'tomorrow' : 'in ' + away + 'd'}</span>
+          </div>
+          <div class="ms-note">${esc(fmtFull(e.iso))}${e.note ? ' · ' + esc(e.note) : ''}</div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">Nothing dated in the next six weeks.</div>'}
+  </div>`;
+};
+
+views.plan = () => {
+  const plan = studyPlan();
+  const total = plan.reduce((a, p) => a + p.budget, 0);
+  const weak = weakSpots(3);
+  return `
+  <div class="card" style="margin-bottom:16px" data-coach>
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h2>This week's plan</h2>
+        <div class="hint" style="margin:0">Built from your predictions, the revision queue, cards due and where you
+          actually lost marks. It rebuilds itself every time you log a session or a paper — nothing to refresh.</div></div>
+      <button class="btn" data-coachact="replan">Ask Claude to refine it</button>
+    </div>
+    <div id="planCoachOut"></div>
+  </div>
+
+  <div class="grid g2">
+    ${plan.map(({ subject, budget, phase, blocks, spare }) => `
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="font-size:15px"><span class="dot" style="background:${colorOf(subject.id)};display:inline-block;margin-right:8px"></span>${esc(subject.name)}</h3>
+          <span class="pill">${budget.toFixed(1)} h this week</span>
+        </div>
+        <div class="phase phase-${phase}">${esc(PHASES[phase].label)} · ${esc(PHASES[phase].note)}</div>
+        <div style="margin-top:12px">
+          ${blocks.length ? blocks.map((b) => `
+            <div class="block">
+              <div class="block-min">${b.mins}<span>min</span></div>
+              <div><b>${esc(b.title)}</b><div class="block-why">${esc(b.why)}</div></div>
+            </div>`).join('')
+            : `<div class="empty" style="padding:14px 8px">Nothing to schedule yet — mark a topic
+                <b>Started</b> on the Revision tab and work appears here.</div>`}
+          ${spare >= 25 ? `<div class="spare">${(spare / 60).toFixed(1)} h of this subject's budget has
+            nothing to attach to yet. That is normal this early — read ahead, or spend it on a subject
+            that does. It is not a gap to feel bad about.</div>` : ''}
+        </div>
+      </div>`).join('')}
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Why it's weighted this way</h2>
+    <div class="hint">The reasoning, so you can disagree with it.</div>
+    <ul class="uni-list" style="margin-top:12px;font-size:13.5px;line-height:1.7">
+      <li><b>${total.toFixed(0)} hours</b> a week, split by how far each subject sits below its target.</li>
+      <li>Maths and Further Maths carry the biggest gaps, so they take the largest share — that is the whole reason the split looks lopsided.</li>
+      <li>German is locked at A*, so it gets maintenance only.</li>
+      <li>No past papers until a subject has four finished topics — you cannot be tested on content you have not been taught. Cross topics off on the <b>Revision</b> tab and the plan moves itself through Learning → Building → Exam prep.</li>
+      ${weak.length ? `<li>Topics where you have actually lost marks jump the queue: ${weak.map((w) => `<b>${esc(w.name)}</b> (${w.marks})`).join(', ')}.</li>`
+        : '<li>No question-level paper data yet — once you have papers, add them on the <b>Analysis</b> tab and this plan gets much sharper.</li>'}
+    </ul>
+  </div>`;
+};
+
+views.cards = () => {
+  const due = cardsDue();
+  const c = due[0];
+  const bySubj = S.subjects.map((s) => ({ s,
+    total: (S.cards || []).filter((x) => x.subjectId === s.id).length,
+    due: due.filter((x) => x.subjectId === s.id).length }));
+
+  return `
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="stat"><div class="label">Due now</div><div class="value">${due.length}</div>
+      <div class="foot">of ${(S.cards || []).length} cards</div></div>
+    ${bySubj.filter((x) => x.total).slice(0, 4).map((x) => `
+      <div class="stat"><div class="label">${esc(x.s.name)}</div><div class="value">${x.due}</div>
+        <div class="foot">${x.total} card${x.total === 1 ? '' : 's'}</div></div>`).join('')}
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Review</h2>
+    <div class="hint">Answer it in your head first, then reveal. Honesty is the whole mechanism —
+      a card you fake gets scheduled as if you knew it.</div>
+    ${c ? `
+      <div class="cardface" id="cardFace">
+        <div class="cardface-meta">${esc(nameOf(c.subjectId))}${c.topicId ? ' · ' + esc(S.topics.find((t) => t.id === c.topicId)?.name || '') : ''}
+          · box ${c.box || 1}/5</div>
+        <div class="cardface-front">${esc(c.front)}</div>
+        <div class="cardface-back" id="cardBack" hidden>${esc(c.back)}</div>
+      </div>
+      <div class="row" style="margin-top:14px;justify-content:center" id="cardActions">
+        <button class="btn primary" id="cardReveal">Reveal</button>
+      </div>
+      <div class="row" style="margin-top:14px;justify-content:center" id="cardGrade" hidden>
+        <button class="btn" data-card-miss="${c.id}">Missed it</button>
+        <button class="btn primary" data-card-got="${c.id}">Got it</button>
+      </div>`
+      : `<div class="empty">${(S.cards || []).length ? 'Nothing due — every card is inside its interval.'
+          : 'No cards yet. Write one below, or have Claude generate a set for a topic.'}</div>`}
+  </div>
+
+  <div class="card" data-coach style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h2>Generate a set</h2><div class="hint" style="margin:0">Claude writes cards for a topic at A Level standard.</div></div>
+      <div class="row">
+        <select id="cardTopic" style="min-width:200px"></select>
+        <button class="btn" data-coachact="cards">Generate 8 cards</button>
+      </div>
+    </div>
+    <div id="cardsCoachOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>All cards — ${(S.cards || []).length}</h2>
+    <details class="adder" ${(S.cards || []).length ? '' : 'open'}>
+      <summary>Write one yourself</summary>
+      <div class="form-row" style="grid-template-columns:1fr 1fr auto">
+        <label class="f">Front (the prompt)<input id="cardFront" placeholder="State the quotient rule"></label>
+        <label class="f">Back (the answer)<input id="cardBack2" placeholder="(vu′ − uv′)/v²"></label>
+        <button class="btn primary" id="cardAdd">Add</button>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Subject<select id="cardSubj">${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+      </div>
+    </details>
+    ${(S.cards || []).length ? `<table style="margin-top:12px">
+      <thead><tr><th>Front</th><th>Subject</th><th>Box</th><th>Due</th><th></th></tr></thead>
+      <tbody>${(S.cards || []).slice(0, 40).map((x) => `<tr>
+        <td>${esc(x.front)}</td>
+        <td><span class="row" style="gap:7px"><span class="dot" style="background:${colorOf(x.subjectId)}"></span>${esc(nameOf(x.subjectId))}</span></td>
+        <td class="num">${x.box || 1}</td>
+        <td style="white-space:nowrap;color:var(--text-muted);font-size:12.5px">${x.due ? esc(fmtDay(x.due)) : 'now'}</td>
+        <td style="width:34px"><button class="btn ghost sm" data-carddel="${x.id}">✕</button></td>
+      </tr>`).join('')}</tbody></table>` : ''}
+  </div>`;
+};
+
+views.analysis = () => {
+  const { byType, total } = lostMarks();
+  const weak = weakSpots(10);
+  const maxMarks = Math.max(...weak.map((w) => w.marks), 1);
+  const papers = S.papers.slice().sort((a, b) => b.date.localeCompare(a.date));
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <h2>Where the marks actually go</h2>
+    <div class="hint">A percentage says you dropped marks. This says where and why —
+      the difference between knowing you're at 68% and knowing what to do on Monday.</div>
+    ${total ? `
+      <div class="grid g2" style="margin-top:16px">
+        <div>
+          <div class="uni-label">Biggest issues by topic</div>
+          ${weak.map((w) => `
+            <div class="issue">
+              <span class="dot" style="background:${colorOf(w.subjectId)}"></span>
+              <div style="flex:1">
+                <div class="row" style="justify-content:space-between">
+                  <b>${esc(w.name)}</b><span class="num">${w.marks} marks</span>
+                </div>
+                <div class="hbar" style="margin-top:5px">
+                  <span style="width:${(w.marks / maxMarks * 100).toFixed(0)}%;background:${colorOf(w.subjectId)}"></span></div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div>
+          <div class="uni-label">And why you lost them</div>
+          ${Object.entries(ERROR_TYPES).map(([k, v]) => {
+            const m = byType[k] || 0;
+            const pct = total ? (m / total * 100) : 0;
+            return `<div class="issue">
+              <div style="flex:1">
+                <div class="row" style="justify-content:space-between">
+                  <b>${esc(v.label)}</b><span class="num">${m} marks · ${pct.toFixed(0)}%</span></div>
+                <div class="hbar" style="margin-top:5px">
+                  <span style="width:${pct.toFixed(0)}%;background:${k === 'careless' ? 'var(--critical)' : k === 'timing' ? 'var(--warning)' : 'var(--s1)'}"></span></div>
+                <div class="block-why">${esc(v.note)}</div>
+              </div></div>`;
+          }).join('')}
+          ${byType.careless && byType.careless / total >= 0.25
+            ? `<div class="exam-box" style="margin-top:12px"><p class="uni-p"><b>${(byType.careless / total * 100).toFixed(0)}% of your lost marks are careless.</b>
+                That is the cheapest thing on this page to fix, and no amount of extra content learning touches it.</p></div>` : ''}
+        </div>
+      </div>` : `<div class="empty">No question-level data yet.<br>
+        Add a few questions from your last paper below — five minutes of logging turns a percentage into a plan.</div>`}
+  </div>
+
+  <div class="card">
+    <h2>Log a question you dropped marks on</h2>
+    <div class="hint">One row per question. You don't need every question — just the ones that cost you.</div>
+    ${papers.length ? `
+      <div class="form-row" style="grid-template-columns:1.4fr .8fr .8fr 1.4fr auto">
+        <label class="f">Paper<select id="anPaper">${papers.map((p) => `<option value="${p.id}">${esc(nameOf(p.subjectId))} · ${esc(p.name)}</option>`).join('')}</select></label>
+        <label class="f">Question<input id="anQ" placeholder="7b"></label>
+        <label class="f">Marks lost<input type="number" id="anMarks" min="1" value="2" class="num"></label>
+        <label class="f">Why<select id="anType">${Object.entries(ERROR_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}</select></label>
+        <button class="btn primary" id="anAdd">Add</button>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Topic it belongs to<select id="anTopic"></select></label>
+      </div>
+      ${papers.filter((p) => (p.questions || []).length).map((p) => `
+        <div style="margin-top:18px">
+          <div class="uni-label"><span class="dot" style="background:${colorOf(p.subjectId)}"></span>${esc(p.name)} · ${esc(nameOf(p.subjectId))}</div>
+          <table><tbody>${p.questions.map((q, i) => `<tr>
+            <td style="width:60px" class="num">Q${esc(q.q)}</td>
+            <td class="num" style="width:80px">−${q.marksLost}</td>
+            <td><span class="chip">${esc(ERROR_TYPES[q.type]?.label || q.type)}</span></td>
+            <td style="color:var(--text-secondary)">${esc(S.topics.find((t) => t.id === q.topicId)?.name || '—')}</td>
+            <td style="width:34px"><button class="btn ghost sm" data-qdel="${p.id}:${i}">✕</button></td>
+          </tr>`).join('')}</tbody></table>
+        </div>`).join('')}`
+      : '<div class="empty">Log a past paper on the <b>Papers</b> tab first, then you can break it down here.</div>'}
+  </div>`;
+};
+
+views.uni = () => {
+  const rows = S.subjects.map((s) => {
+    const base = igcseBaselineFor(s.id);
+    const pred = predictedFor(s.id);
+    const n = S.papers.filter((p) => p.subjectId === s.id && p.total > 0).length;
+    const gap = s.locked || pred == null ? null : gradeRank(gradeFor(pred)) - gradeRank(s.target);
+    return { s, base, pred, n, gap };
+  });
+  const short = rows.filter((r) => r.gap !== null && r.gap < 0)
+    .sort((a, b) => a.gap - b.gap || (a.s.weeklyHours < b.s.weeklyHours ? 1 : -1));
+  const over = rows.filter((r) => r.gap !== null && r.gap > 0);
+
+  const today = todayISO();
+  const ms = (S.milestones || []).map((m) => ({ ...m, away: daysBetween(today, m.date) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return `
+  ${(() => {
+    const eth = (S.unis || []).find((u) => u.id === 'eth');
+    if (!eth || !eth.acceptance) return '';
+    const now = ethOdds(), ideal = ethOdds(true);
+    const pc = (x) => (x * 100).toFixed(0) + '%';
+    const mGap = Math.round(80 - (predictedFor('maths') + predictedFor('fmaths')) / 2);
+    return `<div class="card" style="margin-bottom:16px">
+      <h2>Your odds at ETH</h2>
+      <div class="hint">The headline acceptance rate (${esc(eth.acceptance.bachelor)}) is not your number —
+        ${esc(eth.acceptance.international)} Your gate is the entrance exam, where about ${pc(now.base)}
+        of candidates pass. What follows is a model with its assumptions on show, not a prediction:
+        trust the direction, ignore the decimals.</div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="odds-box">
+          <div class="uni-label">As you stand today</div>
+          <div class="odds-num">${pc(now.p)}</div>
+          <div class="block-why">From the ${pc(now.base)} base pass rate, adjusted for:</div>
+          ${now.factors.map((f) => `
+            <div class="odds-f">
+              <span class="odds-mult ${f.mult >= 1.1 ? 'up' : f.mult < 1 ? 'down' : ''}">×${f.mult.toFixed(2)}</span>
+              <span>${esc(f.label)}</span>
+            </div>`).join('')}
+        </div>
+        <div class="odds-box good">
+          <div class="uni-label">If you close both gaps</div>
+          <div class="odds-num">${pc(ideal.p)}</div>
+          <div class="block-why">Maths and Further Maths lifted to A*/A, and chemistry actually
+            prepared for the exam instead of left behind at IGCSE.</div>
+          <div class="exam-box" style="margin-top:12px"><p class="uni-p">Your chances roughly
+            <b>double</b> across two decisions, neither of which is about talent: the
+            <b>${mGap}-point</b> maths gap the Plan tab is already built around, and a subject you
+            dropped that the exam still tests.</p></div>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:14px">${esc(eth.acceptance.note)} ${esc(eth.exam.passNote)}</div>
+    </div>`;
+  })()}
+
+  ${(() => {
+    const st = igcseStats();
+    if (!st) return '';
+    const maps = (r) => (r.maps || []).map((id) => nameOf(id)).join(', ');
+    return `<div class="card" style="margin-bottom:16px">
+      <h2>Your IGCSEs — the evidence underneath</h2>
+      <div class="hint">Every prediction on this page starts here, and Claude is given these numbers
+        whenever you ask it anything. Where a mark is known, the position inside the grade band is used
+        rather than the bare grade.</div>
+      <div class="grid g3" style="margin:16px 0">
+        <div class="stat"><div class="label">Mean, all ${st.rows.length}</div>
+          <div class="value">${st.all.toFixed(2)}</div><div class="foot">${st.worst}–${st.best} range</div></div>
+        <div class="stat"><div class="label">Maths &amp; sciences</div>
+          <div class="value">${st.stem?.toFixed(2) ?? '—'}</div>
+          <div class="foot">what predicts engineering</div></div>
+        <div class="stat"><div class="label">Languages</div>
+          <div class="value">${st.lang?.toFixed(2) ?? '—'}</div>
+          <div class="foot">flatters the overall mean</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Subject</th><th>Grade</th><th>Mark</th><th>%</th><th>Feeds</th></tr></thead>
+        <tbody>${st.rows.map((r) => `<tr>
+          <td>${esc(r.subject)}</td>
+          <td class="num"><b>${r.grade}</b></td>
+          <td class="num" style="color:var(--text-muted)">${esc(r.mark || '—')}</td>
+          <td class="num">${r.pct == null ? '—' : r.pct.toFixed(1) + '%'}</td>
+          <td style="color:var(--text-secondary);font-size:13px">${maps(r) || '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div class="hint" style="margin-top:12px">Your overall mean of ${st.all.toFixed(2)} is not the number
+        that matters for ETH — ${st.stem?.toFixed(2)} across maths and the sciences is, and that is the
+        one an engineering faculty reads.</div>
+    </div>`;
+  })()}
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Predicted grades</h2>
+    <div class="hint">Your IGCSEs set the starting point. Each past paper you log shifts the prediction
+      toward your real marks — after three papers in a subject the IGCSE baseline drops out entirely.</div>
+    <table>
+      <thead><tr><th>Subject</th><th>IGCSE baseline</th><th>Papers</th><th>Predicted</th><th>Target</th><th></th></tr></thead>
+      <tbody>${rows.map(({ s, base, pred, n, gap }) => `
+        <tr>
+          <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(s.id)}"></span>${esc(s.name)}</span></td>
+          <td class="num">${base ? gradeFor(base.pct) + (base.direct ? '' : ' *') : '—'}</td>
+          <td class="num">${n || '—'}</td>
+          <td class="num"><b>${pred == null ? '—' : gradeFor(pred)}</b>
+            <span style="color:var(--text-muted)">${pred == null ? '' : ' · ' + pred.toFixed(0) + '%'}</span></td>
+          <td class="num">${esc(s.target)}</td>
+          <td>${gap === null ? '' : gap >= 0
+            ? '<span class="status good">✓</span>'
+            : `<span class="status ${gap === -1 ? 'warn' : 'bad'}">${gap} grade${gap === -1 ? '' : 's'}</span>`}</td>
+        </tr>`).join('')}</tbody>
+    </table>
+    <div class="hint" style="margin:12px 0 0">* no IGCSE in that subject — baseline borrowed from your other results.</div>
+  </div>
+
+  <div class="card">
+    <h2>Reading of it</h2>
+    <div class="hint">Generated from the numbers above, not from encouragement.</div>
+    ${short.length ? `
+      <div class="uni-label" style="margin-top:14px">Furthest from target</div>
+      ${short.map(({ s, base, gap }) => `
+        <div class="finding">
+          <span class="dot" style="background:${colorOf(s.id)};margin-top:6px"></span>
+          <div><b>${esc(s.name)}</b> — predicted ${gradeFor(predictedFor(s.id))} against ${art(esc(s.target))} target.
+          ${base && base.direct
+            ? `Your IGCSE baseline is ${art(gradeFor(base.pct))}, so this is the jump that needs the work, not the one that will come free.`
+            : 'No direct IGCSE baseline, so this prediction is the least certain on the page — log papers early.'}</div>
+        </div>`).join('')}` : ''}
+    ${over.length ? `
+      <div class="uni-label" style="margin-top:16px">Target may be set too low</div>
+      ${over.map(({ s, pred }) => `
+        <div class="finding">
+          <span class="dot" style="background:${colorOf(s.id)};margin-top:6px"></span>
+          <div><b>${esc(s.name)}</b> — you're predicted ${gradeFor(pred)} but only targeting ${esc(s.target)}.
+          Raise the target on the On track tab, or the dashboard will keep telling you you're fine.</div>
+        </div>`).join('')}` : ''}
+    ${!short.length && !over.length ? '<div class="empty">Every subject is sitting on its target.</div>' : ''}
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>How much work that actually is</h2>
+    <div class="hint">Your ${S.settings.weeklyTargetHours} h weekly target, split by how far each subject
+      sits below its goal. Every subject keeps a maintenance share; the rest follows the gap.</div>
+    ${(() => {
+      const plan = workloadPlan();
+      const wk = weeksToExams();
+      const logged = Object.fromEntries(S.subjects.map((s) => [s.id, minutesThisWeek(s.id) / 60]));
+      const max = Math.max(...plan.map((p) => p.hours), 1);
+      return `
+      <div class="grid g3" style="margin:14px 0 18px">
+        <div class="stat"><div class="label">Weeks to exams</div>
+          <div class="value">${wk.toFixed(0)}</div>
+          <div class="foot">${esc(fmtDay(EXAM_START()))} · ${(wk / 4.35).toFixed(0)} months</div></div>
+        <div class="stat"><div class="label">Study hours left</div>
+          <div class="value">${Math.round(wk * S.settings.weeklyTargetHours).toLocaleString()}</div>
+          <div class="foot">at ${S.settings.weeklyTargetHours} h/week, every week</div></div>
+        <div class="stat"><div class="label">Logged this week</div>
+          <div class="value">${(minutesThisWeek() / 60).toFixed(1)}<span style="font-size:15px;color:var(--text-muted)"> h</span></div>
+          <div class="foot">of ${S.settings.weeklyTargetHours} h planned</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Subject</th><th>Predicted</th><th>Target</th><th>Hours/week</th><th style="width:34%">Share</th><th>Logged</th></tr></thead>
+        <tbody>${plan.map((p) => `
+          <tr>
+            <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(p.s.id)}"></span>${esc(p.s.name)}</span></td>
+            <td class="num">${p.pred == null ? '—' : gradeFor(p.pred)}</td>
+            <td class="num">${esc(p.s.target)}</td>
+            <td class="num"><b>${p.hours.toFixed(1)} h</b></td>
+            <td><div class="hbar"><span style="width:${(p.hours / max * 100).toFixed(1)}%;background:${colorOf(p.s.id)}"></span></div></td>
+            <td class="num" style="color:var(--text-muted)">${logged[p.s.id].toFixed(1)} h</td>
+          </tr>`).join('')}</tbody>
+      </table>
+      <div class="hint" style="margin-top:14px">
+        Over ${wk.toFixed(0)} weeks that is
+        ${plan.map((p) => `<b>${Math.round(p.hours * wk).toLocaleString()} h</b> on ${esc(p.s.name)}`)
+          .join(', ').replace(/,([^,]*)$/, ' and$1')}.
+      </div>`;
+    })()}
+  </div>
+
+  ${ms.length ? `<div class="card" style="margin-bottom:16px">
+    <h2>Fixed dates</h2>
+    <div class="hint">These do not move for you. The entrance exam is the one that reshapes Year 13 —
+      it sits four months before your A Levels, on a different syllabus.</div>
+    <div class="timeline">
+      ${ms.map((m) => `
+        <div class="ms${m.away < 0 ? ' past' : ''}">
+          <div class="ms-when">
+            <b>${esc(fmtFull(m.date))}</b>
+            <span>${m.away < 0 ? 'passed' : m.away < 400 ? 'in ' + Math.round(m.away / 7) + ' weeks' : 'in ' + (m.away / 365).toFixed(1) + ' years'}</span>
+          </div>
+          <div><b>${esc(m.label)}</b><div class="ms-note">${esc(m.note)}</div></div>
+        </div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  <details class="card unifold" style="margin-bottom:16px"><summary><h2>Where you're aiming</h2></summary>
+    <div class="hint">Requirements checked against the official pages in September 2026. They change —
+      each card links to its source, and you should re-check before you apply.</div>
+    <div class="grid g2" style="margin-top:14px">
+      ${(S.unis || []).map((u) => `
+        <div class="uni-card${u.status === 'dream' ? ' dream' : ''}">
+          <div class="row" style="justify-content:space-between;align-items:baseline">
+            <h3 style="font-size:15px">${esc(u.name)}</h3>
+            <span class="chip">${u.status === 'dream' ? 'first choice' : 'backup'}</span>
+          </div>
+          <div style="color:var(--text-muted);font-size:12.5px;margin-bottom:10px">${esc(u.city)}</div>
+          <div class="uni-label">Courses</div>
+          <ul class="uni-list">${u.programmes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+          <div class="uni-label">${esc(u.language.lang)} ${esc(u.language.level)}
+            <span class="status ${u.language.met ? 'good' : 'warn'}">${u.language.met ? '✓ covered' : '! to do'}</span></div>
+          <p class="uni-p">${esc(u.language.note)}</p>
+          <div class="uni-label">Getting in</div>
+          <p class="uni-p">${esc(u.entry)}</p>
+          ${u.requirements ? `<ul class="uni-list" style="margin-top:6px">${u.requirements.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+          ${u.exam ? `
+            <div class="uni-label">Entrance examination</div>
+            <div class="exam-box">
+              <p class="uni-p"><b>${esc(u.exam.warning)}</b></p>
+              <p class="uni-p">${esc(u.exam.when)}</p>
+              <p class="uni-p">${esc(u.exam.syllabus)}</p>
+              <p class="uni-p" style="color:var(--text-muted)">Register ${esc(u.exam.register)} · ${esc(u.exam.fee)}<br>${esc(u.exam.format)}</p>
+            </div>` : ''}
+          ${u.dataNote ? `<p class="uni-p" style="color:var(--serious)">${esc(u.dataNote)}</p>` : ''}
+          <a class="linkish" style="font-size:12.5px" href="${esc(u.link)}" target="_blank" rel="noopener">Official requirements →</a>
+        </div>`).join('')}
+    </div>
+  </details>`;
+
+};
+
+views.files = () => `
+  <div class="card" style="margin-bottom:16px">
+    <h2>Your data</h2>
+    <div class="hint">Everything the dashboard knows, as one file. Worth exporting now and then —
+      a free database does not last forever, and this is the only copy that is yours.</div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="dataExport">Export everything</button>
+      <button class="btn" id="dataImportPick">Import a file…</button>
+      <input type="file" id="dataFile" accept="application/json,.json" hidden>
+    </div>
+    <details class="adder">
+      <summary>Or paste it</summary>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Exported JSON<textarea id="dataPaste" rows="4"
+          placeholder='{"schema":5,...}' style="font-family:var(--mono);font-size:11px"></textarea></label>
+        <button class="btn primary" id="dataImportPaste">Import</button>
+      </div>
+    </details>
+    <div id="dataMsg" class="hint" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Connected services</h2>
+    <div class="hint">Paste a key below and it's written to <code>config.json</code> on this Mac (owner-only, never sent anywhere).
+      Saved keys read back masked — the dashboard can write a secret but never shows you one again.</div>
+    <div id="intStatus" class="grid g3"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Notion</h2><div class="hint" style="margin:0">Your pages, newest first.</div></div>
+      <div class="row"><input id="nQ" placeholder="search…" style="width:150px"><button class="btn sm" id="nGo">Search</button></div>
+    </div>
+    <details class="adder">
+      <summary>Connect / change key</summary>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Internal integration secret
+          <input type="password" id="cfgNotionToken" placeholder="ntn_…" autocomplete="off" spellcheck="false"></label>
+        <button class="btn primary" data-savecfg="notion">Save</button>
+      </div>
+      <div class="hint" style="margin:10px 0 0">
+        From <a class="linkish" href="https://notion.so/my-integrations" target="_blank" rel="noopener">notion.so/my-integrations</a>.
+        Afterwards share pages with it in Notion: <b>•••  →  Connections</b>. It sees nothing you haven't shared.
+      </div>
+    </details>
+    <div id="notionOut" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Google Classroom</h2><div class="hint" style="margin:0">Coursework across your active courses.</div></div>
+      <button class="btn sm" id="cGo">Pull assignments</button>
+    </div>
+    <details class="adder">
+      <summary>Connect / change keys</summary>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Classroom calendar URLs — one per line
+          <textarea id="cfgIcal" rows="3" spellcheck="false"
+            placeholder="https://calendar.google.com/calendar/ical/…/private-…/basic.ics"
+            style="font-family:var(--mono);font-size:11px"></textarea></label>
+        <button class="btn primary" data-savecfg="classroom">Save</button>
+      </div>
+      <div data-coach style="margin-bottom:18px">
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div><div class="uni-label" style="margin-top:0">Sync from forwarded email — automatic</div>
+            <div class="hint" style="margin:0">Classroom emails you when work is set. Forward those to a
+              personal Gmail and the dashboard reads them there — a personal account is not subject to
+              your school's app restrictions. Setup is in the README.</div></div>
+          <button class="btn primary" data-coachact="gmail">Sync now</button>
+        </div>
+        <div id="gmOut"></div>
+      </div>
+
+      <div data-coach style="margin-bottom:16px">
+        <div class="uni-label">Paste from Classroom — no setup</div>
+        <div class="hint" style="margin:0 0 8px">Open Classroom in your browser, select your
+          <b>To-do</b> list, copy it, and paste it here. Claude turns it into dated homework.
+          Nothing is automated against your account — it just saves you typing.</div>
+        <div class="form-row" style="grid-template-columns:1fr auto">
+          <label class="f">Pasted text<textarea id="cgPaste" rows="4"
+            placeholder="Exercise 3B q1–12&#10;A level Mathematics Y12&#10;Due Tomorrow&#10;…"></textarea></label>
+          <button class="btn primary" data-coachact="classroom">Read it</button>
+        </div>
+        <div id="cgOut"></div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:auto 1fr">
+        <button class="btn" id="icsPick">Import .ics files…</button>
+        <input type="file" id="icsFile" accept=".ics,text/calendar" multiple hidden>
+        <div class="hint" style="margin:0;align-self:center">
+          Google Calendar → <b>Settings → Import &amp; Export → Export</b> downloads a zip.
+          Unzip it and drop the course <code>.ics</code> files here. Works when you do not own
+          the calendar, which is the case for Classroom.</div>
+      </div>
+      <div id="icsOut" style="margin-bottom:12px"></div>
+      <details class="adder" style="margin-top:0">
+        <summary>Live calendar feed — only if you own the calendar</summary>
+        In Google Calendar, find each course calendar in the left sidebar →
+        <b>⋯ → Settings and sharing</b> → scroll to <b>Secret address in iCal format</b> → copy it here.
+        Classroom course calendars are owned by the school, so they usually have no secret
+        address — use the export above instead. Treat any URLs here like passwords.
+      </div>
+      </details>
+      <details class="adder" style="margin-top:0">
+        <summary>Or the Classroom API, if your admin approves it</summary>
+        <div class="form-row" style="grid-template-columns:1fr 1fr auto">
+          <label class="f">Client ID<input id="cfgClientId" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false"></label>
+          <label class="f">Client secret<input type="password" id="cfgClientSecret" autocomplete="off" spellcheck="false"></label>
+          <button class="btn primary" data-savecfg="classroom">Save</button>
+        </div>
+      </details>
+      <div class="hint" style="margin:10px 0 0">
+        Waiting on your school email — nothing to do until you have it. Once you do:
+        create an OAuth <b>Desktop app</b> client in Google Cloud, save the two values here, then run
+        <code>node get-classroom-token.mjs</code> in this folder to finish sign-in.
+        School accounts often block third-party apps; if that happens it's their policy, not a bug.
+      </div>
+    </details>
+    <div id="classOut" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>GoodNotes</h2><div class="hint" style="margin:0">Reads the auto-backup folder — GoodNotes has no live API.</div></div>
+      <button class="btn sm" id="gGo">Scan folder</button>
+    </div>
+    <details class="adder">
+      <summary>Backup folder</summary>
+      <div class="form-row" style="grid-template-columns:1fr auto">
+        <label class="f">Folder path<input id="cfgGoodnotesFolder" spellcheck="false"></label>
+        <button class="btn primary" data-savecfg="goodnotes">Save</button>
+      </div>
+      <div class="hint" style="margin:10px 0 0">
+        Already pointed at an iCloud folder that syncs to this Mac. On your iPad:
+        <b>GoodNotes → Settings → Auto-Backup → on</b>, format <b>PDF</b>, destination
+        <b>iCloud Drive → GoodNotes Backup</b>. Name notebooks after subjects
+        (&ldquo;Physics — Waves&rdquo;) and the scan tags them automatically.
+      </div>
+    </details>
+    <div id="gnOut" style="margin-top:12px"></div>
+  </div>`;
+
+async function loadConfigUI() {
+  const c = await (await fetch('/api/config')).json();
+  const put = (id, v, secret) => {
+    const el = $(id); if (!el) return;
+    if (secret) { el.value = ''; el.placeholder = v.set ? `saved (${v.hint}) — type to replace` : el.placeholder; }
+    else el.value = v || '';
+  };
+  put('#cfgNotionToken', c.notion.token, true);
+  put('#cfgClientId', c.classroom.client_id, false);
+  if ($('#cfgIcal')) $('#cfgIcal').value = (c.classroom.icalUrls || []).join('\n');
+  put('#cfgClientSecret', c.classroom.client_secret, true);
+  put('#cfgGoodnotesFolder', c.goodnotes.folder, false);
+}
+
+async function saveConfig(section, btn) {
+  const fields = {
+    notion:    { token: '#cfgNotionToken' },
+    classroom: { client_id: '#cfgClientId', client_secret: '#cfgClientSecret', icalUrls: '#cfgIcal' },
+    goodnotes: { folder: '#cfgGoodnotesFolder' },
+  }[section];
+  const patch = {};
+  for (const [key, sel] of Object.entries(fields)) {
+    const v = $(sel)?.value ?? '';
+    if (v !== '') patch[key] = v;          // blank means "leave what's saved alone"
+  }
+  if (!Object.keys(patch).length) { btn.textContent = 'nothing to save'; setTimeout(() => btn.textContent = 'Save', 1400); return; }
+  await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [section]: patch }) });
+  btn.textContent = 'Saved ✓';
+  setTimeout(() => { btn.textContent = 'Save'; }, 1600);
+  await loadConfigUI();
+  await loadIntegrationStatus();
+}
+
+/* ============================================================ rendering */
+let currentView = 'today';
+
+function renderAll() {
+  $('#view-' + currentView).innerHTML = views[currentView]();
+  afterRender(currentView);
+  const t = daysBetween(todayISO(), S.profile.termStart);
+  $('#termLine').textContent = t > 0
+    ? `Year ${S.profile.yearGroup} starts ${fmtDay(S.profile.termStart)}`
+    : `Year ${S.profile.yearGroup} · exams ${S.profile.examYear}`;
+}
+
+function afterRender(v) {
+  if (v === 'revision') renderTopicList();
+  if (v === 'study') fillTopicSelect();
+  if (v === 'analysis') fillAnalysisTopics();
+  if (v === 'revision') fillCoachTopics();
+  if (v === 'cards') fillCardTopics();
+  renderAlert();
+  if (v === 'whiteboard') initWhiteboard();
+  if (v === 'files') { loadIntegrationStatus(); loadConfigUI(); }
+}
+
+function switchView(v) {
+  currentView = v;
+  $$('nav.tabs button').forEach((b) => {
+    const on = b.dataset.view === v;
+    b.setAttribute('aria-selected', String(on));
+    if (on) b.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  });
+  $$('.view').forEach((s) => s.classList.toggle('active', s.id === 'view-' + v));
+  renderAll();
+}
+
+// Topics for the question being logged, narrowed to that paper's subject.
+/* Replacing the whole state is the one destructive action here, so it states
+   what it is about to overwrite and requires a second click to confirm. */
+let importPending = null;
+function importData(text) {
+  const msg = $('#dataMsg');
+  let next;
+  try { next = JSON.parse(text); }
+  catch { msg.innerHTML = '<span style="color:var(--critical)">That is not valid JSON.</span>'; return; }
+  if (!next || !Array.isArray(next.subjects) || !Array.isArray(next.topics)) {
+    msg.innerHTML = '<span style="color:var(--critical)">That file is not a dashboard export.</span>';
+    return;
+  }
+  if (importPending !== text) {
+    importPending = text;
+    const lessons = ['A','B'].reduce((a, w) =>
+      a + Object.values(next.timetable?.[w] || {}).reduce((b, d) => b + d.length, 0), 0);
+    msg.innerHTML = `<b>This replaces everything currently in the dashboard.</b><br>
+      The file holds ${next.topics.length} topics, ${next.homework?.length || 0} homework,
+      ${next.papers?.length || 0} papers, ${next.sessions?.length || 0} sessions and
+      ${lessons} timetabled lessons. Click Import again to go ahead.`;
+    return;
+  }
+  importPending = null;
+  S = next;
+  save();
+  renderAll();
+  msg.innerHTML = '<span style="color:var(--good)">Imported.</span>';
+}
+
+// Read exported calendar files and offer what is in them as homework.
+async function importICS(files) {
+  const out = $('#icsOut');
+  out.innerHTML = '<div class="empty">Reading…</div>';
+  const all = [];
+  for (const f of files) {
+    const text = await f.text();
+    try {
+      const r = await (await fetch('/api/ics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, name: f.name.replace(/\.ics$/i, '') }),
+      })).json();
+      if (r.items) all.push(...r.items);
+    } catch { /* skip a file we cannot read rather than failing the batch */ }
+  }
+  if (!all.length) {
+    out.innerHTML = '<div class="empty">No dated assignments in those files.</div>';
+    return;
+  }
+  const today = todayISO();
+  const future = all.filter((x) => x.due >= today);
+  out.innerHTML = `<table>
+    <thead><tr><th>Course</th><th>Assignment</th><th>Due</th><th></th></tr></thead>
+    <tbody>${future.slice(0, 40).map((w) => `<tr>
+      <td style="color:var(--text-secondary)">${esc(w.course)}</td>
+      <td>${esc(w.title)}</td>
+      <td style="white-space:nowrap">${esc(fmtDay(w.due))}</td>
+      <td><button class="btn sm" data-import='${esc(JSON.stringify({ t: w.title, d: w.due }))}'>Add</button></td>
+    </tr>`).join('')}</tbody></table>
+    <div class="hint" style="margin-top:10px">${future.length} upcoming of ${all.length} total.</div>`;
+}
+
+function fillAnalysisTopics() {
+  const sel = $('#anTopic'); if (!sel) return;
+  const paper = S.papers.find((x) => x.id === $('#anPaper')?.value);
+  const ts = paper ? S.topics.filter((t) => t.subjectId === paper.subjectId) : [];
+  sel.innerHTML = '<option value="">— not sure which —</option>'
+    + ts.map((t) => `<option value="${t.id}">${esc(t.unit)} · ${esc(t.name)}</option>`).join('');
+}
+
+function fillTopicSelect() {
+  const sid = $('#ssSubj')?.value, sel = $('#ssTopic');
+  if (!sel) return;
+  const ts = S.topics.filter((t) => t.subjectId === sid);
+  sel.innerHTML = '<option value="">— no specific topic —</option>' +
+    ts.map((t) => `<option value="${t.id}">${esc(t.unit)} · ${esc(t.name)}</option>`).join('');
+}
+
+/* ------------------------------------------------------- topic rating */
+function rateTopic(id, conf) {
+  mutate(() => {
+    const t = S.topics.find((x) => x.id === id);
+    if (!t) return;
+    t.confidence = conf;
+    t.lastStudied = todayISO();
+    t.studyCount = (t.studyCount || 0) + 1;
+    t.taught = true;
+  });
+}
+
+/* ================================================================ events */
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, [data-view]');
+  if (!t) return;
+
+  if (t.dataset.view) return switchView(t.dataset.view);
+  if (t.id === 'themeBtn') {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : cur === 'light' ? '' : 'dark';
+    next ? document.documentElement.setAttribute('data-theme', next)
+         : document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('theme', next); } catch {}
+    if (currentView === 'whiteboard') redraw();
+    return;
+  }
+  if (t.dataset.cal !== undefined) {
+    const by = Number(t.dataset.cal);
+    if (by === 0) { calMonth = null; renderAll(); } else shiftMonth(by);
+    return;
+  }
+  if (t.dataset.rate) return rateTopic(t.dataset.rate, Number(t.dataset.conf));
+  if (t.dataset.coachact === 'plan') return coachPlan(t);
+  if (t.dataset.coachact === 'questions') return coachQuestions(t);
+  if (t.dataset.coachact === 'analysis') return coachAnalysis(t);
+  if (t.dataset.coachact === 'replan') return coachReplan(t);
+  if (t.dataset.coachact === 'cards') return coachCards(t);
+  if (t.dataset.coachact === 'classroom') return coachClassroomPaste(t);
+  if (t.dataset.coachact === 'gmail') return coachGmailSync(t);
+  if (t.dataset.coachrefresh) return coachRefresh();
+
+  /* flashcards */
+  if (t.id === 'cardReveal') {
+    $('#cardBack').hidden = false;
+    $('#cardActions').hidden = true;
+    $('#cardGrade').hidden = false;
+    return;
+  }
+  if (t.dataset.cardGot)  return gradeCard(t.dataset.cardGot, true);
+  if (t.dataset.cardMiss) return gradeCard(t.dataset.cardMiss, false);
+  if (t.id === 'cardAdd') {
+    const front = $('#cardFront').value.trim(), back = $('#cardBack2').value.trim();
+    if (!front || !back) return $('#cardFront').focus();
+    return mutate(() => {
+      S.cards = S.cards || [];
+      S.cards.push({ id: uid(), subjectId: $('#cardSubj').value, topicId: null,
+        front, back, box: 1, due: todayISO(), lapses: 0, made: 'you' });
+    });
+  }
+  if (t.dataset.carddel) return mutate(() => { S.cards = (S.cards || []).filter((c) => c.id !== t.dataset.carddel); });
+
+  /* paper question analysis */
+  if (t.id === 'anAdd') {
+    const marks = Number($('#anMarks').value) || 0;
+    const q = $('#anQ').value.trim();
+    if (!q || marks <= 0) return $('#anQ').focus();
+    return mutate(() => {
+      const paper = S.papers.find((x) => x.id === $('#anPaper').value);
+      if (!paper) return;
+      paper.questions = paper.questions || [];
+      paper.questions.push({ q, marksLost: marks, type: $('#anType').value, topicId: $('#anTopic').value || null });
+    });
+  }
+  if (t.dataset.qdel) {
+    const [pid, idx] = t.dataset.qdel.split(':');
+    return mutate(() => {
+      const paper = S.papers.find((x) => x.id === pid);
+      if (paper) paper.questions.splice(Number(idx), 1);
+    });
+  }
+
+  if (t.dataset.cycle) {
+    return mutate(() => {
+      const x = S.topics.find((y) => y.id === t.dataset.cycle);
+      if (!x) return;
+      const st = x.finished ? 2 : x.started ? 1 : 0;
+      const next = (st + 1) % 3;
+      x.started = next >= 1;
+      x.finished = next === 2;
+      x.taught = x.finished;
+    });
+  }
+  if (t.id === 'revStartAll' || t.id === 'revFinishAll') {
+    const fin = t.id === 'revFinishAll';
+    const fs = $('#revSubj').value, fy = $('#revYear').value;
+    return mutate(() => S.topics.forEach((x) => {
+      if ((!fs || x.subjectId === fs) && (!fy || String(x.year) === fy)) {
+        x.started = true; x.finished = fin; x.taught = fin;
+      }
+    }));
+  }
+
+  /* homework */
+  if (t.id === 'hwAdd') {
+    const title = $('#hwTitle').value.trim();
+    if (!title) return $('#hwTitle').focus();
+    return mutate(() => S.homework.push({
+      id: uid(), subjectId: $('#hwSubj').value, title,
+      due: $('#hwDue').value || null, notes: $('#hwNote').value.trim(), done: false, doneAt: null,
+    }));
+  }
+  if (t.dataset.hwdel) return mutate(() => { S.homework = S.homework.filter((h) => h.id !== t.dataset.hwdel); });
+
+  /* study */
+  if (t.id === 'ssAdd') {
+    const mins = Number($('#ssMins').value) || 0;
+    if (mins <= 0) return $('#ssMins').focus();
+    const topicId = $('#ssTopic').value || null;
+    const conf = Number($('#ssConf').value);
+    const date = $('#ssDate').value || todayISO();
+    return mutate(() => {
+      S.sessions.push({ id: uid(), subjectId: $('#ssSubj').value, topicId, date, minutes: mins, confidenceAfter: conf });
+      const tp = S.topics.find((x) => x.id === topicId);
+      if (tp) { tp.confidence = conf; tp.lastStudied = date; tp.studyCount = (tp.studyCount || 0) + 1; tp.taught = true; }
+    });
+  }
+  if (t.dataset.ssdel) return mutate(() => { S.sessions = S.sessions.filter((s) => s.id !== t.dataset.ssdel); });
+
+  /* papers */
+  if (t.id === 'ppAdd') {
+    const mark = Number($('#ppMark').value), total = Number($('#ppTotal').value);
+    if (!(total > 0) || !(mark >= 0)) return $('#ppMark').focus();
+    return mutate(() => S.papers.push({
+      id: uid(), subjectId: $('#ppSubj').value, name: $('#ppName').value.trim() || 'Paper',
+      mark, total, date: $('#ppDate').value || todayISO(),
+    }));
+  }
+  if (t.dataset.ppdel) return mutate(() => { S.papers = S.papers.filter((p) => p.id !== t.dataset.ppdel); });
+
+  /* timetable */
+  if (t.id === 'alertDismiss') {
+    dismissedId = lastAlertId; $('#lessonAlert').hidden = true; return;
+  }
+  if (t.id === 'notifyAsk') return askNotifications(t);
+  if (t.id === 'ttAdd') {
+    const day = $('#ttDay').value;
+    const wk = $('#ttWeek').value;
+    const pid = $('#ttPeriod').value;
+    const per = (S.settings.periods || []).find((x) => x.id === pid) || {};
+    return mutate(() => ((S.timetable[wk] ||= {})[day] ||= []).push({
+      id: uid(), subjectId: $('#ttSubj').value, period: pid,
+      start: per.start, end: per.end, room: $('#ttRoom').value.trim(),
+    }));
+  }
+  if (t.dataset.ttdel) {
+    const [day, id] = t.dataset.ttdel.split(':');
+    return mutate(() => {
+      const [wk, dk] = day.split('.');
+      S.timetable[wk][dk] = (S.timetable[wk][dk] || []).filter((l) => l.id !== id);
+    });
+  }
+
+  /* whiteboard + files handled in their own modules */
+  if (wbClick(t)) return;
+  if (t.dataset.savecfg) return saveConfig(t.dataset.savecfg, t);
+  if (t.id === 'dataExport') {
+    const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `dashboard-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    $('#dataMsg').textContent = 'Exported.';
+    return;
+  }
+  if (t.id === 'dataImportPick') return $('#dataFile').click();
+  if (t.id === 'dataImportPaste') return importData($('#dataPaste').value);
+  if (t.id === 'icsPick') return $('#icsFile').click();
+  if (t.id === 'nGo') return pullNotion();
+  if (t.id === 'cGo') return pullClassroom();
+  if (t.id === 'gGo') return pullGoodnotes();
+});
+
+// <details> fires 'toggle' rather than 'change', and it does not bubble — a
+// capture-phase listener on the document is the one place that still catches it.
+document.addEventListener('toggle', (e) => {
+  const d = e.target.closest?.('[data-subjfold]');
+  if (!d) return;
+  if (d.open) openSubjects.add(d.dataset.subjfold);
+  else openSubjects.delete(d.dataset.subjfold);
+}, true);
+
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'revSubj') { if (t.value) openSubjects.add(t.value); return renderTopicList(); }
+  if (t.id === 'revYear') return renderTopicList();
+  if (t.id === 'ssSubj') return fillTopicSelect();
+  if (t.id === 'anPaper') return fillAnalysisTopics();
+  if (t.id === 'icsFile') {
+    const files = [...(t.files || [])];
+    if (files.length) importICS(files);
+    return;
+  }
+  if (t.id === 'dataFile') {
+    const f = t.files?.[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => importData(String(r.result));
+    r.readAsText(f);
+    return;
+  }
+  if (t.dataset.hw) return mutate(() => {
+    const h = S.homework.find((x) => x.id === t.dataset.hw);
+    if (h) { h.done = t.checked; h.doneAt = t.checked ? todayISO() : null; }
+  });
+  if (t.dataset.target) return mutate(() => { subjectById(t.dataset.target).target = t.value; });
+  if (t.dataset.hours)  return mutate(() => { subjectById(t.dataset.hours).weeklyHours = Number(t.value) || 0; });
+  if (t.dataset.bound)  return mutate(() => { S.settings.boundaries[t.dataset.bound] = Number(t.value) || 0; });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('#hwTitle, #hwNote')) $('#hwAdd')?.click();
+  if (e.key === 'Enter' && e.target.matches('#ppName, #ppMark, #ppTotal')) $('#ppAdd')?.click();
+  if (e.key === 'Enter' && e.target.matches('#nQ')) pullNotion();
+});
+
+/* ============================================================ whiteboard */
+let wb = { id: null, strokes: [], pen: 'ink', width: 4, erasing: false, ctx: null, drawing: null };
+
+// 'ink' strokes follow the theme, so a board drawn in dark mode stays readable in light.
+const inkColor = () => getComputedStyle(document.body).getPropertyValue('--text-primary').trim() || '#0b0b0b';
+
+function initWhiteboard() {
+  const cv = $('#wbCanvas'); if (!cv) return;
+  if (!S.whiteboards.length) {
+    S.whiteboards.push({ id: uid(), title: 'Board 1', createdAt: todayISO() });
+    save();
+  }
+  const pick = $('#wbPick');
+  pick.innerHTML = S.whiteboards.map((b) => `<option value="${b.id}">${esc(b.title)}</option>`).join('');
+  if (!wb.id || !S.whiteboards.some((b) => b.id === wb.id)) wb.id = S.whiteboards[0].id;
+  pick.value = wb.id;
+  pick.onchange = () => { wb.id = pick.value; loadBoard(); };
+
+  wb.ctx = cv.getContext('2d');
+  sizeCanvas();
+  loadBoard();
+
+  cv.onpointerdown = (e) => {
+    cv.setPointerCapture(e.pointerId);
+    wb.drawing = { c: wb.erasing ? null : wb.pen, w: wb.erasing ? wb.width * 4 : wb.width, p: [ptOf(e, cv)] };
+  };
+  cv.onpointermove = (e) => {
+    if (!wb.drawing) return;
+    wb.drawing.p.push(ptOf(e, cv));
+    redraw(true);
+  };
+  cv.onpointerup = () => {
+    if (!wb.drawing) return;
+    wb.strokes.push(wb.drawing); wb.drawing = null; redraw(); saveBoard();
+  };
+  addEventListener('resize', () => { sizeCanvas(); redraw(); }, { once: true });
+}
+
+const ptOf = (e, cv) => {
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];  // normalised 0–1
+};
+
+function sizeCanvas() {
+  const cv = $('#wbCanvas'); if (!cv) return;
+  const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  wb.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function redraw(includeLive = false) {
+  const cv = $('#wbCanvas'); if (!cv || !wb.ctx) return;
+  const r = cv.getBoundingClientRect(), c = wb.ctx;
+  c.clearRect(0, 0, r.width, r.height);
+  const all = includeLive && wb.drawing ? [...wb.strokes, wb.drawing] : wb.strokes;
+  for (const s of all) {
+    if (s.p.length < 2) continue;
+    c.beginPath();
+    c.lineWidth = s.w; c.lineCap = 'round'; c.lineJoin = 'round';
+    if (s.c === null) { c.globalCompositeOperation = 'destination-out'; c.strokeStyle = 'rgba(0,0,0,1)'; }
+    else { c.globalCompositeOperation = 'source-over'; c.strokeStyle = s.c === 'ink' ? inkColor() : s.c; }
+    s.p.forEach(([x, y], i) => i ? c.lineTo(x * r.width, y * r.height) : c.moveTo(x * r.width, y * r.height));
+    c.stroke();
+  }
+  c.globalCompositeOperation = 'source-over';
+  $('#wbStatus').textContent = `${wb.strokes.length} stroke${wb.strokes.length === 1 ? '' : 's'} · saves automatically`;
+}
+
+async function loadBoard() {
+  const r = await fetch('/api/whiteboard/' + wb.id);
+  wb.strokes = (await r.json()).strokes || [];
+  redraw();
+}
+function saveBoard() {
+  fetch('/api/whiteboard/' + wb.id, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: wb.id, strokes: wb.strokes, updatedAt: new Date().toISOString() }),
+  });
+}
+
+function wbClick(t) {
+  if (t.dataset.pen) {
+    wb.pen = t.dataset.pen; wb.erasing = false;
+    $$('.swatch').forEach((s) => s.classList.toggle('on', s === t));
+    return true;
+  }
+  if (t.dataset.width) {
+    wb.width = Number(t.dataset.width); wb.erasing = false;
+    $$('[data-width]').forEach((b) => b.classList.toggle('primary', b === t));
+    return true;
+  }
+  if (t.dataset.erase) { wb.erasing = true; return true; }
+  if (t.id === 'wbUndo') { wb.strokes.pop(); redraw(); saveBoard(); return true; }
+  if (t.id === 'wbClear') { wb.strokes = []; redraw(); saveBoard(); return true; }
+  if (t.id === 'wbNew') {
+    const b = { id: uid(), title: 'Board ' + (S.whiteboards.length + 1), createdAt: todayISO() };
+    S.whiteboards.push(b); wb.id = b.id; wb.strokes = []; save(); initWhiteboard(); return true;
+  }
+  if (t.id === 'wbDel') {
+    if (S.whiteboards.length <= 1) return true;
+    S.whiteboards = S.whiteboards.filter((b) => b.id !== wb.id);
+    wb.id = S.whiteboards[0].id; save(); initWhiteboard(); return true;
+  }
+  return false;
+}
+
+/* ========================================================== integrations */
+const notConfigured = (what, how) =>
+  `<div class="empty"><b>${esc(what)} isn't connected yet.</b><br>${how}</div>`;
+
+async function loadIntegrationStatus() {
+  const st = await (await fetch('/api/integrations')).json();
+  const row = (name, on, note) => `<div class="stat">
+    <div class="label">${esc(name)}</div>
+    <div class="value" style="font-size:17px">${on ? '<span class="status good">✓ connected</span>' : '<span style="color:var(--text-muted)">not connected</span>'}</div>
+    <div class="foot">${note}</div></div>`;
+  $('#intStatus').innerHTML =
+    row('Notion', st.notion, 'integration token in config.json') +
+    row('Google Classroom', st.classroom, 'OAuth refresh token in config.json') +
+    row('GoodNotes', st.goodnotes, 'auto-backup folder path in config.json');
+}
+
+async function pullNotion() {
+  const out = $('#notionOut'); out.innerHTML = '<div class="empty">Searching…</div>';
+  const r = await (await fetch('/api/notion?q=' + encodeURIComponent($('#nQ').value || ''))).json();
+  if (!r.ok) return out.innerHTML = r.reason === 'not_configured'
+    ? notConfigured('Notion', 'Create an internal integration at notion.so/my-integrations, paste the token into <code>config.json</code>, then share your school pages with it.')
+    : `<div class="empty">Notion said: <b>${esc(r.reason)}</b><br><span style="font-size:12px">${esc(r.detail || '')}</span></div>`;
+  out.innerHTML = r.items.length ? `<table><tbody>${r.items.map((p) => `<tr>
+      <td>${p.icon ? esc(p.icon) + ' ' : ''}<a class="linkish" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td>
+      <td style="text-align:right;color:var(--text-muted);font-size:12.5px;white-space:nowrap">${esc((p.lastEdited || '').slice(0, 10))}</td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No pages matched. Remember a Notion integration only sees pages you explicitly share with it.</div>';
+}
+
+async function pullClassroom() {
+  const out = $('#classOut'); out.innerHTML = '<div class="empty">Fetching…</div>';
+  const r = await (await fetch('/api/classroom')).json();
+  if (!r.ok) return out.innerHTML = r.reason === 'not_configured'
+    ? notConfigured('Google Classroom', 'Paste your course calendar URLs above — that route works even when your school blocks third-party apps. The API needs an admin to approve the app first.')
+    : `<div class="empty">Classroom said: <b>${esc(r.reason)}</b><br><span style="font-size:12px">${esc(r.detail || '')}</span></div>`;
+  out.innerHTML = r.items.length ? `<table>
+    <thead><tr><th>Course</th><th>Assignment</th><th>Due</th><th></th></tr></thead>
+    <tbody>${r.items.map((w) => `<tr>
+      <td style="color:var(--text-secondary)">${esc(w.course)}</td>
+      <td><a class="linkish" href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.title)}</a></td>
+      <td style="white-space:nowrap">${w.due ? esc(fmtDay(w.due)) : '—'}</td>
+      <td><button class="btn sm" data-import='${esc(JSON.stringify({ t: w.title, d: w.due }))}'>Add</button></td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No coursework found in your active courses.</div>';
+}
+
+async function pullGoodnotes() {
+  const out = $('#gnOut'); out.innerHTML = '<div class="empty">Scanning…</div>';
+  const r = await (await fetch('/api/goodnotes')).json();
+  if (!r.ok) return out.innerHTML = r.reason === 'not_configured'
+    ? notConfigured('GoodNotes', 'GoodNotes has no API. In GoodNotes turn on <b>Settings → Auto-Backup</b>, point it at a folder on this Mac, then put that folder path in <code>config.json</code>.')
+    : `<div class="empty">Couldn't read the folder: <b>${esc(r.detail || r.reason)}</b></div>`;
+  out.innerHTML = r.items.length ? `<div class="hint">${esc(r.folder)} · ${r.items.length} files</div>
+    <table><thead><tr><th>Notebook</th><th>Subject</th><th>Updated</th></tr></thead>
+    <tbody>${r.items.slice(0, 60).map((f) => `<tr>
+      <td>${esc(f.name)}</td>
+      <td>${f.subjectGuess ? `<span class="row" style="gap:7px"><span class="dot" style="background:${colorOf(f.subjectGuess)}"></span>${esc(nameOf(f.subjectGuess))}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td style="color:var(--text-muted);font-size:12.5px;white-space:nowrap">${esc(f.modified.slice(0, 10))}</td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">Folder is readable but has no PDFs in it yet.</div>';
+}
+
+// Import a Classroom assignment into the Homework tab.
+document.addEventListener('click', (e) => {
+  const one = e.target.closest('[data-import]');
+  if (one) {
+    const { t, d, s: sid } = JSON.parse(one.dataset.import);
+    S.homework.push({ id: uid(), subjectId: sid && subjectById(sid) ? sid : S.subjects[0].id,
+      title: t, due: d || null, notes: 'from Classroom', done: false, doneAt: null });
+    save(); one.textContent = 'Added ✓'; one.disabled = true;
+    return;
+  }
+  const all = e.target.closest('[data-importall]');
+  if (all) {
+    const rows = JSON.parse(all.dataset.importall);
+    mutate(() => rows.forEach(({ t, d, s: sid }) => S.homework.push({
+      id: uid(), subjectId: sid && subjectById(sid) ? sid : S.subjects[0].id,
+      title: t, due: d || null, notes: 'from Classroom', done: false, doneAt: null,
+    })));
+    all.textContent = `Added ${rows.length} ✓`; all.disabled = true;
+  }
+});
+
+/* ============================================================== coaching
+   The queue decides WHAT to revise — that stays plain arithmetic. Claude turns
+   a queued topic into something to actually do, and reads the score patterns. */
+let SAMPLE = null, SERVER_CLAUDE = false, coachCtl = null;
+
+/* Two ways to reach Claude, same interface:
+   - inside a claude.ai artifact, the sample capability (billed to the viewer's
+     Claude account, streams as it writes)
+   - on a hosted server, POST /api/claude, where the API key stays server-side
+   If neither is available the coaching UI hides itself rather than erroring. */
+(async () => {
+  try { SAMPLE = window.claude?.use ? await claude.use('sample') : null; }
+  catch { SAMPLE = null; }
+  if (!SAMPLE) {
+    try { SERVER_CLAUDE = (await (await fetch('/api/claude/status')).json()).configured; }
+    catch { SERVER_CLAUDE = false; }
+  }
+  document.body.classList.toggle('no-coach', !SAMPLE && !SERVER_CLAUDE);
+})();
+
+const DAY_MS = 86400000;
+
+async function askText(prompt, { onText, signal, refresh = false, maxTokens = 2000 } = {}) {
+  if (SAMPLE) {
+    let streamed = false;
+    const { text } = await SAMPLE(prompt, {
+      signal, modelTier: 'quick',
+      cache: { gcTime: DAY_MS, ...(refresh ? { refresh: true } : {}) },
+      onText: (e) => { streamed = true; onText?.(e); },
+    });
+    return { text, cached: !streamed };
+  }
+  const r = await fetch('/api/claude', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+    body: JSON.stringify({ prompt, maxTokens, refresh }),
+  });
+  const d = await r.json();
+  if (!d.ok) throw { code: d.code, message: d.message };
+  onText?.({ text: d.text, delta: d.text });
+  return { text: d.text, cached: Boolean(d.cached) };
+}
+
+async function askJson(prompt, { maxTokens = 2000 } = {}) {
+  if (SAMPLE) return SAMPLE.json(prompt, { modelTier: 'quick', cache: { gcTime: DAY_MS } });
+  const { text } = await askText(prompt + '\n\nReply with JSON only, no prose and no code fences.',
+    { maxTokens });
+  const m = text.match(/\{[\s\S]*\}/);          // tolerate a stray sentence around it
+  if (!m) throw { code: 'empty_completion', message: 'no JSON came back' };
+  return JSON.parse(m[0]);
+}
+
+const COACH_ERR = {
+  not_granted: 'You declined Claude for this page. Reload to be asked again.',
+  sampling_disabled: 'Claude is not available on this account.',
+  not_configured: 'No API key set on the server — add ANTHROPIC_API_KEY.',
+  bad_key: 'The API key is not valid.',
+  rate_limited: 'Too many requests just now — give it a minute.',
+  session_expired: 'Your session expired. Sign in again, then retry.',
+  refused: 'Claude declined that one. Try a different topic.',
+  empty_completion: 'Nothing came back. Try again.',
+  prompt_too_large: 'Too much data to send — trim some old sessions.',
+  upstream: 'Claude is having trouble right now. Try again shortly.',
+};
+
+// Escape first, then format, so nothing the model writes can inject HTML.
+function mdLite(src) {
+  const out = [];
+  let inList = false;
+  const inline = (t) => t
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[^*])\*([^*]+?)\*/g, '$1<i>$2</i>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  for (const raw of esc(src).split('\n')) {
+    const line = raw.trimEnd();
+    const li = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/);
+    if (li) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push('<li>' + inline(li[1]) + '</li>');
+      continue;
+    }
+    if (inList) { out.push('</ul>'); inList = false; }
+    const hd = line.match(/^(#{2,4})\s+(.*)$/);
+    if (hd) out.push('<h4>' + inline(hd[2]) + '</h4>');
+    else if (line) out.push('<p>' + inline(line) + '</p>');
+  }
+  if (inList) out.push('</ul>');
+  return out.join('');
+}
+
+async function coach(prompt, outSel, btn, { refresh = false, maxTokens = 2000 } = {}) {
+  if (!SAMPLE && !SERVER_CLAUDE) return;
+  const out = $(outSel);
+  if (btn.dataset.busy) { coachCtl?.abort(); return; }      // a second click stops it
+
+  coachCtl = new AbortController();
+  const label = btn.dataset.label || btn.textContent;
+  btn.dataset.label = label;
+  btn.dataset.busy = '1';
+  btn.textContent = 'Stop';
+  out.innerHTML = '<div class="coach-out thinking">Thinking…</div>';
+
+  try {
+    const { cached } = await askText(prompt, {
+      signal: coachCtl.signal, refresh, maxTokens,
+      onText: ({ text }) => { out.innerHTML = '<div class="coach-out">' + mdLite(text) + '</div>'; },
+    });
+    const box = out.querySelector('.coach-out');
+    if (box) {
+      const tag = document.createElement('div');
+      tag.className = 'coach-tag';
+      tag.innerHTML = (cached ? 'unchanged since last time — replayed free' : 'fresh')
+        + ' · <button class="btn ghost sm" data-coachrefresh="1">Regenerate</button>';
+      box.appendChild(tag);
+    }
+  } catch (e) {
+    if (e?.name === 'AbortError' || e?.code === 'cancelled') { if (!e.text) out.innerHTML = ''; }
+    else out.innerHTML = '<div class="empty">' + esc(COACH_ERR[e?.code] || 'That did not work. Try again.') + '</div>';
+  } finally {
+    delete btn.dataset.busy;
+    btn.textContent = label;
+  }
+}
+
+const PREAMBLE = 'You are helping a UK A Level student in Year 12 (final exams summer 2028). '
+  + 'Be concrete and specific to the topic named. No preamble, no encouragement, no generic study advice.';
+
+// Claude gets the IGCSE record on every call — it is the basis of every
+// prediction, and without it the advice is generic.
+function baseContext() {
+  return igcseSummary() + '\n'
+    + S.subjects.map((s) => {
+        const pr = predictedFor(s.id);
+        return `${s.name}: predicted ${pr == null ? 'no data' : gradeFor(pr)}, target ${s.target}${s.locked ? ' (locked)' : ''}`;
+      }).join('\n');
+}
+
+function topicContext(t) {
+  const subj = subjectById(t.subjectId);
+  const since = t.lastStudied ? daysBetween(t.lastStudied, todayISO()) + ' days ago' : 'never';
+  return [
+    'Subject: ' + subj.name,
+    'Topic: ' + t.unit + ' — ' + t.name,
+    'Their self-rated confidence: ' + t.confidence + '/5',
+    'Last revised: ' + since,
+    'Target grade: ' + subj.target,
+  ].join('\n');
+}
+
+const pickedTopic = () => S.topics.find((x) => x.id === $('#coachTopic')?.value);
+
+// Remember what produced the last answer so Regenerate can repeat it fresh.
+let lastCoach = null;
+function runCoach(prompt, outSel, btn, opts) {
+  lastCoach = { prompt, outSel, btn, opts };
+  return coach(prompt, outSel, btn, opts);
+}
+function coachRefresh() {
+  if (!lastCoach) return;
+  coach(lastCoach.prompt, lastCoach.outSel, lastCoach.btn, { ...lastCoach.opts, refresh: true });
+}
+
+function coachPlan(btn) {
+  const t = pickedTopic(); if (!t) return;
+  runCoach([PREAMBLE, '', topicContext(t), '',
+    'Write a focused 25-minute revision plan for exactly this topic. Name the specific',
+    'sub-skills to drill and the order to do them in, then finish with one worked-example',
+    'type they should attempt. Short markdown headings and bullets. Under 200 words.',
+  ].join('\n'), '#coachOut', btn);
+}
+
+function coachQuestions(btn) {
+  const t = pickedTopic(); if (!t) return;
+  runCoach([PREAMBLE, '', topicContext(t), '',
+    'Write 4 exam-style A Level questions on this topic, increasing in difficulty, with',
+    'realistic mark allocations in brackets. After all four, add a "## Answers" section',
+    'with concise mark-scheme-style answers. Markdown.',
+  ].join('\n'), '#coachOut', btn);
+}
+
+function coachAnalysis(btn) {
+  const papers = S.papers.map((p) => ({
+    subject: nameOf(p.subjectId), paper: p.name,
+    pct: Math.round((p.mark / p.total) * 100), date: p.date,
+  }));
+  if (!papers.length) {
+    $('#trackCoachOut').innerHTML =
+      '<div class="empty">Log some past-paper scores first — there is nothing to read yet.</div>';
+    return;
+  }
+  const targets = S.subjects.map((s) => {
+    const pct = projectedPct(s.id);
+    return s.name + ': target ' + s.target + ', projected ' + (pct == null ? 'no data' : Math.round(pct) + '%');
+  }).join('\n');
+  const weak = S.topics.filter((t) => t.finished && t.confidence <= 2)
+    .map((t) => nameOf(t.subjectId) + ' — ' + t.name).slice(0, 25);
+
+  runCoach([PREAMBLE, '', igcseSummary(), '',
+    'Past-paper scores (JSON):', JSON.stringify(papers), '',
+    'Targets vs projection:', targets, '',
+    'Topics they rate 2/5 or below:', weak.join(', ') || 'none recorded', '',
+    'Identify the three things most worth doing over the next fortnight to close the gap',
+    'to target. Rank them, say why each matters given the numbers above, and give one',
+    'concrete action per item. Do not restate the data back to them. Under 250 words.',
+  ].join('\n'), '#trackCoachOut', btn);
+}
+
+// Queued topics first — those are what they are most likely to ask about.
+function fillCoachTopics() {
+  const sel = $('#coachTopic'); if (!sel) return;
+  const queued = revisionQueue().map((x) => x.t);
+  const rest = S.topics.filter((t) => (t.started || t.finished) && !queued.includes(t));
+  const opt = (t, tag) => '<option value="' + t.id + '">'
+    + esc(nameOf(t.subjectId)) + ' · ' + esc(t.name) + tag + '</option>';
+  sel.innerHTML = (queued.length || rest.length)
+    ? queued.map((t) => opt(t, ' — due')).join('') + rest.map((t) => opt(t, '')).join('')
+    : '<option value="">Mark some topics as taught first</option>';
+}
+
+
+/* ------------------------------------------------- plan + card generation */
+
+function coachReplan(btn) {
+  const plan = studyPlan();
+  const weak = weakSpots(6);
+  const summary = plan.map((p) => `${p.subject.name} (${p.budget.toFixed(1)} h): `
+    + p.blocks.map((b) => `${b.mins}min ${b.title}`).join('; ')).join('\n');
+  const preds = S.subjects.map((s) => {
+    const pr = predictedFor(s.id);
+    return `${s.name}: predicted ${pr == null ? '?' : gradeFor(pr)}, target ${s.target}`;
+  }).join('\n');
+
+  runCoach([PREAMBLE, '', igcseSummary(), '',
+    'Their subjects are Maths, Further Maths, Physics, Computer Science and German.',
+    'German is a locked A* (native speaker) and needs no time.',
+    'They are aiming at ETH Zürich engineering, which also means a January entrance',
+    'exam on the Swiss Matura syllabus in maths, physics and chemistry.', '',
+    'Current predictions vs targets:', preds, '',
+    'The plan the dashboard generated for this week:', summary, '',
+    weak.length ? 'Marks lost by topic so far: ' + weak.map((w) => `${w.name} (${w.marks})`).join(', ') : 'No question-level paper data yet.', '',
+    'Critique this plan in at most 150 words. Say what is misallocated and what you would',
+    'move, specifically. If the plan is sound, say so briefly and name the single thing',
+    'that would improve it most. No pep talk.',
+  ].join('\n'), '#planCoachOut', btn);
+}
+
+async function coachCards(btn) {
+  if (!SAMPLE && !SERVER_CLAUDE) return;
+  const t = S.topics.find((x) => x.id === $('#cardTopic')?.value);
+  const out = $('#cardsCoachOut');
+  if (!t) { out.innerHTML = '<div class="empty">Mark a topic as taught first.</div>'; return; }
+
+  const label = btn.dataset.label || btn.textContent;
+  btn.dataset.label = label; btn.disabled = true; btn.textContent = 'Writing…';
+  out.innerHTML = '<div class="coach-out thinking">Writing cards…</div>';
+  try {
+    const data = await askJson([PREAMBLE, '', baseContext(), '', topicContext(t), '',
+      'Write 8 flashcards for this topic: short prompt on the front, precise answer on the back.',
+      'Facts, definitions, formulae and standard methods — things worth recalling cold, not essay prompts.',
+      'Reply with JSON only: {"cards":[{"front":"...","back":"..."}]}',
+    ].join('\n'), { maxTokens: 2500 });
+
+    const made = (data?.cards || []).filter((c) => c.front && c.back);
+    if (!made.length) { out.innerHTML = '<div class="empty">Nothing usable came back. Try again.</div>'; return; }
+    mutate(() => {
+      S.cards = S.cards || [];
+      for (const c of made) {
+        S.cards.push({ id: uid(), subjectId: t.subjectId, topicId: t.id,
+          front: String(c.front).slice(0, 300), back: String(c.back).slice(0, 600),
+          box: 1, due: todayISO(), lapses: 0, made: 'claude' });
+      }
+    });
+    out.innerHTML = `<div class="coach-out">Added <b>${made.length}</b> cards for ${esc(t.name)}. They are due now — go and review them.</div>`;
+  } catch (e) {
+    out.innerHTML = '<div class="empty">' + esc(COACH_ERR[e.code] || 'That did not work. Try again.') + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+function fillCardTopics() {
+  const sel = $('#cardTopic'); if (!sel) return;
+  const taught = S.topics.filter((t) => t.started || t.finished);
+  sel.innerHTML = taught.length
+    ? taught.map((t) => `<option value="${t.id}">${esc(nameOf(t.subjectId))} · ${esc(t.name)}</option>`).join('')
+    : '<option value="">Mark some topics as taught first</option>';
+}
+
+/* --------------------------------------------- paste-in from Google Classroom
+   The school blocks third-party OAuth, so the API and any live feed are out.
+   What is not blocked is reading your own to-do list in the browser. Copy it,
+   paste it here, and Claude turns the mess into dated assignments. No
+   credentials, nothing automated against a session — just faster than typing. */
+// Re-pasting the whole to-do list should be safe: match against what is already
+// there so only genuinely new work is offered. Titles get normalised because
+// Classroom rewords them slightly between views.
+const hwKey = (title, due) =>
+  String(title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 50) + '|' + (due || '');
+
+function isNewHomework(title, due) {
+  const key = hwKey(title, due);
+  const loose = hwKey(title, '');
+  return !S.homework.some((h) => hwKey(h.title, h.due) === key || hwKey(h.title, '') === loose);
+}
+
+/* Pull Classroom notifications out of the forwarded mailbox and turn them into
+   homework. One Claude call for the whole batch, so a busy week costs the same
+   as a quiet one, and the answer caches until the mail actually changes. */
+async function coachGmailSync(btn) {
+  const out = $('#gmOut');
+  const label = btn.dataset.label || btn.textContent;
+  btn.dataset.label = label; btn.disabled = true; btn.textContent = 'Checking…';
+  out.innerHTML = '<div class="coach-out thinking">Reading your forwarded mail…</div>';
+  try {
+    const mail = await (await fetch('/api/gmail?days=30')).json();
+    if (!mail.ok) {
+      out.innerHTML = '<div class="empty">' + esc(
+        mail.reason === 'not_configured'
+          ? 'Gmail is not connected yet — run: node get-classroom-token.mjs --gmail'
+          : (mail.detail || mail.reason)) + '</div>';
+      return;
+    }
+    if (!mail.items.length) {
+      out.innerHTML = '<div class="empty">No Classroom mail in the last 30 days. Is forwarding switched on?</div>';
+      return;
+    }
+
+    btn.textContent = 'Reading…';
+    const digest = mail.items.map((m) =>
+      `[${m.date}] ${m.subject}\n${(m.body || m.snippet).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n---\n');
+
+    const data = await askJson([
+      'These are Google Classroom notification emails. Extract the assignments.',
+      `Today is ${todayISO()}. The academic year runs Sept 2026 to June 2027.`,
+      'Resolve any relative date to YYYY-MM-DD. Use the email date as the reference point.',
+      'Match each to a subject id where you can: '
+        + S.subjects.map((x) => `${x.name} (${x.id})`).join(', ') + '.',
+      'Skip notifications that are not new work — graded, returned, comments, invitations.',
+      'Reply with JSON only: {"items":[{"title":"...","subjectId":"...","due":"YYYY-MM-DD","course":"..."}]}',
+      'null for subjectId or due when unknown.',
+      '', digest.slice(0, 12000),
+    ].join('\n'), { maxTokens: 2500 });
+
+    const parsed = (data?.items || []).filter((x) => x.title);
+    const items = parsed.filter((x) => isNewHomework(x.title, x.due));
+    const skipped = parsed.length - items.length;
+    if (!items.length) {
+      out.innerHTML = `<div class="empty">${parsed.length
+        ? `All ${parsed.length} are already on your Homework tab.`
+        : 'Nothing that looked like new work.'}</div>`;
+      return;
+    }
+    out.innerHTML = `<table>
+      <thead><tr><th>Assignment</th><th>Subject</th><th>Due</th><th></th></tr></thead>
+      <tbody>${items.map((w) => `<tr>
+        <td>${esc(w.title)}</td>
+        <td>${w.subjectId && subjectById(w.subjectId)
+          ? `<span class="row" style="gap:7px"><span class="dot" style="background:${colorOf(w.subjectId)}"></span>${esc(nameOf(w.subjectId))}</span>`
+          : `<span style="color:var(--text-muted)">${esc(w.course || '—')}</span>`}</td>
+        <td style="white-space:nowrap">${w.due ? esc(fmtDay(w.due)) : '—'}</td>
+        <td><button class="btn sm" data-import='${esc(JSON.stringify({ t: w.title, d: w.due, s: w.subjectId }))}'>Add</button></td>
+      </tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary sm" data-importall='${esc(JSON.stringify(items.map((w) => ({ t: w.title, d: w.due, s: w.subjectId }))))}'>Add all ${items.length}</button>
+        <span class="hint" style="margin:0">${mail.items.length} emails scanned${skipped ? `, ${skipped} already on your list` : ''}.</span>
+      </div>`;
+  } catch (e) {
+    out.innerHTML = '<div class="empty">' + esc(COACH_ERR[e?.code] || 'That did not work. Try again.') + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+async function coachClassroomPaste(btn) {
+  const raw = $('#cgPaste')?.value?.trim();
+  const out = $('#cgOut');
+  if (!raw) { out.innerHTML = '<div class="empty">Paste your Classroom to-do list first.</div>'; return; }
+
+  const label = btn.dataset.label || btn.textContent;
+  btn.dataset.label = label; btn.disabled = true; btn.textContent = 'Reading…';
+  out.innerHTML = '<div class="coach-out thinking">Reading it…</div>';
+  try {
+    const data = await askJson([
+      'Extract assignments from text copied out of Google Classroom.',
+      `Today is ${todayISO()}. The academic year runs Sept 2026 to June 2027.`,
+      'Resolve relative dates ("Tomorrow", "Due Friday", "Sep 15") to YYYY-MM-DD.',
+      'Match each to one of these subjects where you can: '
+        + S.subjects.map((x) => `${x.name} (id ${x.id})`).join(', ') + '.',
+      'Ignore anything already marked done or handed in.',
+      'Reply with JSON only: {"items":[{"title":"...","subjectId":"...","due":"YYYY-MM-DD","course":"..."}]}',
+      'Use null for subjectId if unsure, and null for due if no date is given.',
+      '', 'The text:', raw.slice(0, 6000),
+    ].join('\n'), { maxTokens: 2000 });
+
+    const parsed = (data?.items || []).filter((x) => x.title);
+    const items = parsed.filter((x) => isNewHomework(x.title, x.due));
+    const skipped = parsed.length - items.length;
+    if (!parsed.length) { out.innerHTML = '<div class="empty">Nothing that looked like an assignment.</div>'; return; }
+    if (!items.length) {
+      out.innerHTML = `<div class="empty">All ${parsed.length} are already on your Homework tab.</div>`;
+      return;
+    }
+    out.innerHTML = `<table>
+      <thead><tr><th>Assignment</th><th>Subject</th><th>Due</th><th></th></tr></thead>
+      <tbody>${items.map((w) => `<tr>
+        <td>${esc(w.title)}</td>
+        <td>${w.subjectId && subjectById(w.subjectId)
+          ? `<span class="row" style="gap:7px"><span class="dot" style="background:${colorOf(w.subjectId)}"></span>${esc(nameOf(w.subjectId))}</span>`
+          : `<span style="color:var(--text-muted)">${esc(w.course || '—')}</span>`}</td>
+        <td style="white-space:nowrap">${w.due ? esc(fmtDay(w.due)) : '—'}</td>
+        <td><button class="btn sm" data-import='${esc(JSON.stringify({ t: w.title, d: w.due, s: w.subjectId }))}'>Add</button></td>
+      </tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary sm" data-importall='${esc(JSON.stringify(items.map((w) => ({ t: w.title, d: w.due, s: w.subjectId }))))}'>Add all ${items.length}</button>
+        ${skipped ? `<span class="hint" style="margin:0">${skipped} already on your list, skipped.</span>` : ''}
+      </div>`;
+  } catch (e) {
+    out.innerHTML = '<div class="empty">' + esc(COACH_ERR[e?.code] || 'That did not work. Try again.') + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+/* ================================================================== boot */
+try {
+  const th = localStorage.getItem('theme');
+  if (th) document.documentElement.setAttribute('data-theme', th);
+} catch {}
+
+load().then(() => { switchView('today'); startAlerts(); }).catch((e) => {
+  document.body.innerHTML = `<div class="wrap" style="padding-top:60px">
+    <div class="card"><h2>Couldn't load your data</h2>
+    <div class="hint">${esc(e.message)}</div></div></div>`;
+});
+</script>
+</body>
+</html>

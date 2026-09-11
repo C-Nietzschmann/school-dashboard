@@ -1,0 +1,28 @@
+{
+  "_comment": "Copy this file to config.json and fill in what you have. Everything is optional — the dashboard works fully without any of it. config.json is never served to the browser.",
+
+  "notion": {
+    "_how": "notion.so/my-integrations → New internal integration → copy the Internal Integration Secret. Then open each Notion page you want visible and use ••• → Connections → your integration. Pages you don't share stay invisible.",
+    "token": ""
+  },
+
+  "classroom": {
+    "_how": "console.cloud.google.com → new project → enable the Google Classroom API → OAuth consent screen (External, add yourself as a test user) → Credentials → OAuth client ID (Desktop app). Then run: node get-classroom-token.mjs and follow the prompts.",
+    "_warning": "School-managed Google accounts often block third-party apps entirely. If the token step fails with access_denied, that is your school's Workspace policy, not a bug — keep logging homework by hand.",
+    "client_id": "",
+    "client_secret": "",
+    "refresh_token": ""
+  },
+
+  "gmail": {
+    "_how": "Same Google Cloud steps as above but on a PERSONAL account, with the gmail.readonly scope: node get-classroom-token.mjs --gmail. Use this when your school blocks the Classroom API — forward Classroom mail to the personal address and the dashboard reads it from there.",
+    "client_id": "",
+    "client_secret": "",
+    "refresh_token": ""
+  },
+
+  "goodnotes": {
+    "_how": "GoodNotes has no API. In GoodNotes: Settings → Auto-Backup → turn on, choose PDF, pick a folder. Put that folder's full path here. The dashboard reads the PDFs it drops there.",
+    "folder": ""
+  }
+}

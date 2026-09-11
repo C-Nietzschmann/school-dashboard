@@ -1,0 +1,128 @@
+{
+  "_comment": "Copied to <data dir>/profile.json on first run. Everything here is invented. Edit your copy, not this file — and never commit your copy.",
+  "_dataDir": "The data directory is $SCHOOL_DASHBOARD_DATA, or ~/.school-dashboard.",
+  "_howBands": "bandStart/nextBand are the approximate boundaries of that grade, so the dashboard can tell a high 7 from a low one. Omit them if you do not know.",
+
+  "me": {
+    "termStart": "2026-09-01",
+    "weekAStart": "2026-09-01",
+    "yearGroup": 12,
+    "examYear": 2028,
+    "examStart": "2028-05-15",
+    "form": ""
+  },
+
+  "igcse": [
+    {
+      "subject": "Mathematics A (Higher)",
+      "grade": 8,
+      "mark": "190/240",
+      "pct": 79.2,
+      "bandStart": 66,
+      "nextBand": 78,
+      "maps": ["maths", "fmaths"]
+    },
+    {
+      "subject": "Physics",
+      "grade": 7,
+      "mark": "126/180",
+      "pct": 70.0,
+      "bandStart": 62,
+      "nextBand": 75,
+      "maps": ["physics"]
+    },
+    {
+      "subject": "Computer Science",
+      "grade": 8,
+      "mark": "142/180",
+      "pct": 78.9,
+      "maps": ["cs"]
+    }
+  ],
+
+  "subjectTargets": {
+    "maths": "A*",
+    "fmaths": "A",
+    "physics": "A",
+    "cs": "A*"
+  },
+
+  "boundaries": { "A*": 80, "A": 70, "B": 60, "C": 50, "D": 40, "E": 30 },
+
+  "school": {
+    "_comment": "Your school's real calendar, bell times and rota go here. These are invented.",
+    "calendar": {
+      "lastDay": "2027-06-30",
+      "terms": [
+        { "name": "Term 1", "start": "2026-09-01", "end": "2026-12-18" },
+        { "name": "Term 2", "start": "2027-01-05", "end": "2027-03-26" },
+        { "name": "Term 3", "start": "2027-04-12", "end": "2027-06-30" }
+      ],
+      "holidays": [
+        { "start": "2026-10-26", "end": "2026-10-30", "label": "Autumn half term" },
+        { "start": "2026-12-21", "end": "2027-01-04", "label": "Christmas break" },
+        { "start": "2027-02-15", "end": "2027-02-19", "label": "Spring half term" },
+        { "start": "2027-03-29", "end": "2027-04-09", "label": "Easter break" },
+        { "start": "2027-05-31", "end": "2027-06-04", "label": "Summer half term" }
+      ]
+    },
+    "periods": [
+      { "id": "R", "start": "08:50", "end": "09:00", "label": "Registration" },
+      { "id": "1", "start": "09:00", "end": "10:00" },
+      { "id": "2", "start": "10:00", "end": "11:00" },
+      { "id": "B1", "start": "11:00", "end": "11:20", "label": "Break" },
+      { "id": "3", "start": "11:20", "end": "12:20" },
+      { "id": "4", "start": "12:20", "end": "13:20" },
+      { "id": "L1", "start": "13:20", "end": "14:00", "label": "Lunch" },
+      { "id": "5", "start": "14:00", "end": "15:00" },
+      { "id": "6", "start": "15:00", "end": "16:00" }
+    ],
+    "timetable": {
+      "A": {
+        "mon": [
+          { "period": "1", "subjectId": "maths", "room": "M1" },
+          { "period": "2", "subjectId": "physics", "room": "S3" },
+          { "period": "5", "subjectId": "free", "title": "Study period" }
+        ],
+        "tue": [
+          { "period": "1", "subjectId": "fmaths", "room": "M1" },
+          { "period": "3", "subjectId": "cs", "room": "C2" }
+        ],
+        "wed": [
+          { "period": "2", "subjectId": "maths", "room": "M1" },
+          { "period": "4", "subjectId": "physics", "room": "S3" }
+        ],
+        "thu": [
+          { "period": "1", "subjectId": "cs", "room": "C2" },
+          { "period": "5", "subjectId": "fmaths", "room": "M1" }
+        ],
+        "fri": [
+          { "period": "2", "subjectId": "maths", "room": "M1" },
+          { "period": "3", "subjectId": "physics", "room": "S3" }
+        ]
+      },
+      "B": {
+        "mon": [
+          { "period": "1", "subjectId": "cs", "room": "C2" },
+          { "period": "4", "subjectId": "fmaths", "room": "M1" }
+        ],
+        "tue": [
+          { "period": "2", "subjectId": "maths", "room": "M1" },
+          { "period": "5", "subjectId": "physics", "room": "S3" }
+        ],
+        "wed": [
+          { "period": "1", "subjectId": "fmaths", "room": "M1" },
+          { "period": "3", "subjectId": "cs", "room": "C2" }
+        ],
+        "thu": [
+          { "period": "2", "subjectId": "physics", "room": "S3" },
+          { "period": "4", "subjectId": "maths", "room": "M1" }
+        ],
+        "fri": [
+          { "period": "1", "subjectId": "maths", "room": "M1" },
+          { "period": "5", "subjectId": "cs", "room": "C2" }
+        ]
+      }
+    }
+  }
+}

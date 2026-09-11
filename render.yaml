@@ -1,0 +1,40 @@
+# Render blueprint. Point Render at this repo and it reads this file.
+services:
+  - type: web
+    name: school-dashboard
+    runtime: node
+    plan: free                 # sleeps after 15 min idle; "starter" (~$7/mo) stays warm
+    buildCommand: npm install
+    startCommand: node server.mjs
+    healthCheckPath: /api/session
+    envVars:
+      - key: DASHBOARD_PASSWORD    # set this yourself — without it the dashboard is public
+        sync: false
+      - key: SESSION_SECRET        # generated once; keeps you signed in across restarts
+        generateValue: true
+      - key: ANTHROPIC_API_KEY    # powers the Claude features; without it they hide themselves
+        sync: false
+      - key: CLAUDE_MODEL          # optional — defaults to claude-haiku-4-5, the cheapest
+        sync: false
+      - key: NOTION_TOKEN
+        sync: false
+      - key: CLASSROOM_CLIENT_ID
+        sync: false
+      - key: CLASSROOM_CLIENT_SECRET
+        sync: false
+      - key: CLASSROOM_REFRESH_TOKEN
+        sync: false
+      - key: GMAIL_CLIENT_ID          # personal account — reads forwarded Classroom mail
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: school-dashboard-db
+          property: connectionString
+
+databases:
+  - name: school-dashboard-db
+    plan: free                 # free Postgres expires after 90 days — see DEPLOY.md

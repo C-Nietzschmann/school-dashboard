@@ -1,0 +1,480 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0113F9353DA3DC25C6D1B3BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3353E0F01353009DBAC47640 /* Assets.xcassets */; };
+		0AB864F038CB334C4B5B2707 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376869B18AFA55A791394885 /* Config.swift */; };
+		31B152374DE2E93170171C93 /* Config.swift.example in Resources */ = {isa = PBXBuildFile; fileRef = 28B5C6E9DACA6B0F9F9A2FF2 /* Config.swift.example */; };
+		3BA9267833B6CD1C7699EDC4 /* Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5882534D709F2AE08DD1E1 /* Widget.swift */; };
+		3E7774D6F5575DF7678BDE24 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125739129CB9253F708803BA /* App.swift */; };
+		5470CFBDB96601277DFDC962 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376869B18AFA55A791394885 /* Config.swift */; };
+		79A1F888C5E85344F83237A5 /* DashboardWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CADDC422E13CEEF447D773BF /* DashboardWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		90EDD270F9932074341AF191 /* Feed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE97789197F7CA240FAC47EA /* Feed.swift */; };
+		987062C759AE02115BA8011F /* Feed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE97789197F7CA240FAC47EA /* Feed.swift */; };
+		B87C95C80CD9BB5E9CB16644 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416E8F8378995A38F3B4A96C /* Views.swift */; };
+		F2198E198DE9B63485AA7B89 /* Config.swift.example in Resources */ = {isa = PBXBuildFile; fileRef = 28B5C6E9DACA6B0F9F9A2FF2 /* Config.swift.example */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B0A43CAA30A091E3982FDD13 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B2E48EF10CC1783B3CDB18B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 91AB28F9598234B98EBEF9A0;
+			remoteInfo = DashboardWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0D472CD2EB6F88D893C2EA1E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				79A1F888C5E85344F83237A5 /* DashboardWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		125739129CB9253F708803BA /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		28B5C6E9DACA6B0F9F9A2FF2 /* Config.swift.example */ = {isa = PBXFileReference; path = Config.swift.example; sourceTree = "<group>"; };
+		3353E0F01353009DBAC47640 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		376869B18AFA55A791394885 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		3AA05DA91E75EFECACD17484 /* Dashboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dashboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		416E8F8378995A38F3B4A96C /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		9256D466A1BA67847CB3DDDB /* DashboardWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DashboardWidget.entitlements; sourceTree = "<group>"; };
+		CA5882534D709F2AE08DD1E1 /* Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widget.swift; sourceTree = "<group>"; };
+		CADDC422E13CEEF447D773BF /* DashboardWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DashboardWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CCB23F1E17DE592ABF3C3056 /* Dashboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Dashboard.entitlements; sourceTree = "<group>"; };
+		CE97789197F7CA240FAC47EA /* Feed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feed.swift; sourceTree = "<group>"; };
+		F7AFBE716C7548B21385E02A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1BE64987F13DA09DC8388B41 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3AA05DA91E75EFECACD17484 /* Dashboard.app */,
+				CADDC422E13CEEF447D773BF /* DashboardWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5F67488C58CD8772168D3DF9 = {
+			isa = PBXGroup;
+			children = (
+				A90952EAA08109FAC69A2CC1 /* Dashboard */,
+				D6769C562ECDD1B5CB321023 /* DashboardWidget */,
+				D0E264B9F75E37A84DF34B8D /* Shared */,
+				1BE64987F13DA09DC8388B41 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A90952EAA08109FAC69A2CC1 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				125739129CB9253F708803BA /* App.swift */,
+				3353E0F01353009DBAC47640 /* Assets.xcassets */,
+				CCB23F1E17DE592ABF3C3056 /* Dashboard.entitlements */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		D0E264B9F75E37A84DF34B8D /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				376869B18AFA55A791394885 /* Config.swift */,
+				28B5C6E9DACA6B0F9F9A2FF2 /* Config.swift.example */,
+				CE97789197F7CA240FAC47EA /* Feed.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D6769C562ECDD1B5CB321023 /* DashboardWidget */ = {
+			isa = PBXGroup;
+			children = (
+				9256D466A1BA67847CB3DDDB /* DashboardWidget.entitlements */,
+				F7AFBE716C7548B21385E02A /* Info.plist */,
+				416E8F8378995A38F3B4A96C /* Views.swift */,
+				CA5882534D709F2AE08DD1E1 /* Widget.swift */,
+			);
+			path = DashboardWidget;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7A384EE0E12721DCE259AA9B /* Dashboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AC74932BFAAF9C567A4C936E /* Build configuration list for PBXNativeTarget "Dashboard" */;
+			buildPhases = (
+				A4A1A8CD9B89911923F295B0 /* Sources */,
+				4CF48FB61D6C2AC906798C82 /* Resources */,
+				0D472CD2EB6F88D893C2EA1E /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				478CF592374F888409E3A2D1 /* PBXTargetDependency */,
+			);
+			name = Dashboard;
+			packageProductDependencies = (
+			);
+			productName = Dashboard;
+			productReference = 3AA05DA91E75EFECACD17484 /* Dashboard.app */;
+			productType = "com.apple.product-type.application";
+		};
+		91AB28F9598234B98EBEF9A0 /* DashboardWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 71E616E21001AA98A3BDD652 /* Build configuration list for PBXNativeTarget "DashboardWidget" */;
+			buildPhases = (
+				E2E1C7C6A758CBDC00FDC503 /* Sources */,
+				A17FF107593FC3D477D5582C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DashboardWidget;
+			packageProductDependencies = (
+			);
+			productName = DashboardWidget;
+			productReference = CADDC422E13CEEF447D773BF /* DashboardWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B2E48EF10CC1783B3CDB18B5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 5A24D566308F97CBBEEB731D /* Build configuration list for PBXProject "Dashboard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5F67488C58CD8772168D3DF9;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1BE64987F13DA09DC8388B41 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7A384EE0E12721DCE259AA9B /* Dashboard */,
+				91AB28F9598234B98EBEF9A0 /* DashboardWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4CF48FB61D6C2AC906798C82 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0113F9353DA3DC25C6D1B3BE /* Assets.xcassets in Resources */,
+				31B152374DE2E93170171C93 /* Config.swift.example in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A17FF107593FC3D477D5582C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F2198E198DE9B63485AA7B89 /* Config.swift.example in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A4A1A8CD9B89911923F295B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E7774D6F5575DF7678BDE24 /* App.swift in Sources */,
+				5470CFBDB96601277DFDC962 /* Config.swift in Sources */,
+				90EDD270F9932074341AF191 /* Feed.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E2E1C7C6A758CBDC00FDC503 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0AB864F038CB334C4B5B2707 /* Config.swift in Sources */,
+				987062C759AE02115BA8011F /* Feed.swift in Sources */,
+				B87C95C80CD9BB5E9CB16644 /* Views.swift in Sources */,
+				3BA9267833B6CD1C7699EDC4 /* Widget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		478CF592374F888409E3A2D1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 91AB28F9598234B98EBEF9A0 /* DashboardWidget */;
+			targetProxy = B0A43CAA30A091E3982FDD13 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		25EB108B48AD8A1988B120E7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DashboardWidget/DashboardWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DashboardWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aleveldashboard.widget;
+				PRODUCT_NAME = DashboardWidget;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		85D9114E6D1976803D39DAF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Dashboard/Dashboard.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aleveldashboard;
+				PRODUCT_NAME = "A Level Dashboard";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B5420C40B34911CCE02AC6B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CEA799563239A35FF7F7DBC5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DashboardWidget/DashboardWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DashboardWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aleveldashboard.widget;
+				PRODUCT_NAME = DashboardWidget;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DE537CBC12B4A40015F7C57F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E3F7AD4BC2E167049F699D62 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Dashboard/Dashboard.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aleveldashboard;
+				PRODUCT_NAME = "A Level Dashboard";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5A24D566308F97CBBEEB731D /* Build configuration list for PBXProject "Dashboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DE537CBC12B4A40015F7C57F /* Debug */,
+				B5420C40B34911CCE02AC6B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		71E616E21001AA98A3BDD652 /* Build configuration list for PBXNativeTarget "DashboardWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25EB108B48AD8A1988B120E7 /* Debug */,
+				CEA799563239A35FF7F7DBC5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AC74932BFAAF9C567A4C936E /* Build configuration list for PBXNativeTarget "Dashboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				85D9114E6D1976803D39DAF7 /* Debug */,
+				E3F7AD4BC2E167049F699D62 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B2E48EF10CC1783B3CDB18B5 /* Project object */;
+}

@@ -1,0 +1,36 @@
+# Nothing personal belongs in this repository. Runtime data lives in the data
+# directory ($SCHOOL_DASHBOARD_DATA, or ~/.school-dashboard), which is outside
+# the checkout — these rules are the second line of defence, for the case where
+# someone points the data directory back inside it.
+
+# --- your data ---
+data.json
+data.json.backup
+data.backup.json
+profile.json
+config.json
+whiteboards/
+.cache/
+.school-dashboard/
+
+# The built artifact compiles your profile into the page, so it is never shared.
+artifact.html
+
+# --- secrets ---
+.env
+.env.*
+.widget-token
+macos/Config.swift
+macos/**/Config.swift
+
+# --- documents you drop in (school calendars, past papers, results slips) ---
+*.pdf
+
+# --- build output and dependencies ---
+node_modules/
+*.tmp
+macos/build/
+macos/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+.DS_Store

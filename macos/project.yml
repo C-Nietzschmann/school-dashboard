@@ -1,0 +1,55 @@
+name: Dashboard
+options:
+  bundleIdPrefix: com.aleveldashboard
+  deploymentTarget: { macOS: "14.0" }
+  createIntermediateGroups: true
+
+targets:
+  Dashboard:
+    type: application
+    platform: macOS
+    sources: [Dashboard, Shared]
+    dependencies:
+      - target: DashboardWidget
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aleveldashboard
+        PRODUCT_NAME: A Level Dashboard
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"
+        CODE_SIGN_ENTITLEMENTS: Dashboard/Dashboard.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "5.0"
+
+  DashboardWidget:
+    type: app-extension
+    platform: macOS
+    sources: [DashboardWidget, Shared]
+    info:
+      # xcodegen GENERATES this file, so the extension point must be declared
+      # here — a hand-written Info.plist at that path gets overwritten, which
+      # silently produced a bundle macOS did not treat as an extension at all.
+      path: DashboardWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        CFBundleDisplayName: A Level Dashboard
+        # macOS keys its widget-gallery cache on this; bump it whenever the set
+        # of widgets or their names change, or the gallery keeps the stale copy
+        CFBundleShortVersionString: "1.2"
+        CFBundleVersion: "3"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aleveldashboard.widget
+        PRODUCT_NAME: DashboardWidget
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"
+        CODE_SIGN_ENTITLEMENTS: DashboardWidget/DashboardWidget.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.0"

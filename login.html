@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Level Dashboard — sign in</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{color-scheme:light;--bg:#f7f7f5;--surface:#fcfcfb;--line:#e2e1dc;--line-strong:#cfcec8;
+  --text:#0b0b0b;--muted:#84837c;--s1:#2a78d6;--critical:#d03b3b}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--surface:#1a1a19;--line:#302f2c;
+  --line-strong:#43423e;--text:#fff;--muted:#8e8d84;--s1:#3987e5;--critical:#e66767}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);
+  font:15px/1.55 'IBM Plex Sans',-apple-system,system-ui,sans-serif;padding:24px}
+form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;
+  width:100%;max-width:360px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px -6px rgba(0,0,0,.07)}
+h1{margin:0 0 4px;font-size:18px;letter-spacing:-.02em}
+p{margin:0 0 20px;color:var(--muted);font-size:13px}
+label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line-strong);
+  border-radius:8px;background:var(--bg);color:var(--text)}
+input:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
+button{width:100%;margin-top:14px;padding:11px;font:inherit;font-weight:500;cursor:pointer;
+  background:var(--s1);color:#fff;border:0;border-radius:8px}
+button:hover{filter:brightness(1.08)}
+.err{color:var(--critical);font-size:13px;margin-top:12px;min-height:18px}
+</style>
+</head>
+<body>
+<form id="f">
+  <h1>A Level Dashboard</h1>
+  <p>This dashboard is on the open internet, so it asks for a password.</p>
+  <label for="p">Password</label>
+  <input type="password" id="p" autocomplete="current-password" autofocus>
+  <button type="submit">Sign in</button>
+  <div class="err" id="e"></div>
+</form>
+<script>
+document.getElementById('f').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const e = document.getElementById('e');
+  e.textContent = '';
+  const r = await fetch('/api/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: document.getElementById('p').value }),
+  });
+  if (r.ok) return location.reload();
+  const body = await r.json().catch(() => ({}));
+  e.textContent = r.status === 429
+    ? `Too many attempts — wait ${body.retryAfter}s.`
+    : 'That password is not right.';
+  document.getElementById('p').select();
+});
+</script>
+</body>
+</html>

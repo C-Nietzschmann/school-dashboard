@@ -1,0 +1,8 @@
+import Foundation
+
+// Copy to Config.swift and fill in. Config.swift is gitignored — the widget
+// token should not live in version control.
+enum Config {
+    static let baseURL = "https://your-dashboard.onrender.com"
+    static let token   = ""     // the value of WIDGET_TOKEN
+}
