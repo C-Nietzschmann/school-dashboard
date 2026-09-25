@@ -471,19 +471,21 @@ const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
-const DAY = 864e5;
-// Local calendar date, never UTC — toISOString() would report yesterday
-// between local midnight and 02:00 in CEST, shifting every date on the page.
-const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const todayISO = () => isoOf(new Date());
-const parseD  = (s) => { const [y,m,d] = String(s).split('-').map(Number); return new Date(y, m-1, d); };
-const daysBetween = (a, b) => Math.round((parseD(b) - parseD(a)) / DAY);
+/* The planning engine is shared with the server — see lib/plan.mjs. The
+   server pastes it in here, so this page and /api/app/today never disagree. */
+/* @inline lib/plan.mjs */
+const PLANNER = createPlanner(() => S);
+const { DAY, isoOf, todayISO, parseD, daysBetween, toMins, hhmm, dayKeyOf, addDays,
+  subjectById, topicById, CAL, holidayOn, termOn, priorityOf, revisionQueue, gradeFor,
+  workloadPlan, predictedFor, projectedPct, igcseBaselineFor, minutesThisWeek, cardsDue, lostMarks, weakSpots, phaseOf,
+  studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, taskScore, openMistakes, mastery,
+  studyOptions } = PLANNER;
+
 const fmtDay = (iso) => parseD(iso).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
 // Milestones span two academic years, so they carry the year too.
 const fmtFull = (iso) => parseD(iso).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const subjectById = (id) => S.subjects.find((s) => s.id === id);
 const colorOf = (id) => { const s = subjectById(id); return s ? `var(--s${s.slot})` : 'var(--text-muted)'; };
 const nameOf  = (id) => id === 'free' ? 'Free period' : (subjectById(id)?.name ?? 'Unknown');
 // Tutorial and PE are on the timetable but are not A Level subjects; a slot can
@@ -492,9 +494,6 @@ const slotName = (l) => l.title || nameOf(l.subjectId);
 
 /* ------------------------------------------------- school calendar (from
    your school's own 2026-27 PDF: 3 terms, 10 holiday periods) */
-const CAL = () => S.calendar || { terms: [], holidays: [] };
-const holidayOn = (iso) => CAL().holidays.find((h) => iso >= h.start && iso <= h.end) || null;
-const termOn    = (iso) => CAL().terms.find((t) => iso >= t.start && iso <= t.end) || null;
 const nextBreak = (iso) => CAL().holidays.filter((h) => h.start > iso)
   .sort((a, b) => a.start.localeCompare(b.start))[0] || null;
 const schoolWeek = (iso) => { const t = termOn(iso); return t ? Math.floor(daysBetween(t.start, iso) / 7) + 1 : null; };
@@ -513,119 +512,108 @@ function schoolDaysLeft(iso) {
 }
 
 /* ============================================================ persistence */
+/* The companion app on your phone writes to the same state while this page is
+   open, so a save can find the server has moved on (409). Then the page fetches
+   the newer copy and merges: whatever you changed here since the last save is
+   kept, everything else takes the server's version. Records merge by id, so a
+   to-do added on the phone and a session logged here both survive.          */
+let BASE = null;           // the server's copy as this page last saw it, as JSON
+
 async function load() {
   S = await (await fetch('/api/state')).json();
+  BASE = JSON.stringify(S);
 }
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const plain = (x) => x && typeof x === 'object' && !Array.isArray(x);
+const byId = (xs) => Array.isArray(xs) && xs.every((x) => plain(x) && 'id' in x);
+
+function mergeById(base, mine, theirs) {
+  const B = new Map(base.map((x) => [x.id, x])), M = new Map(mine.map((x) => [x.id, x]));
+  const T = new Map(theirs.map((x) => [x.id, x]));
+  const ids = [...new Set([...theirs.map((x) => x.id), ...mine.map((x) => x.id)])];
+  const out = [];
+  for (const id of ids) {
+    if (!same(M.get(id), B.get(id))) { if (M.has(id)) out.push(M.get(id)); continue; }  // changed or deleted here
+    if (T.has(id)) out.push(T.get(id));                                                  // untouched here
+  }
+  return out;
+}
+
+function merge3(base = {}, mine = {}, theirs = {}) {
+  const out = {};
+  for (const k of new Set([...Object.keys(theirs), ...Object.keys(mine)])) {
+    const b = base[k], m = mine[k], t = theirs[k];
+    if (k === 'rev' || same(m, b)) out[k] = t;
+    else if (same(t, b)) out[k] = m;
+    else if (byId(m) && byId(t) && (b === undefined || byId(b))) out[k] = mergeById(b || [], m, t);
+    else if (plain(m) && plain(t)) out[k] = merge3(plain(b) ? b : {}, m, t);
+    else out[k] = m;                                    // both changed one value: yours wins
+  }
+  return out;
+}
+
+function flashSave(text, ms = 1100) {
+  const bar = $('#savebar');
+  bar.textContent = text; bar.classList.add('on');
+  setTimeout(() => bar.classList.remove('on'), ms);
+}
+
+async function pullRemote() {
+  const fresh = await (await fetch('/api/state')).json();
+  S = merge3(JSON.parse(BASE || '{}'), S, fresh);
+  BASE = JSON.stringify(fresh);
+  return fresh;
+}
+
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    await fetch('/api/state', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(S),
-    });
-    const bar = $('#savebar');
-    bar.classList.add('on');
-    setTimeout(() => bar.classList.remove('on'), 1100);
+    saveTimer = null;
+    try {
+      const body = JSON.stringify(S);
+      const r = await fetch('/api/state', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body,
+      });
+      if (r.status === 409) {                           // the phone saved first
+        await pullRemote();
+        renderAll();
+        return save();
+      }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const { rev } = await r.json();
+      S.rev = rev;
+      BASE = JSON.stringify({ ...JSON.parse(body), rev });
+      flashSave('saved');
+    } catch (e) {
+      flashSave('could not save — ' + (e.message || 'offline'), 2600);
+    }
   }, 400);
 }
+
+// Pick up what the companion app changed while this page sat open: check the
+// revision now and then, and whenever the tab comes back into view. Never while
+// you are typing, and never with a save of your own still pending.
+async function checkRemote() {
+  if (document.hidden || saveTimer || document.activeElement?.matches('input, select, textarea')) return;
+  try {
+    const { rev } = await (await fetch('/api/state/rev')).json();
+    if (rev === S.rev) return;
+    await pullRemote();
+    renderAll();
+  } catch { /* offline — try again next time */ }
+}
+setInterval(checkRemote, 45000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRemote(); });
+
 function mutate(fn) { fn(); save(); renderAll(); }
 
-/* ====================================================== the revision engine
-   Spaced repetition applied to spec topics. A topic you rate 0/5 comes back
-   tomorrow; one you rate 5/5 comes back in a month. Priority is how far past
-   that interval you are, nudged by how much the subject is worth to you and
-   whether something is due in it soon. Only topics you've marked as taught
-   can enter the queue — no point revising what school hasn't covered.        */
-const INTERVALS = [1, 2, 4, 8, 16, 32];
-
-function priorityOf(topic, today = todayISO()) {
-  if (!topic.finished) return null;   // still being taught — that is consolidation, not recall
-  const interval = INTERVALS[topic.confidence] ?? 1;
-  const since = topic.lastStudied ? daysBetween(topic.lastStudied, today) : interval * 2;
-  const overdue = Math.max(0, since) / interval;
-
-  const subj = subjectById(topic.subjectId);
-  const maxH = Math.max(...S.subjects.map((s) => s.weeklyHours || 1), 1);
-  const weight = 0.55 + 0.45 * ((subj?.weeklyHours || 1) / maxH);
-
-  // anything due in this subject within 10 days pulls its topics up the queue
-  const soon = S.homework.some((h) => !h.done && h.subjectId === topic.subjectId
-    && h.due && daysBetween(today, h.due) >= 0 && daysBetween(today, h.due) <= 10);
-
-  return overdue * weight * (soon ? 1.45 : 1);
-}
-
-function revisionQueue(limit = 0) {
-  const today = todayISO();
-  const q = S.topics
-    .map((t) => ({ t, p: priorityOf(t, today) }))
-    .filter((x) => x.p !== null && x.p > 0.75)
-    .sort((a, b) => b.p - a.p);
-  return limit ? q.slice(0, limit) : q;
-}
-
 /* ================================================== grades & projection */
-function gradeFor(pct) {
-  if (pct == null) return null;
-  const b = Object.entries(S.settings.boundaries).sort((x, y) => y[1] - x[1]);
-  for (const [g, cut] of b) if (pct >= cut) return g;
-  return 'U';
-}
 const gradeRank = (g) => ['U','E','D','C','B','A','A*'].indexOf(g);
 const EXAM_START = () => S.profile.examStart || '2028-05-15';
 const weeksToExams = () => Math.max(0, daysBetween(todayISO(), EXAM_START()) / 7);
 
-/* How the weekly budget should be split. Every subject keeps a maintenance
-   share of its timetabled load; the rest is distributed by how far the
-   prediction sits below target, with a floor so nothing gets abandoned. */
-function workloadPlan() {
-  const budget = S.settings.weeklyTargetHours || 20;
-  const cut = Object.fromEntries(Object.entries(S.settings.boundaries));
-  const rows = S.subjects.map((s) => {
-    const pred = predictedFor(s.id);
-    const target = cut[s.target] ?? 70;
-    const need = Math.max(1.5, pred == null ? 8 : target - pred);   // 1.5 = consolidation
-    return { s, pred, target, need, floor: (s.weeklyHours || 1) * 0.4 };
-  });
-  const floors = rows.reduce((a, r) => a + r.floor, 0);
-  const spare = Math.max(0, budget - floors);
-  const totalNeed = rows.reduce((a, r) => a + r.need, 0) || 1;
-  return rows.map((r) => ({ ...r, hours: r.floor + spare * (r.need / totalNeed) }));
-}
-
 const art = (g) => (/^A/.test(g) ? 'an ' : 'a ') + g;   // "an A*", "a B"
-
-// Recency-weighted mean of past-paper percentages (half-life: 3 papers), so a
-// bad mock in September stops dragging the projection down by Christmas.
-function projectedPct(subjectId) {
-  const ps = S.papers.filter((p) => p.subjectId === subjectId && p.total > 0)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (!ps.length) return null;
-  let num = 0, den = 0;
-  ps.forEach((p, i) => {
-    const w = Math.pow(0.5, (ps.length - 1 - i) / 3);
-    num += (p.mark / p.total) * 100 * w; den += w;
-  });
-  return num / den;
-}
-
-/* ---------------------------------------------- IGCSE -> A Level prediction
-   Two refinements over a flat grade lookup:
-   1. Where inside the grade band the mark sat. A 7 two marks short of an 8 is
-      not the same candidate as a 7 that scraped in.
-   2. Subject difficulty. Further Maths is examined harder and taken by a
-      self-selected cohort, so the same student lands below their Maths grade. */
-const SUBJECT_DIFFICULTY = { maths: 0, fmaths: -5, physics: 0, cs: 0, german: 0 };
-
-function effectiveGrade(r) {
-  if (r.native) return 9.4;                       // native speaker, ceiling case
-  if (r.pct == null || r.bandStart == null) return r.grade;
-  const frac = Math.max(0, Math.min(0.95, (r.pct - r.bandStart) / (r.nextBand - r.bandStart)));
-  return r.grade + frac;
-}
-
-// The school rule of thumb: A Level lands about a grade below GCSE — a 9 near
-// A*, an 8 near A, a 7 near B. Ten percentage points per grade off a 62% anchor.
-const gradeToALevel = (eff) => 62 + (eff - 7) * 10;
 
 // Headline IGCSE statistics. The overall mean flatters an engineering
 // applicant, because languages pull it up and the sciences are what count.
@@ -653,30 +641,6 @@ function igcseSummary() {
     + st.rows.map((r) => `${r.subject} ${r.grade}${r.pct ? ` (${r.pct}%)` : ''}`).join(', ')
     + `. Mean ${st.all.toFixed(2)} overall, ${st.stem?.toFixed(2)} across maths and sciences, `
     + `${st.lang?.toFixed(2)} across languages.`;
-}
-
-function igcseBaselineFor(subjectId) {
-  const rows = (S.igcse || []).filter((r) => (r.maps || []).includes(subjectId));
-  const direct = rows.length > 0;
-  const pick = direct ? rows : (S.igcse || []).filter((r) => (r.maps || []).length && !r.native);
-  if (!pick.length) return null;
-  const eff = pick.reduce((a, r) => a + effectiveGrade(r), 0) / pick.length;
-  const pct = gradeToALevel(eff) + (SUBJECT_DIFFICULTY[subjectId] ?? 0);
-  return { pct: Math.max(0, Math.min(100, pct)), eff, direct };
-}
-
-// Before you have papers the IGCSE baseline carries the projection; after three
-// papers it is entirely your real marks.
-function predictedFor(subjectId) {
-  const subj = subjectById(subjectId);
-  if (subj?.locked) return S.settings.boundaries[subj.target] + 8;   // treated as certain
-  const proj = projectedPct(subjectId);
-  const base = igcseBaselineFor(subjectId);
-  const n = S.papers.filter((p) => p.subjectId === subjectId && p.total > 0).length;
-  if (!base) return proj;
-  if (proj == null) return base.pct;
-  const w = Math.min(1, n / 3);
-  return base.pct * (1 - w) + proj * w;
 }
 
 /* --------------------------------------------------- ETH entrance-exam odds
@@ -717,16 +681,6 @@ function trackStatus(subjectId) {
 }
 
 /* ============================================================ study stats */
-function weekStart(d = new Date()) {
-  const x = new Date(d); const day = (x.getDay() + 6) % 7;   // Monday = 0
-  x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x;
-}
-function minutesThisWeek(subjectId = null) {
-  const from = isoOf(weekStart());
-  return S.sessions
-    .filter((s) => s.date >= from && (!subjectId || s.subjectId === subjectId))
-    .reduce((a, s) => a + (Number(s.minutes) || 0), 0);
-}
 function streakDays() {
   const days = new Set(S.sessions.map((s) => s.date));
   let n = 0; const d = new Date();
@@ -842,9 +796,6 @@ function yearStrip() {
    topics schedule study sessions, cards schedule recall. */
 const BOX_DAYS = [1, 3, 7, 16, 35];
 
-const cardsDue = (iso = todayISO()) =>
-  (S.cards || []).filter((c) => !c.due || c.due <= iso);
-
 function gradeCard(id, got) {
   mutate(() => {
     const c = (S.cards || []).find((x) => x.id === id);
@@ -868,36 +819,6 @@ const ERROR_TYPES = {
   timing:    { label: 'Timing',     note: 'Ran out of time before attempting it.' },
 };
 
-function lostMarks() {
-  const byTopic = {}, byType = {}, bySubject = {};
-  let total = 0;
-  for (const p of S.papers) {
-    for (const q of (p.questions || [])) {
-      const m = Number(q.marksLost) || 0;
-      if (!m) continue;
-      total += m;
-      const key = q.topicId || (p.subjectId + ':unassigned');
-      byTopic[key] = (byTopic[key] || 0) + m;
-      byType[q.type] = (byType[q.type] || 0) + m;
-      bySubject[p.subjectId] = (bySubject[p.subjectId] || 0) + m;
-    }
-  }
-  return { byTopic, byType, bySubject, total };
-}
-
-function weakSpots(limit = 8) {
-  const { byTopic } = lostMarks();
-  return Object.entries(byTopic)
-    .map(([key, marks]) => {
-      const t = S.topics.find((x) => x.id === key);
-      return { key, marks, topic: t,
-        name: t ? t.name : 'Unassigned',
-        subjectId: t ? t.subjectId : key.split(':')[0] };
-    })
-    .sort((a, b) => b.marks - a.marks)
-    .slice(0, limit);
-}
-
 /* --------------------------------------------------------------- phases
    Past papers in week two are theatre: you cannot be tested on material you
    have not been taught. Each subject moves through three phases based on how
@@ -908,81 +829,6 @@ const PHASES = {
   exam:     { label: 'Exam prep', note: 'Most of the spec is done. Full papers under timed conditions.' },
 };
 
-function phaseOf(subjectId) {
-  const all = S.topics.filter((t) => t.subjectId === subjectId);
-  const fin = all.filter((t) => t.finished).length;
-  if (fin < 4) return 'learning';
-  return fin / (all.length || 1) < 0.45 ? 'building' : 'exam';
-}
-
-/* ========================================================== the study plan
-   Deterministic and always current: it rebuilds from your predictions, the
-   revision queue, due cards and where you actually lost marks. Log a session or
-   a paper and the next render already reflects it. */
-function studyPlan() {
-  const hours = Object.fromEntries(workloadPlan().map((p) => [p.s.id, p.hours]));
-  const weak = weakSpots(30);
-  const queue = revisionQueue();
-  const due = cardsDue();
-
-  return S.subjects.filter((s) => s.active).map((s) => {
-    const budget = hours[s.id] || 0;
-    const phase = phaseOf(s.id);
-    let left = Math.round(budget * 60);
-    const blocks = [];
-    const push = (mins, title, why, topicId) => {
-      if (left < 15 || mins <= 0) return;
-      const m = Math.min(mins, left);
-      blocks.push({ mins: m, title, why, topicId });
-      left -= m;
-    };
-
-    // 1. whatever school is teaching RIGHT NOW — consolidate while it is fresh
-    const live = S.topics.filter((t) => t.subjectId === s.id && t.started && !t.finished);
-    for (const t of live.slice(0, 3)) {
-      push(40, t.name, 'in lessons now — work through the examples while it is fresh', t.id);
-    }
-    // 2. marks you actually lost, once there are any
-    for (const w of weak.filter((w) => w.subjectId === s.id).slice(0, 2)) {
-      push(45, w.name, `${w.marks} marks lost here across your papers`, w.topic?.id);
-    }
-    // 3. the spaced-repetition queue, which only holds finished topics
-    for (const { t, p } of queue.filter((q) => q.t.subjectId === s.id).slice(0, 3)) {
-      push(40, t.name, `due for recall — last done ${t.lastStudied ? daysBetween(t.lastStudied, todayISO()) + 'd ago' : 'never'}, confidence ${t.confidence}/5`, t.id);
-    }
-    // 4. flashcards
-    const dueHere = due.filter((c) => c.subjectId === s.id).length;
-    if (dueHere) push(20, `${dueHere} flashcard${dueHere === 1 ? '' : 's'} due`, 'active recall — the cheapest marks on this list', null);
-
-    // 5. the filler depends on the phase, because a past paper in week two is theatre
-    const finished = S.topics.filter((t) => t.subjectId === s.id && t.finished);
-    if (phase === 'learning') {
-      // Rotate through what you're actually being taught. When that runs out,
-      // stop inventing work — in week one there genuinely isn't more to do.
-      const pool = [...live, ...finished];
-      for (let i = 0; i < pool.length * 2 && left >= 25; i++) {
-        const t = pool[i % pool.length];
-        push(Math.min(45, left), `Textbook exercises — ${t.name}`,
-          'practice on what you were just taught, while it is still fresh', t.id);
-      }
-    } else if (phase === 'building') {
-      for (let i = 0; i < finished.length * 2 && left >= 30; i++) {
-        const t = finished[i % finished.length];
-        push(Math.min(50, left), `Past-paper questions — ${t.name}`,
-          'questions on finished topics only, not whole papers yet', t.id);
-      }
-    } else {
-      let paper = 1;
-      while (left >= 45) {
-        push(Math.min(90, left), `Past paper${paper > 1 ? ' #' + paper : ''} under timed conditions`,
-          'builds exam pace, and feeds the Analysis tab', null);
-        if (++paper > 6) break;
-      }
-    }
-    return { subject: s, budget, phase, blocks, spare: left };
-  });
-}
-
 /* ======================================================== lesson alerts
    A quiet banner before each lesson: what it is, where it is, and — for a free
    period — what to study. Adjacent slots of the same subject are merged, so a
@@ -990,46 +836,14 @@ function studyPlan() {
 const FREE = 'free';
 let alertTimer = null, lastAlertId = null, dismissedId = null;
 
-const hhmm = (d = new Date()) =>
-  String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-const toMins = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + m; };
-
-// Merge back-to-back slots of the same subject into one entry.
-function mergedDay(dayKey, iso = todayISO()) {
-  const slots = dayPlan(dayKey, iso).slice()
-    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-  const out = [];
-  for (const sl of slots) {
-    const prev = out[out.length - 1];
-    const contiguous = prev && prev.subjectId === sl.subjectId && prev.end && sl.start
-      && toMins(sl.start) - toMins(prev.end) <= 15;
-    if (contiguous) { prev.end = sl.end; prev.double = true; }
-    else out.push({ ...sl });
-  }
-  return out;
-}
-
-/* Week A / week B. The week containing weekAStart is A; they alternate from
-   there, so the answer holds across holidays and into next year. */
-function weekOf(iso = todayISO()) {
-  const monday = (d) => { const x = parseD(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
-  const weeks = Math.round((monday(iso) - monday(S.profile.weekAStart || S.profile.termStart)) / (7 * DAY));
-  return ((weeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
-}
-const dayPlan = (dayKey, iso = todayISO()) => (S.timetable?.[weekOf(iso)]?.[dayKey]) || [];
-
-const dayKeyOf = (d = new Date()) => ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
-
-// What to do with a free period: whatever is top of the queue, else cards due.
+// What to do with a free period: what you picked for it in the companion app,
+// else the top of the same options the app offers (lib/plan.mjs studyOptions).
 function studyFor(slot) {
   const mins = slot.start && slot.end ? toMins(slot.end) - toMins(slot.start) : 50;
-  const q = revisionQueue(1)[0];
-  if (q) return { text: `${q.t.name} — ${nameOf(q.t.subjectId)}`,
-    why: `top of the queue, confidence ${q.t.confidence}/5`, mins };
-  const due = cardsDue().length;
-  if (due) return { text: `${due} flashcard${due === 1 ? '' : 's'} due`, why: 'active recall', mins };
-  const plan = studyPlan().find((p) => p.blocks.length);
-  if (plan) return { text: plan.blocks[0].title, why: plan.subject.name + ' — from your plan', mins };
+  const sp = studyOptions(todayISO()).find((x) => x.start === slot.start);
+  const o = sp?.chosen || sp?.options?.[0];
+  if (o) return { text: o.title + (o.subjectId ? ` — ${nameOf(o.subjectId)}` : ''),
+    why: sp.chosen ? 'your pick for this period' : o.why, mins };
   return { text: 'Nothing queued', why: 'mark some topics as taught', mins };
 }
 

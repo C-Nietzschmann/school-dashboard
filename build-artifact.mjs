@@ -4,8 +4,10 @@
 //   node build-artifact.mjs
 import { readFile, writeFile } from 'node:fs/promises';
 import { seedState, SCHEMA } from './lib/seed.mjs';
+import { inlineModules } from './lib/inline.mjs';
 
-let h = await readFile('app.html', 'utf8');
+// the shared planner (lib/plan.mjs) goes in first, exactly as server.mjs serves it
+let h = inlineModules(await readFile('app.html', 'utf8'), process.cwd());
 
 /* 1. strip the document skeleton — the artifact host supplies it */
 h = h.replace(/^[\s\S]*?<title>/, '<title>')

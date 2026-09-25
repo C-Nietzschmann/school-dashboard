@@ -10,6 +10,7 @@ data.backup.json
 profile.json
 config.json
 whiteboards/
+marks/
 .cache/
 .school-dashboard/
 

@@ -16,6 +16,9 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
+import { todayPayload, summarize, applyOps, getAttempt, OP_TYPES } from './lib/companion.mjs';
+import { createMcpServer } from './lib/mcp.mjs';
+import { inlineModules } from './lib/inline.mjs';
 
 // ROOT is the checkout, and only ever serves code: app.html, login.html, icons.
 // Everything the dashboard reads or writes lives under paths.dir instead.
@@ -46,13 +49,39 @@ async function loadState() {
   return stored;
 }
 
-const saveState = (state) => writeDoc('state', DATA, state);
+// Every save bumps `rev`, so a page holding an older copy can be told it is
+// stale instead of silently overwriting what the companion app just wrote.
+const saveState = (state) => {
+  state.rev = (Number(state.rev) || 0) + 1;
+  return writeDoc('state', DATA, state);
+};
+
+/* Writes queue behind one another. The dashboard tab, the companion app and
+   the MCP connector can all change the state at once; each read-modify-write
+   runs to completion before the next one reads. */
+let stateChain = Promise.resolve();
+function withState(fn) {
+  const run = stateChain.then(async () => fn(await loadState()));
+  stateChain = run.catch(() => {});
+  return run;
+}
+
+// Marked work's explanations and corrections: one document each, never inside
+// the state. Postgres rows when hosted, files under the data directory locally.
+const markFile = (id) => join(paths.marks, id.replace(/[^\w-]/g, '') + '.json');
+const markStore = {
+  read: (id) => readDoc(id, markFile(id)),
+  write: (id, doc) => writeDoc(id, markFile(id), doc),
+};
 
 /* ------------------------------------------------------------------- auth
    Local use needs none. The moment DASHBOARD_PASSWORD is set — which it must be
    once this is on the open internet — everything behind /api and the app itself
    requires a signed cookie. */
 const PASSWORD = process.env.DASHBOARD_PASSWORD || '';
+// The companion app's key. It unlocks /api/app/* as a Bearer token and the MCP
+// connector as part of its URL — nothing else. Unset, both are switched off.
+const APP_TOKEN = process.env.APP_TOKEN || '';
 const SIGNING_KEY = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
 const authRequired = () => Boolean(PASSWORD);
 
@@ -271,6 +300,85 @@ function widgetPayload(S) {
   };
 }
 
+/* ---------------------------------------------------------- companion app
+   The three things the app can do, shared by REST and MCP. */
+async function appToday({ date, time, detail = 'full' } = {}) {
+  const payload = todayPayload(await loadState(), { date, time });
+  return detail === 'summary' ? summarize(payload) : payload;
+}
+function appApply({ ops, date, time } = {}) {
+  return withState(async (S) => {
+    const out = await applyOps(S, ops, { date, time, store: markStore });
+    if (out.changed) await saveState(S);
+    return { ...out, rev: S.rev || 0 };
+  });
+}
+async function appAttempt({ id, hash } = {}) {
+  return getAttempt(await loadState(), { id, hash }, markStore);
+}
+
+const mcp = createMcpServer({
+  name: 'a-level-dashboard',
+  version: '1.0.0',
+  instructions: 'One student\'s A Level dashboard (Year 12: Maths, Further Maths, Physics, '
+    + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
+    + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
+    + 'writes: to-dos, study-period choices, tests, and marked work. Every change needs a unique id; '
+    + 'resending the same id is harmless.',
+  tools: [
+    {
+      name: 'get_today',
+      title: 'Today on the A Level dashboard',
+      description: 'Today\'s school day: lessons (week A/B rota), each free period with up to three '
+        + 'suggested study options and why, to-dos ranked by priority and due date, upcoming tests, '
+        + 'unfixed mistakes from marked work, weak topics and skill level per subject. detail="summary" '
+        + '(the default) is short and readable; detail="full" adds every topic id, the recent marked '
+        + 'work and per-topic mastery, which is what you need before calling apply_changes.',
+      inputSchema: { type: 'object', properties: {
+        date: { type: 'string', description: 'YYYY-MM-DD in the student\'s local time; default today' },
+        time: { type: 'string', description: 'HH:MM local time, to mark which lesson is on now' },
+        detail: { type: 'string', enum: ['summary', 'full'] },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: (a) => appToday({ detail: 'summary', ...a }),
+    },
+    {
+      name: 'apply_changes',
+      title: 'Change the A Level dashboard',
+      description: 'Apply up to 50 changes. Each op is {id: unique string, type, ...fields}. Types: '
+        + 'task.add {task:{title, subjectId?, due?: YYYY-MM-DD, priority?: high|normal|low, notes?}}; '
+        + 'task.update {taskId, patch}; task.done {taskId, done}; task.delete {taskId}; '
+        + 'study.choose {date, key, option} (key and option from get_today studyPeriods); '
+        + 'study.done {date, key, minutes?, confidence?: 0-5}; '
+        + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
+        + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
+        + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, kind, driveId?, driveUrl?, hash?}, '
+        + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
+        + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
+        + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
+        + 'attempt.delete {attemptId}. Returns one result per op.',
+      inputSchema: { type: 'object', required: ['ops'], properties: {
+        ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
+          properties: { id: { type: 'string' }, type: { type: 'string', enum: OP_TYPES } } } },
+        date: { type: 'string', description: 'YYYY-MM-DD local; the day the changes belong to' },
+        time: { type: 'string', description: 'HH:MM local' },
+      } },
+      annotations: { readOnlyHint: false },
+      handler: (a) => appApply(a),
+    },
+    {
+      name: 'get_attempt',
+      title: 'One piece of marked work',
+      description: 'The full marking of one attempt: every question with marks, error type, why it was '
+        + 'wrong and the correct working, plus the summary, next steps and follow-up notes. Pass the '
+        + 'attempt id from get_today (detail="full"), or the image hash.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' } } },
+      annotations: { readOnlyHint: true },
+      handler: (a) => appAttempt(a),
+    },
+  ],
+});
+
 /* -------------------------------------------------------------------- http */
 
 const send = (res, code, body, type = 'application/json') => {
@@ -325,10 +433,17 @@ const server = createServer(async (req, res) => {
     // /icons is public so Safari can fetch them before sign-in; /api/widget
     // carries its own token and is checked below — putting it behind the session
     // gate made it unreachable for the desktop widgets it exists for.
-    const publicPath = path.startsWith('/icons/') || path === '/api/widget';
-    if (authRequired() && !publicPath && !validCookie(req.headers.cookie)) {
+    // /mcp/<token> carries its token in the URL, the way claude.ai custom
+    // connectors are configured, and checks it itself below.
+    const publicPath = path.startsWith('/icons/') || path === '/api/widget' || path.startsWith('/mcp/');
+    // OAuth discovery probes from MCP clients: this server has no OAuth, and a
+    // clean 404 says so (the static handler would answer 403 to a dot-path).
+    if (path.startsWith('/.well-known/')) return send(res, 404, { error: 'not found' });
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || '')?.[1] || '';
+    const appKey = Boolean(APP_TOKEN) && path.startsWith('/api/app/') && equalish(bearer, APP_TOKEN);
+    if (authRequired() && !publicPath && !appKey && !validCookie(req.headers.cookie)) {
       if (path.startsWith('/api/')) return send(res, 401, { error: 'sign in' });
-      if (path === '/' || path.endsWith('.html')) {
+      if (path === '/' || path.endsWith('.html') || path === '/companion') {
         return send(res, 200, await readFile(join(ROOT, 'login.html')), 'text/html');
       }
     }
@@ -337,13 +452,50 @@ const server = createServer(async (req, res) => {
     if (path === '/api/state' && req.method === 'GET') {
       return send(res, 200, await loadState());
     }
+    if (path === '/api/state/rev') {
+      return send(res, 200, { rev: (await loadState()).rev || 0 });
+    }
     if (path === '/api/state' && req.method === 'PUT') {
       const next = await readBody(req);
       if (!next || typeof next !== 'object' || !Array.isArray(next.subjects)) {
         return send(res, 400, { error: 'that does not look like a dashboard state' });
       }
-      await saveState(next);
-      return send(res, 200, { ok: true, savedAt: new Date().toISOString() });
+      return withState(async (cur) => {
+        // A page that loaded before the companion app's last change must merge
+        // first. A page too old to send `rev` at all is let through, as before.
+        if (next.rev !== undefined && Number(next.rev) !== Number(cur.rev || 0)) {
+          return send(res, 409, { error: 'stale', rev: cur.rev || 0 });
+        }
+        await saveState(next);
+        return send(res, 200, { ok: true, savedAt: new Date().toISOString(), rev: next.rev });
+      });
+    }
+
+    /* ---- the companion app (REST; the MCP connector below is the same) ---- */
+    if (path === '/api/app/today' && req.method === 'GET') {
+      return send(res, 200, await appToday(Object.fromEntries(url.searchParams)));
+    }
+    if (path === '/api/app/ops' && req.method === 'POST') {
+      return send(res, 200, await appApply(await readBody(req)));
+    }
+    if (path === '/api/app/attempt' && req.method === 'GET') {
+      return send(res, 200, await appAttempt(Object.fromEntries(url.searchParams)));
+    }
+    const mcpPath = path.match(/^\/mcp\/([^/]+)\/?$/);
+    if (mcpPath) {
+      if (!APP_TOKEN || !equalish(decodeURIComponent(mcpPath[1]), APP_TOKEN)) {
+        return send(res, 404, { error: 'not found' });
+      }
+      if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        return send(res, 405, { error: 'POST JSON-RPC here; there is no event stream' });
+      }
+      let body;
+      try { body = await readBody(req); }
+      catch { return send(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'parse error' } }); }
+      const out = await mcp(body);
+      if (!out) { res.writeHead(202); return res.end(); }
+      return send(res, 200, out);
     }
 
     /* ---- whiteboards (one file each, so data.json stays small) ---- */
@@ -419,12 +571,14 @@ const server = createServer(async (req, res) => {
        serve anything under the checkout, which included data.json back when the
        data lived here. Dot-segments are refused outright so .git and .cache
        cannot be walked. */
-    const rel = path === '/' ? '/app.html' : path;
+    const rel = path === '/' ? '/app.html' : path === '/companion' ? '/companion.html' : path;
     if (rel.split('/').some((seg) => seg.startsWith('.'))) return send(res, 403, { error: 'nope' });
     const ext = rel.slice(rel.lastIndexOf('.'));
     if (!MIME[ext]) return send(res, 404, { error: 'not found' });
     const file = normalize(join(ROOT, rel));
     if (!file.startsWith(ROOT + '/')) return send(res, 403, { error: 'nope' });
+    // the dashboard page carries the shared planner, pasted in where it says @inline
+    if (rel === '/app.html') return send(res, 200, inlineModules(await readFile(file, 'utf8'), ROOT), 'text/html');
     if (existsSync(file)) return send(res, 200, await readFile(file), MIME[ext]);
     return send(res, 404, { error: 'not found' });
   } catch (e) {
@@ -454,6 +608,7 @@ server.listen(PORT, BIND, () => {
   console.log('');
   console.log('  store:  ' + backend() + (backend() === 'file' ? ' (' + DATA + ')' : ''));
   console.log('  auth:   ' + (authRequired() ? 'password required' : 'open (local only — set DASHBOARD_PASSWORD before hosting)'));
+  console.log('  app:    ' + (APP_TOKEN ? 'companion key set — /companion, /api/app/*, /mcp/<key>' : 'no APP_TOKEN — companion only with the password'));
   console.log('  stop:   Ctrl-C');
   console.log('');
 });
