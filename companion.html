@@ -1252,10 +1252,16 @@ async function findFolder(name, parentId) {
   });
   return (res.files || []).find((f) => f.mimeType === FOLDER_MIME)?.id || null;
 }
+// The Drive connector documents folders as "set the mime type to the folder
+// type" without saying which of its two mime fields that is, so try the
+// current one first and fall back to the older one.
 async function makeFolder(name, parentId) {
   const base = { title: name, ...(parentId ? { parentId } : {}) };
-  let res = await drive('create_file', { ...base, contentMimeType: FOLDER_MIME });
-  if (res?.mimeType && res.mimeType !== FOLDER_MIME) {
+  let res = await drive('create_file', { ...base, contentMimeType: FOLDER_MIME }).catch((e) => {
+    if (e?.code === 'tool_error') return null;
+    throw e;
+  });
+  if (!res || (res.mimeType && res.mimeType !== FOLDER_MIME)) {
     res = await drive('create_file', { ...base, mimeType: FOLDER_MIME });
   }
   if (!res?.id) throw { code: 'tool_error', message: 'Google Drive did not create the folder.' };

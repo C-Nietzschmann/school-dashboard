@@ -101,6 +101,62 @@ Then on the hosted dashboard, signed in, paste it back:
 await fetch('/api/state', {method:'PUT', headers:{'Content-Type':'application/json'}, body: <paste>})
 ```
 
+## The companion app (phone and iPad)
+
+`companion.html` is a small daily app next to the dashboard: **Today** (your A/B
+timetable, what to do in each free period, to-dos with priorities), **Work**
+(photograph or scan your work, Claude marks it and works out the subject and
+topic, you check it, it is filed in Google Drive), **History** (every mistake,
+why it was wrong, the correct working, and fixing it) and **Skills** (your level
+per subject and topic, and the tests you are preparing for). It keeps no data of
+its own: everything goes into this dashboard.
+
+It runs best **inside Claude**, where it can use your Google Drive connector and
+Claude itself — marking is billed to your Claude plan, not to an API key. Claude
+reaches the dashboard through a connector, set up once:
+
+**1. Deploy this version.** Render generates `APP_TOKEN` from `render.yaml`. A
+service created before that line existed will not have it: add it yourself in
+Render → Environment, any long random string (`openssl rand -hex 24`). Set `TZ`
+to your time zone while you are there.
+
+**2. Add the connector.** claude.ai → **Settings → Connectors → Add custom
+connector**. Name it exactly `A Level Dashboard`; the URL is
+
+```
+https://<your-service>.onrender.com/mcp/<APP_TOKEN>
+```
+
+That URL *is* the key — anyone with it can read and change your dashboard, so do
+not share it. To revoke it, change `APP_TOKEN` in Render and update the connector.
+
+**3. Connect Google Drive** in the same place, with the school account whose
+Drive should hold your work. The app files everything under
+`A Level Dashboard / <subject> / <topic or assignment>`, creating folders as it
+goes.
+
+**4. Open the app.** The companion is published as a claude.ai artifact; open its
+link in the Claude app on each device (or in Safari, then Share → Add to Home
+Screen) and allow the two connectors and Claude when asked.
+
+Without Claude, `https://<your-service>.onrender.com/companion` serves the same
+app from the dashboard itself — Today, History, Skills and tests all work, and it
+can go on the Home Screen too. Uploading and marking need Claude, so that page
+points you there.
+
+What it costs and where things live:
+
+- Marking uses your Claude plan's usage. **Fast** (the default) uses the
+  quickest model; **Careful** thinks longer, for proofs and long working. A page
+  is never marked twice: the dashboard remembers every page it has marked.
+- Photos and PDFs live in your Google Drive, never in the database. The database
+  holds the marks, and each marking's explanations as a separate small row.
+- On Render's free plan the dashboard sleeps after 15 minutes; the app shows
+  your last synced day at once and waits up to a minute for it to wake.
+- Changes made on the phone while the dashboard is open on your Mac are merged,
+  not overwritten: a stale tab is refused (409), pulls the newer copy, keeps its
+  own edits and saves again.
+
 ## Afterwards
 
 `git push` redeploys automatically. Both copies still build from `app.html` —
