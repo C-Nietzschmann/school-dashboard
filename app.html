@@ -487,7 +487,7 @@ const fmtFull = (iso) => parseD(iso).toLocaleDateString(undefined, { day:'numeri
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 const colorOf = (id) => { const s = subjectById(id); return s ? `var(--s${s.slot})` : 'var(--text-muted)'; };
-const nameOf  = (id) => id === 'free' ? 'Free period' : (subjectById(id)?.name ?? 'Unknown');
+const nameOf  = (id) => id === 'free' ? 'Free period' : !id ? 'General' : (subjectById(id)?.name ?? 'Unknown');
 // Tutorial and PE are on the timetable but are not A Level subjects; a slot can
 // carry its own title so they show without pretending to be one.
 const slotName = (l) => l.title || nameOf(l.subjectId);
@@ -970,11 +970,14 @@ views.today = () => {
     <div class="card">
       <h2>Today · ${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</h2>
       <div class="hint">${lessons.length ? 'Your lessons' : 'No lessons set for today'}</div>
-      ${lessons.length ? lessons.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map((l) => `
+      ${lessons.length ? lessons.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map((l) => {
+        const study = l.subjectId === FREE ? studyFor(l) : null;
+        return `
         <div class="tt-slot" style="border-left-color:${colorOf(l.subjectId)}">
           <div>${esc(slotName(l))}</div>
           <div class="t">${esc(l.start || '')}${l.end ? '–' + esc(l.end) : ''}${l.room ? ' · ' + esc(l.room) : ''}</div>
-        </div>`).join('')
+          ${study ? `<div class="t">Study: <b>${esc(study.text)}</b> — ${esc(study.why)}</div>` : ''}
+        </div>`; }).join('')
         : `<div class="empty">${hol ? esc(hol.label) + ' — no lessons today.' : 'Add your timetable once you get it on Monday.'}</div>`}
 
       <h2 style="margin-top:20px">Due soon</h2>
@@ -1096,8 +1099,10 @@ function renderTopicList() {
   if (fs && !openSubjects.size) openSubjects.add(fs);
   if (!openSubjects.size && order[0]) openSubjects.add(order[0].id);
 
+  const M = mastery();
   host.innerHTML = order.map((s) => {
     const ts = bySubject[s.id];
+    const lv = M.subjects[s.id];
     const finished = ts.filter((t) => t.finished).length;
     const started = ts.filter((t) => t.started && !t.finished).length;
     const open = openSubjects.has(s.id);
@@ -1110,7 +1115,12 @@ function renderTopicList() {
         <span class="dot" style="background:${colorOf(s.id)}"></span>
         <b>${esc(s.name)}</b>
         <span class="chip">${finished}/${ts.length} finished${started ? ` · ${started} in progress` : ''}</span>
+        ${lv?.score != null ? `<span class="chip" title="Your level: marks gained in marked work and tests, recent work counting most">level ${lv.score}%</span>` : ''}
       </summary>
+      ${lv?.weakest?.length || lv?.advice ? `<div class="hint" style="margin:8px 0 0">
+        ${lv.weakest.length ? `Weakest: <b>${lv.weakest.map((id) => esc(topicById(id)?.name || '')).join(', ')}</b>. ` : ''}
+        ${lv.strongest.length ? `Strongest: ${lv.strongest.map((id) => esc(topicById(id)?.name || '')).join(', ')}. ` : ''}
+        ${lv.advice ? esc(lv.advice) : ''}</div>` : ''}
       <div style="margin-top:10px">
         ${Object.entries(byUnit).map(([unit, us]) => `<div style="margin-bottom:16px">
           <div class="row" style="gap:8px;margin-bottom:7px">
@@ -1123,7 +1133,7 @@ function renderTopicList() {
                 <button class="tstat s${st}" data-cycle="${t.id}" title="Click to change: not started → started → finished">${
                   ['Not started', 'Started', 'Finished'][st]}</button>
                 <span style="${st ? '' : 'color:var(--text-muted)'}">${esc(t.name)}</span>
-                <span class="chip">Y${t.year}</span>
+                ${M.topics[t.id]?.evidence > 0 ? `<span class="chip" title="Your level in this topic, from marked work and tests">${M.topics[t.id].score}%</span>` : `<span class="chip">Y${t.year}</span>`}
               </div>`;
             }).join('')}
           </div>
@@ -1220,17 +1230,22 @@ views.track = () => {
 };
 
 views.homework = () => {
-  const open = S.homework.filter((h) => !h.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const open = S.homework.filter((h) => !h.done).sort((a, b) => taskScore(b) - taskScore(a) || (a.due || '9999').localeCompare(b.due || '9999'));
   const done = S.homework.filter((h) => h.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
   const today = todayISO();
+  const files = {};
+  for (const f of (S.attachments || [])) if (f.homeworkId) (files[f.homeworkId] ||= []).push(f);
   const row = (h) => {
     const d = h.due ? daysBetween(today, h.due) : null;
+    const att = files[h.id] || [];
     const cls = h.done ? '' : d === null ? '' : d < 0 ? 'overdue' : d <= 2 ? 'soon' : '';
     return `<tr>
       <td style="width:28px"><input type="checkbox" data-hw="${h.id}" ${h.done ? 'checked' : ''} style="width:auto"></td>
       <td class="${h.done ? 'done' : ''}">
         <span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(h.subjectId)}"></span>
-        <span>${esc(h.title)}</span></span>
+        <span>${esc(h.title)}</span>
+        ${h.priority === 'high' ? '<span class="pill" style="color:var(--critical)">High</span>' : h.priority === 'low' ? '<span class="pill">Low</span>' : ''}
+        ${att.map((f) => f.driveUrl ? `<a class="pill" href="${esc(f.driveUrl)}" target="_blank" rel="noopener" title="${esc(f.title)}">📎 Drive</a>` : '').join('')}</span>
         ${h.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-left:17px">${esc(h.notes)}</div>` : ''}
       </td>
       <td style="font-size:13px;white-space:nowrap" class="${cls}">
@@ -1241,7 +1256,7 @@ views.homework = () => {
   return `
   <div class="card" style="margin-bottom:16px">
     <h2>Open — ${open.length}</h2>
-    <div class="hint">Soonest first. Overdue in red, due within two days in orange.</div>
+    <div class="hint">Most pressing first: priority and due date together, as the companion app ranks them. Overdue in red, due within two days in orange.</div>
     ${open.length ? `<table><tbody>${open.map(row).join('')}</tbody></table>`
       : '<div class="empty">Nothing open.</div>'}
     <details class="adder" open>
@@ -1250,6 +1265,7 @@ views.homework = () => {
         <label class="f">Subject<select id="hwSubj">${S.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
         <label class="f">Task<input id="hwTitle" placeholder="Exercise 3B q1–12"></label>
         <label class="f">Due<input type="date" id="hwDue" value="${today}"></label>
+        <label class="f">Priority<select id="hwPrio"><option value="high">High</option><option value="normal" selected>Normal</option><option value="low">Low</option></select></label>
         <label class="f">Note<input id="hwNote" placeholder="optional"></label>
         <button class="btn primary" id="hwAdd">Add</button>
       </div>
@@ -1499,6 +1515,10 @@ function eventsOn(iso) {
   for (const p of S.papers) {
     if (p.date === iso) out.push({ kind: 'paper', subjectId: p.subjectId,
       label: `${p.name} — ${Math.round(p.mark / p.total * 100)}%` });
+  }
+  // tests added in the companion app; once a result is logged they are papers
+  for (const t of (S.tests || [])) {
+    if (t.date === iso && t.result == null) out.push({ kind: 'milestone', subjectId: t.subjectId, label: t.title, note: 'test' });
   }
   return out;
 }
@@ -1759,6 +1779,8 @@ views.analysis = () => {
         Add a few questions from your last paper below — five minutes of logging turns a percentage into a plan.</div>`}
   </div>
 
+  ${markedWorkCard()}
+
   <div class="card">
     <h2>Log a question you dropped marks on</h2>
     <div class="hint">One row per question. You don't need every question — just the ones that cost you.</div>
@@ -1787,6 +1809,29 @@ views.analysis = () => {
       : '<div class="empty">Log a past paper on the <b>Papers</b> tab first, then you can break it down here.</div>'}
   </div>`;
 };
+
+// Work marked by Claude in the companion app. Its lost marks already count in
+// the two panels above; this lists the pieces themselves.
+function markedWorkCard() {
+  const list = (S.attempts || []).slice().sort((a, b) => (b.created || b.date).localeCompare(a.created || a.date));
+  if (!list.length) return '';
+  const open = openMistakes().length;
+  return `<div class="card" style="margin-bottom:16px">
+    <h2>Marked work — ${list.length}</h2>
+    <div class="hint">Uploaded and marked in the companion app. ${open ? `<b>${open}</b> mistake${open === 1 ? '' : 's'} still to fix — open History in the app.` : 'Every mistake is fixed.'}</div>
+    <table><tbody>${list.slice(0, 15).map((a) => {
+      const lost = a.questions.filter((q) => q.marksLost > 0);
+      const topics = [...new Set(lost.map((q) => q.topicId).filter(Boolean))].map((id) => topicById(id)?.name).filter(Boolean);
+      return `<tr>
+        <td style="white-space:nowrap">${esc(fmtDay(a.date))}</td>
+        <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(a.subjectId)}"></span>${esc(a.title)}</span>
+          ${topics.length ? `<div style="font-size:12px;color:var(--text-muted);margin-left:17px">lost marks in ${esc(topics.join(', '))}</div>` : ''}</td>
+        <td class="num">${a.score}/${a.max}</td>
+        <td>${a.driveUrl ? `<a href="${esc(a.driveUrl)}" target="_blank" rel="noopener">Drive</a>` : ''}</td>
+      </tr>`;
+    }).join('')}</tbody></table>
+  </div>`;
+}
 
 views.uni = () => {
   const rows = S.subjects.map((s) => {
@@ -2414,6 +2459,7 @@ document.addEventListener('click', (e) => {
     return mutate(() => S.homework.push({
       id: uid(), subjectId: $('#hwSubj').value, title,
       due: $('#hwDue').value || null, notes: $('#hwNote').value.trim(), done: false, doneAt: null,
+      priority: $('#hwPrio').value || 'normal',
     }));
   }
   if (t.dataset.hwdel) return mutate(() => { S.homework = S.homework.filter((h) => h.id !== t.dataset.hwdel); });

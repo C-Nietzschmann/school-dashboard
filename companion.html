@@ -1,0 +1,1895 @@
+<title>A Level Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Kalam:wght@700&display=swap">
+<style>
+/* The companion to the A Level dashboard: the same tokens, the same subject
+   colours, so the two read as one product. The red pen is the one addition —
+   it is how marked work has always looked. */
+:root{
+  --bg:#f7f7f5; --surface:#fcfcfb; --surface-2:#f0efec; --line:#e2e1dc; --line-strong:#cfcec8;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#84837c;
+  --accent:#2a78d6; --accent-ink:#ffffff; --accent-soft:#e3eefb;
+  --pen:#c8322f; --pen-soft:#fbe7e5; --tick:#1a8a3a; --tick-soft:#e2f3e6; --warn:#a86f00; --warn-soft:#fbf0d9;
+  --violet:#7a4fc2; --violet-soft:#efe8fa;
+  --rule:#e8eef6;
+  --radius:12px;
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --hand:'Kalam','Bradley Hand','Segoe Print','Comic Sans MS',cursive;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#141413; --surface:#1a1a19; --surface-2:#242422; --line:#302f2c; --line-strong:#43423e;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8e8d84;
+    --accent:#3987e5; --accent-soft:#1c2a3b;
+    --pen:#ef6a5f; --pen-soft:#3a1f1c; --tick:#4cc574; --tick-soft:#18301f; --warn:#e0a53a; --warn-soft:#352a15;
+    --violet:#a988e8; --violet-soft:#2a2238; --rule:#23262b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#141413; --surface:#1a1a19; --surface-2:#242422; --line:#302f2c; --line-strong:#43423e;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8e8d84;
+  --accent:#3987e5; --accent-soft:#1c2a3b;
+  --pen:#ef6a5f; --pen-soft:#3a1f1c; --tick:#4cc574; --tick-soft:#18301f; --warn:#e0a53a; --warn-soft:#352a15;
+  --violet:#a988e8; --violet-soft:#2a2238; --rule:#23262b;
+}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--text);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  padding-inline:16px;padding-block:0 calc(84px + env(safe-area-inset-bottom, 0px))}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.015em;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+input,select,textarea{background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:9px 11px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:70px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- header + tabs ---------- */
+header.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:20;background:var(--bg);
+  margin-inline:-16px;padding:12px 16px 10px;border-bottom:1px solid var(--line)}
+.top-in{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.today-line{flex:1;min-width:0}
+.today-line h1{font-size:19px}
+.today-line .sub{font-family:var(--mono);font-size:12px;color:var(--text-2);display:flex;gap:8px;flex-wrap:wrap;margin-top:1px}
+.status{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:5px 11px;
+  font-size:12.5px;display:inline-flex;align-items:center;gap:7px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.status[data-kind="ok"] i{background:var(--tick)}
+.status[data-kind="busy"] i{background:var(--accent);animation:pulse 1.2s infinite}
+.status[data-kind="waiting"] i{background:var(--warn)}
+.status[data-kind="error"] i,.status[data-kind="setup"] i{background:var(--pen)}
+@keyframes pulse{50%{opacity:.35}}
+
+nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px))}
+nav.tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:5px 0;border-radius:10px;color:var(--muted);font-size:11.5px;font-weight:500}
+nav.tabbar button svg{width:22px;height:22px}
+nav.tabbar button[aria-selected="true"]{color:var(--accent)}
+nav.tabbar .badge{font-family:var(--mono);font-size:10px;background:var(--pen);color:#fff;border-radius:999px;padding:0 5px;margin-left:3px}
+@media (min-width:820px){
+  body{padding-bottom:40px}
+  nav.tabbar{position:static;display:flex;gap:4px;background:none;border:0;padding:0;order:3;width:100%}
+  nav.tabbar button{flex-direction:row;gap:7px;padding:7px 14px;font-size:14px;border-radius:999px}
+  nav.tabbar button svg{width:18px;height:18px}
+  nav.tabbar button[aria-selected="true"]{background:var(--accent-soft)}
+}
+
+main{padding-top:16px}
+section.tab{display:none}
+section.tab.on{display:block}
+.grid2{display:grid;gap:16px}
+@media (min-width:820px){.grid2{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}}
+.stack{display:grid;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.card-h h2{font-size:16px}
+.count{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400}
+.empty{color:var(--muted);font-size:14px;padding:10px 0}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:500;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--pen);border-color:color-mix(in srgb,var(--pen) 45%,var(--line-strong))}
+.btn.ghost{border-color:transparent;background:none;color:var(--text-2)}
+.btn.sm{padding:6px 10px;font-size:13.5px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spacer{flex:1}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block;background:var(--c, var(--muted))}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:999px;padding:2px 9px;white-space:nowrap}
+.chip button{border:0;background:none;padding:0 0 0 2px;color:var(--muted);font-size:14px;line-height:1}
+.kind{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:5px;padding:1px 6px;
+  background:var(--surface-2);color:var(--text-2);white-space:nowrap}
+.kind.k-test{background:var(--pen-soft);color:var(--pen)}
+.kind.k-task{background:var(--accent-soft);color:var(--accent)}
+.kind.k-mistakes{background:var(--warn-soft);color:var(--warn)}
+.kind.k-current{background:var(--tick-soft);color:var(--tick)}
+.kind.k-review{background:var(--violet-soft);color:var(--violet)}
+.notice{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:14px}
+.notice.bad{border-color:color-mix(in srgb,var(--pen) 40%,var(--line));background:var(--pen-soft)}
+.field{display:grid;gap:5px;font-size:13px;color:var(--text-2)}
+.field > span{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.fields{display:grid;gap:12px}
+@media (min-width:560px){.fields.two{grid-template-columns:1fr 1fr}}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-size:13.5px}
+.seg button + button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:500}
+
+/* ---------- today: the day as a timeline ---------- */
+.day{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.slot{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start}
+.slot-time{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;padding-top:9px;text-align:right}
+.slot-time span{display:block;color:var(--muted);font-size:11.5px}
+.slot-body{border-left:3px solid var(--c, var(--line-strong));background:var(--surface);border-radius:0 10px 10px 0;
+  padding:8px 12px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.slot.past .slot-body{opacity:.55}
+.slot.now .slot-body{box-shadow:0 0 0 2px color-mix(in srgb,var(--c, var(--accent)) 35%,transparent)}
+.slot-name{font-weight:600}
+.slot-meta{font-size:13px;color:var(--text-2)}
+.progress{height:4px;background:var(--surface-2);border-radius:3px;margin-top:7px;overflow:hidden}
+.progress span{display:block;height:100%;background:var(--c, var(--accent))}
+.slot.free .slot-body{border-left-style:dashed;border-left-color:var(--line-strong);background:var(--bg)}
+.opts{display:grid;gap:7px;margin-top:9px}
+.opt{text-align:left;border:1px solid var(--line-strong);background:var(--surface);border-radius:10px;padding:9px 11px;
+  display:grid;gap:3px}
+.opt:hover{border-color:var(--accent)}
+.opt-title{font-weight:500;line-height:1.35}
+.opt-why{font-size:12.5px;color:var(--text-2)}
+.opt.chosen{border:2px solid var(--accent);padding:8px 10px;cursor:default}
+.opt.done{border-color:var(--tick)}
+.opt-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.holiday{font-size:15px;padding:18px 4px;color:var(--text-2)}
+
+/* ---------- to-dos ---------- */
+.quickadd{display:flex;gap:8px}
+.qa-preview{display:flex;gap:6px;flex-wrap:wrap;min-height:26px;margin:8px 0 4px}
+.tasks{list-style:none;margin:0;padding:0}
+.task{display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.task:first-child{border-top:0}
+.check{width:24px;height:24px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);padding:0;margin-top:1px;
+  display:grid;place-items:center;color:transparent;font-size:13px}
+.task.p-high .check{border-color:var(--pen)}
+.task.is-done .check{background:var(--tick);border-color:var(--tick);color:#fff}
+.task.is-done .task-title{text-decoration:line-through;color:var(--muted)}
+.task-main{border:0;background:none;padding:0;text-align:left;display:grid;gap:1px;min-width:0}
+.task-title{overflow-wrap:anywhere}
+.task-meta{font-size:12.5px;color:var(--text-2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.late{color:var(--pen);font-weight:500}
+.prio-high{color:var(--pen);font-weight:600}
+.prio-low{color:var(--muted)}
+.tests-strip{display:grid;gap:8px}
+.test-row{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:var(--surface)}
+.days-left{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.days-left.close{color:var(--pen);font-weight:500}
+
+/* ---------- work: upload, read, review ---------- */
+.pickers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.picker{border:1px dashed var(--line-strong);background:var(--surface);border-radius:12px;padding:16px 8px;display:grid;justify-items:center;gap:6px;
+  font-weight:500;font-size:14px;text-align:center}
+.picker svg{width:26px;height:26px;color:var(--accent)}
+.picker small{font-weight:400;color:var(--muted);font-size:12px}
+.thumbs{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.thumb{position:relative;flex:none;width:92px}
+.thumb img,.thumb .pdf{width:92px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.thumb button{position:absolute;top:-7px;right:-7px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);padding:0;font-size:14px;line-height:1}
+.thumb figcaption{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.reading{display:grid;justify-items:center;gap:10px;padding:26px 10px;text-align:center}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--pen);animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spinner,.status[data-kind="busy"] i{animation:none}}
+
+/* The teacher's mark: the score in red pen, ringed. */
+.stamp{font-family:var(--hand);color:var(--pen);font-size:40px;line-height:1;display:inline-grid;place-items:center;
+  padding:10px 18px 6px;border:2.5px solid var(--pen);border-radius:52% 48% 50% 46% / 55% 45% 52% 48%;transform:rotate(-5deg);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.stamp small{font-size:.5em}
+.stamp.sm{font-size:24px;padding:5px 10px 2px;border-width:2px}
+
+/* Marked questions sit on an exercise-book page: a red margin line, faint rules. */
+.page{border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  background-image:linear-gradient(to right, transparent 46px, color-mix(in srgb,var(--pen) 45%,transparent) 46px, color-mix(in srgb,var(--pen) 45%,transparent) 47px, transparent 47px);
+  overflow:hidden}
+.q{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;padding:11px 12px 11px 6px;border-top:1px solid var(--rule)}
+.q:first-child{border-top:0}
+.q-label{font-family:var(--mono);font-weight:500;text-align:right;padding-top:2px}
+.q-mark{font-family:var(--hand);font-size:22px;line-height:1}
+.q-mark.ok{color:var(--tick)}
+.q-mark.no{color:var(--pen)}
+.q-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.q-edit{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.q-edit input{width:58px;padding:5px 7px;text-align:center}
+.q-edit select{width:auto;padding:5px 7px;font-size:13px}
+.q-text{font-size:14px;color:var(--text-2);margin-top:5px}
+.q-text b{color:var(--text);font-weight:600}
+.working{font-family:var(--mono);font-size:13px;white-space:pre-wrap;background:var(--surface-2);border-radius:8px;padding:8px 10px;margin-top:6px;overflow-x:auto}
+.resolved{color:var(--tick);font-size:13px;font-weight:500}
+.toggle{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:4px 9px;font-size:13px}
+.toggle.ok{color:var(--tick);border-color:var(--tick)}
+.toggle.no{color:var(--pen);border-color:var(--pen)}
+.folder{font-family:var(--mono);font-size:12.5px;color:var(--text-2);overflow-wrap:anywhere}
+.suggest{border:1px solid var(--line);border-radius:10px;margin-top:6px;max-height:220px;overflow:auto;background:var(--surface)}
+.suggest button{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:8px 10px;font-size:14px}
+.suggest button:first-child{border-top:0}
+.suggest small{color:var(--muted);font-family:var(--mono);font-size:11px}
+
+/* ---------- history ---------- */
+.mistake-group h3{font-size:14px;display:flex;align-items:center;gap:8px;margin:4px 0 6px}
+.mistake{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;
+  border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;margin-bottom:7px}
+.attempt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;
+  border:0;border-top:1px solid var(--line);background:none;padding:11px 0}
+.attempt:first-child{border-top:0}
+.attempt .t{font-weight:500}
+.score{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px}
+.open-n{font-family:var(--mono);font-size:11.5px;color:var(--pen)}
+
+/* ---------- skills ---------- */
+.subj-level{display:grid;gap:8px}
+.level-num{font-family:var(--mono);font-size:30px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.bar{height:8px;background:var(--surface-2);border-radius:5px;overflow:hidden;position:relative}
+.bar span{position:absolute;inset:0 auto 0 0;border-radius:5px}
+.lv-low{background:var(--pen)} .lv-mid{background:var(--warn)} .lv-high{background:var(--tick)}
+.topic-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 40px;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.topic-row .mono{text-align:right;font-size:13px}
+.ev{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.advice{font-size:13.5px;color:var(--text-2);border-left:3px solid var(--warn);padding-left:10px}
+.skills-grid{display:grid;gap:16px}
+@media (min-width:820px){.skills-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---------- sheet (bottom on phones, centred on iPad) ---------- */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:40}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--bg);border-radius:16px 16px 0 0;
+  max-height:88vh;overflow:auto;padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--line)}
+@media (min-width:820px){.sheet{left:50%;right:auto;bottom:auto;top:8vh;transform:translateX(-50%);width:min(640px,92vw);border-radius:16px;max-height:84vh;border:1px solid var(--line)}}
+.sheet-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sheet-h h2{font-size:17px;flex:1}
+.rate{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.rate button{border:1px solid var(--line-strong);background:var(--surface);border-radius:9px;padding:9px 0;font-family:var(--mono)}
+.rate button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom, 0px));z-index:60;
+  background:var(--text);color:var(--bg);border-radius:10px;padding:9px 14px;font-size:14px;max-width:min(92vw,520px)}
+@media (min-width:820px){.toast{bottom:24px}}
+.setup ol{padding-left:20px;margin:8px 0}
+.setup li{margin-bottom:6px}
+.setup code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="today-line">
+      <h1 id="dayTitle">A Level Companion</h1>
+      <div class="sub" id="daySub"></div>
+    </div>
+    <button class="status" id="statusBtn" data-kind="busy" data-act="status"><i></i><span id="statusText">Connecting…</span></button>
+    <nav class="tabbar" role="tablist" aria-label="Sections">
+      <button role="tab" data-tab="today" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Today</button>
+      <button role="tab" data-tab="work" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg>Work</button>
+      <button role="tab" data-tab="history" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5M12 8v4.5l3 2"/></svg><span>History<span class="badge" id="mistakeBadge" hidden></span></span></button>
+      <button role="tab" data-tab="skills" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V13M12 20V8M19 20V4"/></svg>Skills</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="tab on" id="tab-today" role="tabpanel"></section>
+  <section class="tab" id="tab-work" role="tabpanel"></section>
+  <section class="tab" id="tab-history" role="tabpanel"></section>
+  <section class="tab" id="tab-skills" role="tabpanel"></section>
+</main>
+
+<input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="filePhotos" accept="image/*" multiple hidden>
+<input type="file" id="fileAny" accept="application/pdf,image/*" multiple hidden>
+<input type="file" id="fileRedo" accept="image/*" hidden>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ======================================================================
+   A Level Companion
+
+   Your phone's side of the A Level dashboard. It keeps nothing of its own:
+   the dashboard holds the data, and this page reads a daily projection of it
+   and sends back small named changes.
+
+   Two ways to reach the dashboard, chosen at load:
+     - inside Claude, through the "A Level Dashboard" connector (the page has
+       no network of its own there, but it can call your connectors)
+     - opened from the dashboard's own server at /companion, over plain fetch
+
+   Inside Claude it can also use your Google Drive connector (to file your
+   work in folders) and Claude itself (to read and mark it), billed to your
+   Claude plan rather than an API key.
+   ====================================================================== */
+const DASH = 'A Level Dashboard';
+const DRIVE = 'Google Drive';
+const DRIVE_ROOT = 'A Level Dashboard';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('alc:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('alc:' + k, JSON.stringify(v)); } catch { /* storage full or blocked */ } },
+};
+const pad = (n) => String(n).padStart(2, '0');
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const nowISO = () => isoOf(new Date());
+const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const parseD = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
+const daysBetween = (a, b) => Math.round((parseD(b) - parseD(a)) / 864e5);
+const addDays = (iso, n) => { const d = parseD(iso); d.setDate(d.getDate() + n); return isoOf(d); };
+const toMins = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + m; };
+const newId = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmtDay = (iso) => parseD(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+function relDay(iso) {
+  const d = daysBetween(nowISO(), iso);
+  if (d === 0) return 'today';
+  if (d === 1) return 'tomorrow';
+  if (d === -1) return 'yesterday';
+  if (d < 0) return `${-d} days late`;
+  if (d < 7) return parseD(iso).toLocaleDateString('en-GB', { weekday: 'long' });
+  return fmtDay(iso);
+}
+
+const APP = {
+  data: LS.get('data', null),
+  syncedAt: LS.get('syncedAt', null),
+  outbox: LS.get('outbox', []),
+  tab: LS.get('tab', 'today'),
+  transport: null, mode: 'connecting', status: { kind: 'busy', text: 'Connecting…' },
+  mcp: null, sample: null, limits: null, fileArgs: false,
+  work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick') },
+  history: { view: 'mistakes', subject: '' },
+  details: {},            // attempt id -> full marking, fetched on demand
+  skillsOpen: null,
+};
+
+/* ================================================================ lookups */
+const subjects = () => APP.data?.subjects || [];
+const subjectOf = (id) => subjects().find((s) => s.id === id);
+const subjectName = (id) => subjectOf(id)?.name || 'General';
+const colourOf = (id) => subjectOf(id)?.colour || 'var(--muted)';
+const topicOf = (id) => (APP.data?.topics || []).find((t) => t.id === id);
+const unitShort = (unit) => {
+  let u = String(unit || '').replace(/\s*\(.*\)\s*$/, '');
+  if (u.includes(' — ')) u = u.split(' — ')[0];
+  if (/^\d+\s/.test(u)) u = u.split(' ')[0];
+  return u;
+};
+const levelOf = (tid) => APP.data?.mastery?.topics?.[tid] || null;
+const lvClass = (s) => (s == null ? '' : s < 40 ? 'lv-low' : s < 65 ? 'lv-mid' : 'lv-high');
+
+/* ============================================================== transport */
+async function rest(path, init = {}) {
+  const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...init });
+  if (r.status === 401) throw { code: 'signin', message: 'Sign in to the dashboard, then come back.' };
+  if (!r.ok) throw { code: 'http', message: `The dashboard answered ${r.status}.` };
+  return r.json();
+}
+async function dash(tool, input) {
+  const r = await APP.mcp.callTool(DASH, tool, input, { cache: false });
+  const p = r?.payload;
+  return p && typeof p === 'object' ? p : r?.structuredContent;
+}
+const TRANSPORT = {
+  rest: {
+    today: () => rest(`/api/app/today?date=${nowISO()}&time=${nowHM()}`),
+    apply: (ops) => rest('/api/app/ops', { method: 'POST', body: JSON.stringify({ ops, date: nowISO(), time: nowHM() }) }),
+    attempt: (id) => rest('/api/app/attempt?id=' + encodeURIComponent(id)),
+  },
+  mcp: {
+    today: () => dash('get_today', { date: nowISO(), time: nowHM(), detail: 'full' }),
+    apply: (ops) => dash('apply_changes', { ops, date: nowISO(), time: nowHM() }),
+    attempt: (id) => dash('get_attempt', { id }),
+  },
+};
+
+/* Connector failures each have their own fix, so each gets its own words. */
+function connError(e, server = DASH) {
+  const s = server === DASH ? 'the A Level Dashboard connector' : 'your Google Drive connector';
+  switch (e?.code) {
+    case 'signin': return e.message;
+    case 'needs_reauth': return `Reconnect ${s} in claude.ai → Settings → Connectors.`;
+    case 'server_not_connected': case 'server_not_found':
+      return server === DASH ? 'Add the dashboard as a connector first — tap here for how.' : 'Add Google Drive in claude.ai → Settings → Connectors.';
+    case 'selection_required': return `You have two connectors called “${server}”. Pick one when Claude asks.`;
+    case 'not_in_manifest': return `${server} is switched off for this page. Allow it in the page's connector settings.`;
+    case 'blocked_by_policy': case 'approval_required': return `Your organisation blocks ${server} here.`;
+    case 'server_unavailable': case 'upstream_error': case 'rate_limited':
+      return server === DASH ? 'The dashboard did not answer — it may be waking up. Try again in a minute.' : 'Google Drive did not answer. Try again in a minute.';
+    case 'not_granted': case 'capability_disabled': case 'capability_removed':
+      return 'Connectors are not available in this view. Open the page in the Claude app or claude.ai.';
+    case 'tool_error': return (e.message || 'The tool reported an error.').replace(/^Error:\s*/, '');
+    default: return e?.message || 'Could not reach the dashboard.';
+  }
+}
+function sampleError(e) {
+  return ({
+    not_granted: 'You declined Claude for this page. Reload to be asked again.',
+    sampling_disabled: 'Claude is not available on this account.',
+    rate_limited: 'Claude is busy or you have hit your usage limit. Try again later.',
+    images_unavailable: 'This Claude view cannot send photos. Open the page on claude.ai in a browser.',
+    image_rejected: 'That file could not be read as a photo. Try another one.',
+    refused: 'Claude would not mark that. Try a clearer photo.',
+    invalid_json: 'Claude\'s answer came back garbled. Try again — Careful mode helps.',
+    empty_completion: 'Claude returned nothing. Try again with fewer pages.',
+    session_expired: 'Sign in to Claude again, then retry.',
+    prompt_too_large: 'Too much at once. Try fewer pages.',
+    cancelled: 'Stopped.',
+  })[e?.code] || 'Claude did not finish. Try again.';
+}
+
+function setStatus(kind, text) {
+  APP.status = { kind, text };
+  const b = $('#statusBtn');
+  if (!b) return;
+  if (kind === 'ok' && APP.outbox.length) { kind = 'waiting'; text = `${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting`; }
+  if (kind === 'ok') text = 'Synced ' + (APP.syncedAt ? new Date(APP.syncedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
+  b.dataset.kind = kind;
+  $('#statusText').textContent = text;
+}
+
+let refreshing = null;
+function refresh() {
+  if (!APP.transport) return Promise.resolve();
+  if (refreshing) return refreshing;
+  setStatus('busy', APP.data ? 'Updating…' : 'Connecting to your dashboard…');
+  const slow = setTimeout(() => setStatus('busy', 'Waking the dashboard — up to a minute'), 6000);
+  refreshing = (async () => {
+    try {
+      const d = await APP.transport.today();
+      if (!d || !Array.isArray(d.lessons)) throw { code: 'bad', message: 'The dashboard sent something unexpected. Is it up to date?' };
+      APP.data = d;
+      APP.syncedAt = new Date().toISOString();
+      LS.set('data', d); LS.set('syncedAt', APP.syncedAt);
+      for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
+      setStatus('ok');
+    } catch (e) {
+      setStatus(e?.code === 'server_not_connected' ? 'setup' : 'error', connError(e));
+    } finally {
+      clearTimeout(slow);
+      refreshing = null;
+      render();
+    }
+  })();
+  return refreshing;
+}
+
+/* ================================================================ changes
+   Every change is an op with its own id. It is shown at once, queued here
+   (and in storage, so closing the app loses nothing), and sent when the
+   dashboard is reachable. Sending the same op twice is harmless: the
+   dashboard applies each id once. */
+function send(op) {
+  op.id ||= newId('op');
+  APP.outbox.push(op);
+  LS.set('outbox', APP.outbox);
+  applyLocal(op);
+  render();
+  scheduleFlush();
+}
+let flushTimer = null, flushing = false;
+function scheduleFlush(ms = 400) { clearTimeout(flushTimer); flushTimer = setTimeout(flush, ms); }
+async function flush() {
+  if (flushing || !APP.outbox.length || !APP.transport) return;
+  flushing = true;
+  let ok = false;
+  try {
+    const batch = APP.outbox.slice(0, 20);
+    setStatus('busy', 'Saving…');
+    const res = await APP.transport.apply(batch);
+    const seen = new Set((res?.results || []).map((r) => r.id));
+    APP.outbox = APP.outbox.filter((o) => !seen.has(o.id));
+    LS.set('outbox', APP.outbox);
+    const bad = (res?.results || []).filter((r) => !r.ok);
+    if (bad.length) toast('Not saved: ' + bad[0].error);
+    ok = true;
+  } catch (e) {
+    setStatus('error', connError(e));
+  } finally {
+    flushing = false;
+  }
+  if (!ok) return;
+  if (APP.outbox.length) return flush();
+  await refresh();
+}
+
+// The same change, applied to the copy on screen until the dashboard confirms it.
+const LOCAL = {
+  'task.add': (d, op) => { if (!d.tasks.some((t) => t.id === op.task.id)) d.tasks.unshift({ priority: 'normal', ...op.task, done: false }); },
+  'task.update': (d, op) => { const t = [...d.tasks, ...d.done].find((x) => x.id === op.taskId); if (t) Object.assign(t, op.patch); },
+  'task.done': (d, op) => {
+    const from = op.done === false ? d.done : d.tasks, to = op.done === false ? d.tasks : d.done;
+    const i = from.findIndex((x) => x.id === op.taskId);
+    if (i >= 0) { const [t] = from.splice(i, 1); t.done = op.done !== false; to.unshift(t); }
+  },
+  'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
+  'study.choose': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) { s.chosen = op.option; s.done = false; } },
+  'study.done': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) s.done = true; },
+  'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
+  'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
+  'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
+  'test.result': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) t.result = Math.round(op.mark / op.total * 100); },
+  'mistake.resolve': (d, op) => {
+    d.mistakes = d.mistakes.filter((m) => !(m.attemptId === op.attemptId && String(m.q) === String(op.q)));
+    const q = d.attempts.find((x) => x.id === op.attemptId)?.questions.find((x) => String(x.q) === String(op.q));
+    if (q) q.resolved = op.how;
+  },
+};
+function applyLocal(op) { try { if (APP.data) LOCAL[op.type]?.(APP.data, op); } catch { /* the refresh will correct it */ } }
+
+/* ================================================================= render */
+// Replacing a section can blur a focused field, whose change handler renders
+// again mid-replace; that nested render waits and runs once this one is done.
+let rendering = false, renderAgain = false;
+function render() {
+  if (rendering) { renderAgain = true; return; }
+  rendering = true;
+  try { renderNow(); } finally { rendering = false; }
+  if (renderAgain) { renderAgain = false; render(); }
+}
+function renderNow() {
+  // keep what you are typing: remember focus and values of marked inputs
+  const active = document.activeElement?.id;
+  const keep = {};
+  document.querySelectorAll('[data-keep]').forEach((el) => { keep[el.id] = [el.value, el.selectionStart]; });
+
+  renderHeader();
+  document.querySelectorAll('nav.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === APP.tab)));
+  document.querySelectorAll('section.tab').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + APP.tab));
+  const host = $('#tab-' + APP.tab);
+  host.innerHTML = ({ today: viewToday, work: viewWork, history: viewHistory, skills: viewSkills })[APP.tab]();
+
+  for (const [id, [v, pos]] of Object.entries(keep)) {
+    const el = document.getElementById(id);
+    if (el && el.value !== v) el.value = v;
+    if (el && id === active) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* not a text field */ } }
+  }
+  if (APP.tab === 'today') updateQuickPreview();
+  const n = APP.data?.mistakes?.length || 0;
+  const badge = $('#mistakeBadge');
+  badge.hidden = !n; badge.textContent = n;
+}
+
+function renderHeader() {
+  const d = APP.data;
+  const today = nowISO();
+  $('#dayTitle').textContent = parseD(today).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const bits = [];
+  if (d) {
+    if (d.holiday) bits.push(esc(d.holiday));
+    else {
+      bits.push('Week ' + esc(d.week));
+      if (d.term) bits.push(esc(d.term.name) + ' · wk ' + d.term.week);
+    }
+    if (d.date !== today) bits.push('<span class="late">showing ' + esc(fmtDay(d.date)) + '</span>');
+  }
+  $('#daySub').innerHTML = bits.map((b) => `<span>${b}</span>`).join('');
+  setStatus(APP.status.kind, APP.status.text);
+}
+
+function noData() {
+  const s = APP.status;
+  return `<div class="card"><div class="empty">${s.kind === 'busy' ? 'Loading your day…' : esc(s.text)}</div>
+    ${APP.mode === 'claude' ? '<button class="btn sm" data-act="status">How to connect</button>' : ''}</div>`;
+}
+
+/* ================================================================== today */
+const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards' };
+function optTitle(o) {
+  // "Test prep: Quadratics" -> the chip already says "Test prep"
+  return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes):\s*/, '');
+}
+
+function viewToday() {
+  const d = APP.data;
+  if (!d) return noData();
+  return `<div class="grid2">
+    <div class="stack">${dayCard(d)}</div>
+    <div class="stack">${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+  </div>`;
+}
+
+function dayCard(d) {
+  if (d.holiday) return `<div class="card"><div class="holiday">${esc(d.holiday)} — no lessons today.</div></div>`;
+  if (!d.lessons.length) return `<div class="card"><div class="holiday">No lessons today.</div></div>`;
+  const now = toMins(nowHM());
+  const rows = d.lessons.map((l) => {
+    const state = d.date !== nowISO() ? l.state : now >= toMins(l.end) ? 'past' : now >= toMins(l.start) ? 'now' : 'later';
+    const pct = state === 'now' ? Math.round((now - toMins(l.start)) / Math.max(1, toMins(l.end) - toMins(l.start)) * 100) : 0;
+    const sp = l.free ? d.studyPeriods.find((s) => s.key === l.key) : null;
+    return `<li class="slot ${state}${l.free ? ' free' : ''}" style="--c:${l.colour || 'var(--line-strong)'}">
+      <div class="slot-time">${esc(l.start)}<span>${esc(l.end)}</span></div>
+      <div class="slot-body">
+        <div class="row"><span class="slot-name">${esc(l.name)}</span>
+          <span class="slot-meta">${[l.room, l.double ? 'double' : '', state === 'now' ? 'now' : ''].filter(Boolean).map(esc).join(' · ')}</span></div>
+        ${state === 'now' ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ''}
+        ${sp ? studyBlock(sp, state) : ''}
+      </div>
+    </li>`;
+  }).join('');
+  return `<div class="card"><div class="card-h"><h2>Timetable</h2><span class="count">week ${esc(d.week)}</span></div>
+    <ol class="day">${rows}</ol></div>`;
+}
+
+function studyBlock(sp, state) {
+  if (sp.chosen) {
+    const o = sp.chosen;
+    return `<div class="opts"><div class="opt chosen${sp.done ? ' done' : ''}">
+        <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
+          ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
+        <div class="opt-title">${esc(optTitle(o))}</div>
+        ${sp.done ? '<div class="resolved">Done — logged in your study time</div>' : `<div class="opt-why">${esc(o.why)}</div>`}
+      </div></div>
+      ${sp.done ? '' : `<div class="opt-actions">
+        <button class="btn primary sm" data-act="study-done" data-key="${esc(sp.key)}">Done</button>
+        <button class="btn ghost sm" data-act="study-change" data-key="${esc(sp.key)}">Change</button></div>`}`;
+  }
+  if (!sp.options.length) return '<div class="opt-why" style="margin-top:6px">Nothing to suggest yet — mark topics as started on the dashboard.</div>';
+  return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'You could have done:' : 'Pick one for this period:'}</div>
+    <div class="opts">${sp.options.map((o, i) => `
+      <button class="opt" data-act="choose" data-key="${esc(sp.key)}" data-i="${i}">
+        <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
+          ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
+        <div class="opt-title">${esc(optTitle(o))}</div>
+        <div class="opt-why">${esc(o.why)}</div>
+      </button>`).join('')}</div>`;
+}
+
+function taskRow(t) {
+  const d = t.due ? daysBetween(nowISO(), t.due) : null;
+  const due = t.due ? `<span class="${!t.done && d < 0 ? 'late' : ''}">${d < 0 && !t.done ? relDay(t.due) : 'due ' + relDay(t.due)}</span>` : '';
+  const prio = t.priority === 'high' ? '<span class="prio-high">High</span>' : t.priority === 'low' ? '<span class="prio-low">Low</span>' : '';
+  return `<li class="task p-${esc(t.priority || 'normal')}${t.done ? ' is-done' : ''}">
+    <button class="check" data-act="task-done" data-id="${esc(t.id)}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}">✓</button>
+    <button class="task-main" data-act="task-edit" data-id="${esc(t.id)}">
+      <span class="task-title">${esc(t.title)}</span>
+      <span class="task-meta">${t.subjectId ? `<span class="dot" style="--c:${colourOf(t.subjectId)}"></span>${esc(subjectName(t.subjectId))}` : 'General'}
+        ${due ? '· ' + due : ''} ${prio ? '· ' + prio : ''} ${t.attachments ? `· 📎 ${t.attachments}` : ''}</span>
+    </button>
+  </li>`;
+}
+
+function todoCard(d) {
+  return `<div class="card">
+    <div class="card-h"><h2>To do <span class="count">${d.tasks.length}</span></h2></div>
+    <form class="quickadd" id="qaForm" autocomplete="off">
+      <input id="qaText" data-keep placeholder="phys worksheet 3 fri high" aria-label="Add a to-do" enterkeyhint="done">
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <div class="qa-preview" id="qaPreview"></div>
+    ${d.tasks.length ? `<ul class="tasks">${d.tasks.map(taskRow).join('')}</ul>` : '<div class="empty">Nothing to do. Add something above.</div>'}
+    ${d.done.length ? `<details style="margin-top:8px"><summary class="muted" style="font-size:13.5px">Done recently</summary>
+      <ul class="tasks">${d.done.map(taskRow).join('')}</ul></details>` : ''}
+  </div>`;
+}
+
+function testsCard(d) {
+  const up = d.tests.filter((t) => t.result == null && t.date >= nowISO());
+  if (!up.length) return '';
+  return `<div class="card"><div class="card-h"><h2>Coming up</h2><button class="btn ghost sm" data-act="tab" data-tab="skills">All tests</button></div>
+    <div class="tests-strip">${up.slice(0, 4).map((t) => {
+      const n = daysBetween(nowISO(), t.date);
+      return `<div class="test-row"><div><div style="font-weight:500">${esc(t.title)}</div>
+        <div class="task-meta"><span class="dot" style="--c:${colourOf(t.subjectId)}"></span>${esc(subjectName(t.subjectId))} · ${esc(fmtDay(t.date))}
+        ${t.topicIds?.length ? `· ${t.topicIds.length} topic${t.topicIds.length === 1 ? '' : 's'}` : ''}</div></div>
+        <span class="days-left${n <= 3 ? ' close' : ''}">${n === 0 ? 'today' : n === 1 ? '1 day' : n + ' days'}</span></div>`;
+    }).join('')}</div>
+    <div class="opt-why" style="margin-top:8px">Your free periods lean towards these topics as the date gets closer.</div></div>`;
+}
+
+function weakCard(d) {
+  const weak = (d.weak || []).filter((w) => w.topicId).slice(0, 4);
+  if (!weak.length) return '';
+  return `<div class="card"><div class="card-h"><h2>Where you lose marks</h2><button class="btn ghost sm" data-act="tab" data-tab="skills">Skills</button></div>
+    ${weak.map((w) => `<div class="row" style="justify-content:space-between;padding:5px 0;border-top:1px solid var(--line)">
+      <span class="row" style="gap:7px"><span class="dot" style="--c:${colourOf(w.subjectId)}"></span>${esc(w.name)}</span>
+      <span class="mono muted" style="font-size:13px">${w.marks} marks</span></div>`).join('')}</div>`;
+}
+
+/* ----------------------------------------------------- quick add, typo-proof
+   "phys wksht 3 fri high" -> Physics, due Friday, high priority, title
+   "wksht 3". Subject words are matched loosely, so "pyhsics" and "furhter"
+   still land; short ones ("de", "fm") only count as the first word. */
+const SUBJECT_WORDS = {
+  maths: ['maths', 'math', 'mathematics', 'pure', 'stats', 'statistics', 'mechanics', 'p1', 'p2', 'p3', 'p4', 's1', 'm1', 'ma'],
+  fmaths: ['further', 'fmaths', 'furthermaths', 'fp1', 'd1', 'decision', 'm2', 'fm'],
+  physics: ['physics', 'phys', 'phy', 'physic', 'ph'],
+  cs: ['cs', 'compsci', 'computing', 'computer', 'comp', 'programming', 'coding', '9618'],
+  german: ['german', 'deutsch', 'ger', 'de'],
+};
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+function osa(a, b) {                       // edit distance with swapped letters counting once
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    const c = a[i - 1] === b[j - 1] ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+// Short words must match exactly ("come" is not "comp"); long ones forgive a
+// typo or two, which is where typos actually happen ("pyhsics", "furhter").
+const near = (w, target) => w === target || (target.length >= 6 && w.length >= 5 && osa(w, target) <= (target.length >= 7 ? 2 : 1));
+
+function subjectFromWord(w, first) {
+  for (const [sid, words] of Object.entries(SUBJECT_WORDS)) {
+    if (!subjectOf(sid)) continue;
+    for (const t of words) {
+      if (t.length <= 2 ? (first && w === t) : near(w, t)) return sid;
+    }
+  }
+  for (const s of subjects()) if (near(w, s.name.toLowerCase())) return s.id;
+  return null;
+}
+function dayFromWord(w) {
+  const today = nowISO();
+  if (['today', 'tday', 'tod', 'tonight', 'tonite'].includes(w)) return today;
+  if (['tmr', 'tmrw', 'tmw', 'tom', 'tomo', 'tomoz', 'tomorrow'].includes(w) || near(w, 'tomorrow')) return addDays(today, 1);
+  const i = WEEKDAYS.findIndex((d) => w.length >= 3 && (d.startsWith(w) || near(w, d) || (w.length === 3 && d.slice(0, 3) === w)));
+  if (i >= 0) {                          // the next one after today
+    const cur = parseD(today).getDay();
+    return addDays(today, ((i - cur + 7) % 7) || 7);
+  }
+  let m = w.match(/^(\d{1,2})[/.](\d{1,2})$/);
+  if (m) {
+    const y = parseD(today).getFullYear();
+    let iso = `${y}-${pad(m[2])}-${pad(m[1])}`;
+    if (iso < today) iso = `${y + 1}-${pad(m[2])}-${pad(m[1])}`;
+    return iso;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(w)) return w;
+  m = w.match(/^(\d{1,2})d$/);
+  if (m) return addDays(today, Number(m[1]));
+  return null;
+}
+function parseQuick(text) {
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const out = { subjectId: '', due: null, priority: 'normal', rest: [] };
+  words.forEach((raw, i) => {
+    const w = raw.toLowerCase().replace(/[,;]+$/, '');
+    if (/^!{1,3}$/.test(w) || ['high', 'hi', 'urgent', 'important', 'asap', 'hgih', 'hihg'].includes(w)) { out.priority = 'high'; return; }
+    if (['low', 'lo', 'whenever', 'someday'].includes(w)) { out.priority = 'low'; return; }
+    if (w === 'next' && ['week', 'wk'].includes((words[i + 1] || '').toLowerCase())) { out.due ||= addDays(nowISO(), 7); out.skip = i + 1; return; }
+    if (out.skip === i) return;
+    if (['due', 'by', 'for', 'on'].includes(w) && dayFromWord((words[i + 1] || '').toLowerCase())) return;
+    const day = !out.due && dayFromWord(w);
+    if (day) { out.due = day; return; }
+    if (!out.subjectId) {
+      const sid = subjectFromWord(w, i === 0);
+      if (sid) {
+        out.subjectId = sid;
+        // "further maths": the second word belongs to the subject too
+        if (sid === 'fmaths' && /^math/.test((words[i + 1] || '').toLowerCase())) out.skip = i + 1;
+        return;
+      }
+    }
+    out.rest.push(raw);
+  });
+  out.title = out.rest.join(' ') || String(text).trim();
+  return out;
+}
+function updateQuickPreview() {
+  const host = $('#qaPreview'), input = $('#qaText');
+  if (!host || !input) return;
+  const v = input.value.trim();
+  if (!v) { host.innerHTML = '<span class="muted" style="font-size:12.5px">Type fast — subject, day and “high” are picked out for you.</span>'; return; }
+  const p = parseQuick(v);
+  host.innerHTML = [
+    `<span class="chip">“${esc(p.title)}”</span>`,
+    p.subjectId ? `<span class="chip"><span class="dot" style="--c:${colourOf(p.subjectId)}"></span>${esc(subjectName(p.subjectId))}</span>` : '<span class="chip muted">no subject</span>',
+    p.due ? `<span class="chip">due ${esc(relDay(p.due))}</span>` : '',
+    p.priority !== 'normal' ? `<span class="chip">${p.priority === 'high' ? '<span class="prio-high">High</span>' : 'Low'}</span>` : '',
+  ].join('');
+}
+function quickAdd() {
+  const input = $('#qaText');
+  const v = input?.value.trim();
+  if (!v) return input?.focus();
+  const p = parseQuick(v);
+  input.value = '';                     // before send(): its re-render keeps whatever the box holds
+  send({ type: 'task.add', task: { id: newId('h'), title: p.title, subjectId: p.subjectId, due: p.due, priority: p.priority } });
+  $('#qaText')?.focus();
+}
+
+/* ======================================================= the edit sheets */
+function openSheet(html) {
+  $('#sheet').innerHTML = html;
+  $('#sheet').hidden = false; $('#scrim').hidden = false;
+  // a keyboard springing up over the sheet is unwelcome on a phone
+  if (matchMedia('(pointer: fine)').matches) $('#sheet').querySelector('input:not([type=hidden]), textarea')?.focus({ preventScroll: true });
+}
+function closeSheet() { $('#sheet').hidden = true; $('#scrim').hidden = true; $('#sheet').innerHTML = ''; SHEET.ctx = null; }
+const SHEET = { ctx: null };
+const subjectOptions = (sel, blank = 'General') =>
+  `<option value="">${esc(blank)}</option>` + subjects().map((s) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+
+function taskSheet(id) {
+  const t = [...APP.data.tasks, ...APP.data.done].find((x) => x.id === id);
+  if (!t) return;
+  SHEET.ctx = { kind: 'task', id };
+  openSheet(`<div class="sheet-h"><h2>Edit to-do</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>Task</span><input id="tTitle" value="${esc(t.title)}"></label>
+      <div class="fields two">
+        <label class="field"><span>Subject</span><select id="tSubj">${subjectOptions(t.subjectId)}</select></label>
+        <label class="field"><span>Due</span><input type="date" id="tDue" value="${esc(t.due || '')}"></label>
+      </div>
+      <div class="field"><span>Priority</span><div class="seg" id="tPrio">${['high', 'normal', 'low'].map((p) =>
+        `<button type="button" data-prio="${p}" aria-pressed="${t.priority === p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</div></div>
+      <label class="field"><span>Note</span><input id="tNote" value="${esc(t.notes || '')}" placeholder="optional"></label>
+      <div class="row"><button class="btn primary" data-act="task-save">Save</button><span class="spacer"></span>
+        <button class="btn danger" data-act="task-delete" data-armed="0">Delete</button></div>
+    </div>`);
+}
+
+function doneSheet(key) {
+  const sp = APP.data.studyPeriods.find((s) => s.key === key);
+  if (!sp?.chosen) return;
+  const o = sp.chosen;
+  SHEET.ctx = { kind: 'done', key, conf: null };
+  openSheet(`<div class="sheet-h"><h2>How did it go?</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <p style="margin:0 0 12px">${esc(optTitle(o))}</p>
+    <div class="fields">
+      ${o.topicId ? `<div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
+        <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>` : ''}
+      <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${sp.mins || 45}" min="1" max="600" inputmode="numeric"></label>
+      ${o.taskId ? `<label class="row" style="font-size:14px"><input type="checkbox" id="dTask" style="width:auto" checked> Tick off “${esc(o.title)}”</label>` : ''}
+      <button class="btn primary" data-act="done-save">Log it</button>
+    </div>`);
+}
+
+/* =================================================================== work */
+const KINDS = { answers: 'Worked answers', notes: 'Notes', worksheet: 'Worksheet', test: 'Test paper' };
+
+function viewWork() {
+  const w = APP.work;
+  const canUpload = APP.mode === 'claude' && APP.mcp;
+  const canMark = Boolean(APP.sample && APP.limits?.images);
+  if (!APP.data) return noData();
+  if (!canUpload) {
+    return `<div class="card"><h2 style="font-size:16px;margin-bottom:6px">Upload and mark in the Claude app</h2>
+      <p style="margin:0;color:var(--text-2)">Filing work in your Google Drive and having Claude mark it both run inside Claude,
+      where your Drive and your Claude plan are connected. Open <b>A Level Companion</b> in the Claude app or on claude.ai.
+      Everything you save there shows up in History and Skills here.</p></div>`;
+  }
+  if (w.stage === 'analysing') {
+    return `<div class="card reading"><div class="spinner"></div>
+      <div><b>Reading ${w.pages.length === 1 ? 'your page' : `${w.pages.length} pages`}…</b></div>
+      <div class="muted" style="font-size:13.5px">Working out the subject and topic, then marking each question.
+        ${w.tier === 'careful' ? 'Careful mode thinks first — this can take a minute.' : 'Usually under half a minute.'}</div>
+      <button class="btn sm" data-act="work-stop">Stop</button></div>`;
+  }
+  if (w.stage === 'saving') {
+    return `<div class="card reading"><div class="spinner"></div><div><b>${esc(w.progress || 'Saving…')}</b></div></div>`;
+  }
+  if (w.stage === 'saved') return savedView(w.saved);
+  if (w.stage === 'review') return reviewView();
+
+  const hint = w.hint;
+  const openTasks = (APP.data?.tasks || []).filter((t) => !hint.subjectId || t.subjectId === hint.subjectId);
+  return `<div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Add your work</h2><span class="count">photos · scans · PDF</span></div>
+      <div class="pickers">
+        <button class="picker" data-act="pick" data-input="fileCamera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Camera<small>one page</small></button>
+        <button class="picker" data-act="pick" data-input="filePhotos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 16l5-5 4 4 3-3 5 5"/></svg>Photos<small>several pages</small></button>
+        <button class="picker" data-act="pick" data-input="fileAny">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M7 12h10"/></svg>File or scan<small>PDF, or ⋯ → Scan</small></button>
+      </div>
+      ${w.pages.length ? `<div style="margin-top:14px" class="thumbs">${w.pages.map((p, i) => `
+        <figure class="thumb" style="margin:0">${p.thumb ? `<img src="${p.thumb}" alt="Page ${i + 1}">` : '<div class="pdf">PDF</div>'}
+          <button data-act="page-remove" data-i="${i}" aria-label="Remove page">×</button>
+          <figcaption>${esc(p.name)}${p.images.length > 1 ? ` · ${p.images.length} pp` : ''}</figcaption></figure>`).join('')}</div>` : `
+      <p class="muted" style="font-size:13.5px;margin:12px 0 0">To scan a notebook page as a clean PDF: tap <b>File or scan</b>,
+        then the <b>⋯</b> menu → <b>Scan Documents</b>.</p>`}
+    </div>
+    ${w.pages.length ? `<div class="card">
+      <div class="fields">
+        <div class="fields two">
+          <label class="field"><span>Subject</span><select id="wSubj">${subjectOptions(hint.subjectId, 'Work it out from the page')}</select></label>
+          <label class="field"><span>Assignment</span><select id="wHw"><option value="">None / work it out</option>
+            ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === hint.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
+        </div>
+        <div class="row"><span class="field" style="display:inline"><span>Marking</span></span>
+          <div class="seg" id="wTier"><button type="button" data-tier="quick" aria-pressed="${w.tier !== 'careful'}">Fast</button><button type="button" data-tier="careful" aria-pressed="${w.tier === 'careful'}">Careful</button></div>
+          <span class="muted" style="font-size:12.5px">${w.tier === 'careful' ? 'Uses more of your Claude plan; better on long proofs.' : 'Cheapest; fine for most worksheets.'}</span></div>
+        ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
+        ${w.already ? `<div class="notice">You have marked this exact page before.
+          <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-attempt" data-id="${esc(w.already)}">Open it</button>
+          <button class="btn sm ghost" data-act="work-analyse" data-force="1">Mark it again</button></div></div>` : ''}
+        <div class="row">
+          <button class="btn primary" data-act="work-analyse" ${canMark && w.pages.some((p) => p.images.length) ? '' : 'disabled'}>Mark it and file it</button>
+          <button class="btn" data-act="work-file-only">Just file it</button>
+          <span class="spacer"></span><button class="btn ghost sm" data-act="work-reset">Clear</button>
+        </div>
+        ${canMark ? '' : `<div class="muted" style="font-size:12.5px">${APP.sample ? 'This Claude view cannot send photos, so marking is off here — filing still works.' : 'Claude is not available in this view, so marking is off — filing still works.'}</div>`}
+      </div></div>` : ''}
+  </div>`;
+}
+
+function folderParts(r) {
+  const s = subjectOf(r.subjectId);
+  if (!s) return [DRIVE_ROOT, 'General'];
+  const clean = (x) => String(x).replace(/[\\/]+/g, '-').slice(0, 90);
+  const hw = r.homeworkId && [...APP.data.tasks, ...APP.data.done].find((t) => t.id === r.homeworkId);
+  if (hw) return [DRIVE_ROOT, s.name, 'Homework', clean(`${hw.due || nowISO()} ${hw.title}`)];
+  const t = topicOf(r.topicIds[0]);
+  if (t) return [DRIVE_ROOT, s.name, clean(`${unitShort(t.unit)} · ${t.name}`)];
+  return [DRIVE_ROOT, s.name, 'Other'];
+}
+
+function reviewView() {
+  const w = APP.work, r = w.review;
+  const topicsHere = (APP.data.topics || []).filter((t) => !r.subjectId || t.subjectId === r.subjectId);
+  const openTasks = (APP.data.tasks || []).filter((t) => !r.subjectId || t.subjectId === r.subjectId);
+  const total = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
+  const got = r.questions.reduce((a, q) => a + (Number(q.marks) || 0), 0);
+  const topicSel = (q, i) => `<select data-qf="topicId" data-i="${i}"><option value="">topic?</option>${topicsHere.map((t) =>
+    `<option value="${esc(t.id)}" ${t.id === q.topicId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
+  return `<div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Check before saving</h2>${r.questions.length ? `<span class="stamp sm">${fmtN(got)}<small>/${fmtN(total)}</small></span>` : ''}</div>
+      ${w.fromCache ? '<div class="notice" style="margin-bottom:10px">Already read earlier — shown from memory, no Claude usage.</div>' : ''}
+      ${r.detected ? `<div class="muted" style="font-size:13px;margin-bottom:10px">Claude read this as
+        <b>${esc(subjectName(r.detected.subjectId))}</b>${r.detected.topicIds?.length ? ' — ' + r.detected.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}.
+        Change anything that is wrong.</div>` : ''}
+      <div class="fields">
+        <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
+        <div class="fields two">
+          <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
+          <label class="field"><span>What it is</span><select id="rKind">${Object.entries(KINDS).map(([k, v]) =>
+            `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+        </div>
+        <div class="field"><span>Topics</span>
+          <div class="row">${r.topicIds.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}<button data-act="topic-remove" data-id="${esc(id)}" aria-label="Remove">×</button></span>`).join('') || '<span class="muted" style="font-size:13px">none yet</span>'}</div>
+          <input id="rTopicSearch" data-keep placeholder="Add a topic — type a few letters" autocomplete="off">
+          <div id="rTopicSuggest"></div></div>
+        <label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
+          ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
+        <div class="field"><span>Goes to Google Drive</span><div class="folder">${folderParts(r).map(esc).join(' › ')}</div></div>
+      </div>
+    </div>
+    ${r.questions.length ? `<div class="card">
+      <div class="card-h"><h2>Marking</h2><span class="count">${r.questions.length} question${r.questions.length === 1 ? '' : 's'}</span></div>
+      <div class="page">${r.questions.map((q, i) => {
+        const ok = Number(q.marks) >= Number(q.maxMarks);
+        return `<div class="q">
+          <div class="q-label">${esc(q.q)}<div class="q-mark ${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'}</div></div>
+          <div>
+            <div class="q-edit">
+              <input type="number" min="0" step="0.5" value="${esc(q.marks)}" data-qf="marks" data-i="${i}" aria-label="Marks">
+              <span class="muted">/</span>
+              <input type="number" min="0" step="0.5" value="${esc(q.maxMarks)}" data-qf="maxMarks" data-i="${i}" aria-label="Out of">
+              ${ok ? '' : `<select data-qf="errorType" data-i="${i}">${['careless', 'method', 'knowledge', 'timing'].map((e) =>
+                `<option value="${e}" ${e === q.errorType ? 'selected' : ''}>${e}</option>`).join('')}</select>`}
+              ${topicSel(q, i)}
+            </div>
+            ${q.explanation ? `<div class="q-text">${esc(q.explanation)}</div>` : ''}
+            ${q.correction && !ok ? `<div class="working">${esc(q.correction)}</div>` : ''}
+          </div></div>`;
+      }).join('')}</div>
+      ${r.summary ? `<p style="margin:12px 0 0;color:var(--text-2)">${esc(r.summary)}</p>` : ''}
+    </div>` : ''}
+    ${w.error ? `<div class="notice bad">${esc(w.error)}
+      ${w.driveFailed ? '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="work-save" data-nodrive="1">Save to the dashboard without Drive</button></div>' : ''}</div>` : ''}
+    <div class="row"><button class="btn primary" data-act="work-save">Save</button>
+      <button class="btn" data-act="work-back">Back</button><span class="spacer"></span>
+      <button class="btn ghost" data-act="work-reset">Discard</button></div>
+  </div>`;
+}
+const fmtN = (n) => (Number.isInteger(Number(n)) ? String(Number(n)) : Number(n).toFixed(1));
+
+function savedView(s) {
+  return `<div class="card">
+    <div class="row" style="align-items:center;gap:18px">
+      ${s.max ? `<span class="stamp">${fmtN(s.score)}<small>/${fmtN(s.max)}</small></span>` : ''}
+      <div style="flex:1;min-width:200px"><h2 style="font-size:17px">${esc(s.title)}</h2>
+        <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.folder ? ' · filed in Drive' : ' · not in Drive'}</div></div>
+    </div>
+    ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
+    ${s.weakTopics.length ? `<div class="notice" style="margin-top:10px">Added to your revision:
+      <b>${s.weakTopics.map((id) => esc(topicOf(id)?.name || id)).join(', ')}</b>. They will come up in your free periods over the next few days.</div>` : ''}
+    ${s.nextSteps?.length ? `<div style="margin-top:12px"><div class="eyebrow">Next</div><ul style="margin:6px 0 0;padding-left:18px">${s.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+    <div class="row" style="margin-top:14px">
+      ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+      ${s.max && s.score < s.max ? '<button class="btn" data-act="tab" data-tab="history">See the mistakes</button>' : ''}
+      <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------------------------------------ pages in */
+async function downscale(file, maxPx = 1.6e6) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const k = Math.min(1, Math.sqrt(maxPx / (img.naturalWidth * img.naturalHeight)));
+    const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
+    return { blob, w, h, url: URL.createObjectURL(blob) };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+let pdfjsReady = null;
+function loadPdfJs() {
+  // The worker is loaded as a plain script too: a page here cannot start a
+  // worker from another host, and pdf.js then runs it on the main thread.
+  const add = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); });
+  pdfjsReady ||= add(PDFJS + 'pdf.min.js').then(() => add(PDFJS + 'pdf.worker.min.js')).then(() => {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+    return window.pdfjsLib;
+  });
+  return pdfjsReady;
+}
+async function pdfToImages(file, maxPages) {
+  const lib = await loadPdfJs();
+  const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  const out = [];
+  for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) {
+    const page = await doc.getPage(n);
+    const v1 = page.getViewport({ scale: 1 });
+    const scale = Math.min(3, Math.sqrt(1.6e6 / (v1.width * v1.height)));
+    const vp = page.getViewport({ scale });
+    const c = document.createElement('canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
+    out.push({ blob, w: c.width, h: c.height, url: URL.createObjectURL(blob) });
+  }
+  return out;
+}
+
+async function sha256Hex(buf) {
+  if (crypto?.subtle) {
+    const h = await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  let a = 0x811c9dc5, b = 0x01000193;          // no WebCrypto: a weaker hash still dedupes
+  const u = new Uint8Array(buf);
+  for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 16777619) >>> 0; b = Math.imul(b ^ u[i], 2246822519) >>> 0; }
+  return (a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')).repeat(2);
+}
+async function hashPages(pages) {
+  const parts = await Promise.all(pages.map(async (p) => p.hash ||= await sha256Hex(await p.file.arrayBuffer())));
+  return parts.length === 1 ? parts[0] : sha256Hex(new TextEncoder().encode(parts.join('|')));
+}
+
+async function addFiles(list) {
+  const w = APP.work;
+  w.error = null; w.already = null;
+  const maxImages = APP.limits?.images?.maxCount || 8;
+  for (const f of list) {
+    try {
+      if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+        let images = [];
+        try { images = await pdfToImages(f, maxImages); }
+        catch { toast(`${f.name}: could not read the PDF here, so it can be filed but not marked.`); }
+        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null });
+      } else if (f.type.startsWith('image/') || /\.(jpe?g|png|heic|webp)$/i.test(f.name)) {
+        const img = await downscale(f);
+        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url });
+      } else {
+        toast(`${f.name} is not a photo or a PDF.`);
+      }
+    } catch {
+      toast(`Could not open ${f.name}.`);
+    }
+  }
+  render();
+}
+
+// The subject you were just in: the lesson on now, else the last one today.
+function lessonSubjectNow() {
+  const now = toMins(nowHM());
+  const ls = (APP.data?.lessons || []).filter((l) => !l.free && subjectOf(l.subjectId));
+  const on = ls.find((l) => now >= toMins(l.start) && now < toMins(l.end));
+  const past = ls.filter((l) => toMins(l.end) <= now).pop();
+  return (on || past)?.subjectId || '';
+}
+
+/* ------------------------------------------------------------- marking */
+function markPrompt(hint) {
+  const d = APP.data;
+  // Chosen by you, the subject narrows the topic list (a shorter, cheaper
+  // prompt). Left to Claude, every topic is offered, with the lesson you just
+  // had as a hint only — maths homework done after Further Maths is still maths.
+  const pool = d.topics.filter((t) => !hint.subjectId || t.subjectId === hint.subjectId);
+  const recent = !hint.subjectId && lessonSubjectNow();
+  const topicLines = pool.map((t) => `${t.id} · ${t.subjectId} · ${unitShort(t.unit)} · ${t.name}${t.started && !t.finished ? ' (being taught now)' : ''}`).join('\n');
+  const tasks = d.tasks.filter((t) => !hint.subjectId || t.subjectId === hint.subjectId)
+    .map((t) => `${t.id} · ${t.subjectId || '-'} · ${t.title}${t.due ? ' · due ' + t.due : ''}`).join('\n') || '(none)';
+  const hw = hint.homeworkId && d.tasks.find((t) => t.id === hint.homeworkId);
+  return `You are marking a UK Year 12 student's work from photos, like a careful teacher with a red pen.
+Subjects: Pearson Edexcel International A Level Maths (P1, P2, S1, M1…), Further Maths (FP1, D1, M2…), Physics (WPH11–16), Cambridge International 9618 Computer Science, and German.
+${hint.subjectId ? `The student says this is ${subjectName(hint.subjectId)}.` : `Work out the subject from the pages.${recent ? ` (Their most recent lesson was ${subjectName(recent)}, which may or may not be related.)` : ''}`}${hw ? ` It is for the assignment "${hw.title}".` : ''}
+
+The ${APP.work.pages.length === 1 ? 'image is one page' : 'images are the pages, in order'}: a question sheet, the student's handwritten working, or both. The handwriting may be quick and messy — read it carefully.
+
+1. Choose the subject and the topics this work covers, using ids from TOPICS.
+2. If it is one of the OPEN ASSIGNMENTS, give that id as homeworkId.
+3. Mark every question and part you can see. Use marks printed on the sheet, like [3], when shown; otherwise estimate 1–4 per part the way an exam mark scheme would. With no mark scheme, solve it yourself and judge the answer and the method; give method marks for a correct method with a later slip.
+4. For every part that loses marks, set errorType to one of:
+   careless  — a slip: sign, arithmetic, copying, units
+   method    — the wrong or an incomplete approach
+   knowledge — did not know the content
+   timing    — left blank or unfinished
+   explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
+   correction: the correct working and final answer, at most five short lines.
+5. If you cannot read something, say so in its explanation instead of guessing.
+If the pages are notes or an unanswered worksheet, set kind to "notes" or "worksheet" and questions to [].
+
+TOPICS (id · subject · unit · topic)
+${topicLines}
+
+OPEN ASSIGNMENTS (id · subject · title)
+${tasks}
+
+Reply with only this JSON:
+{"subjectId":"maths","topicIds":["t002"],"homeworkId":null,"kind":"answers","title":"a short name for this work",
+ "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"errorType":"method","explanation":"…","correction":"…"}],
+ "summary":"one or two sentences for the student","nextSteps":["one concrete next step"]}
+Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks.`;
+}
+
+function normalise(a, hint) {
+  const d = APP.data;
+  const sid = subjectOf(a?.subjectId) ? a.subjectId : hint.subjectId || '';
+  const topicIds = (Array.isArray(a?.topicIds) ? a.topicIds : []).filter((id) => topicOf(id)).slice(0, 6);
+  const questions = (Array.isArray(a?.questions) ? a.questions : []).slice(0, 60).map((q, i) => {
+    const maxMarks = Math.max(0, Number(q.maxMarks ?? q.max) || 1);
+    const marks = Math.min(maxMarks, Math.max(0, Number(q.marks) || 0));
+    return { q: String(q.q ?? i + 1).slice(0, 12), topicId: topicOf(q.topicId) ? q.topicId : topicIds[0] || '',
+      marks, maxMarks, errorType: ['careless', 'method', 'knowledge', 'timing'].includes(q.errorType) ? q.errorType : (marks < maxMarks ? 'method' : null),
+      explanation: String(q.explanation || '').slice(0, 1500), correction: String(q.correction || '').slice(0, 2500) };
+  });
+  for (const q of questions) if (q.topicId && !topicIds.includes(q.topicId)) topicIds.push(q.topicId);
+  const hw = d.tasks.some((t) => t.id === a?.homeworkId) ? a.homeworkId : hint.homeworkId || '';
+  return {
+    subjectId: sid, topicIds, homeworkId: hw,
+    kind: KINDS[a?.kind] ? a.kind : (questions.length ? 'answers' : 'notes'),
+    title: String(a?.title || '').slice(0, 120) || defaultTitle(),
+    questions, summary: String(a?.summary || '').slice(0, 1500),
+    nextSteps: (Array.isArray(a?.nextSteps) ? a.nextSteps : []).slice(0, 5).map((x) => String(x).slice(0, 300)),
+    detected: { subjectId: a?.subjectId || '', topicIds },
+  };
+}
+const defaultTitle = () => APP.work.pages[0]?.name?.replace(/\.[a-z0-9]+$/i, '') || 'Work ' + fmtDay(nowISO());
+
+async function analyse(force = false) {
+  const w = APP.work;
+  const hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
+  w.hint = hint;
+  w.error = null;
+  const maxImages = APP.limits?.images?.maxCount || 8;
+  const images = w.pages.flatMap((p) => p.images.map((i) => i.blob)).slice(0, maxImages);
+  if (!images.length) { w.error = 'There is nothing Claude can read — add a photo.'; return render(); }
+
+  w.hash = await hashPages(w.pages);
+  // the same page is never read twice: the dashboard remembers what it marked,
+  // and this device remembers what it read but you did not save yet
+  if (!force && APP.data.markedHashes?.[w.hash]) { w.already = APP.data.markedHashes[w.hash]; return render(); }
+  w.already = null;
+  const key = `${w.hash}|${w.tier}|${hint.subjectId}`;
+  const memo = LS.get('analyses', {});
+  if (!force && memo[key]) { w.fromCache = true; w.tierUsed = memo[key].tier; return startReview(memo[key].a); }
+
+  w.stage = 'analysing'; w.fromCache = false;
+  w.ctl = new AbortController();
+  render();
+  try {
+    const tier = w.tier === 'careful' ? 'default' : 'quick';
+    const raw = await APP.sample.json(markPrompt(hint), { images, modelTier: tier, signal: w.ctl.signal });
+    const a = normalise(raw, hint);
+    w.tierUsed = tier;
+    const keys = Object.keys(memo);
+    if (keys.length > 12) delete memo[keys[0]];
+    memo[key] = { a, tier, at: Date.now() };
+    LS.set('analyses', memo);
+    startReview(a);
+  } catch (e) {
+    w.stage = 'idle';
+    w.error = sampleError(e);
+    render();
+  }
+}
+function startReview(a) {
+  APP.work.review = JSON.parse(JSON.stringify(a));
+  APP.work.stage = 'review';
+  render();
+}
+function fileOnly() {
+  const w = APP.work;
+  w.hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
+  w.review = { subjectId: w.hint.subjectId, topicIds: [], homeworkId: w.hint.homeworkId, kind: 'notes',
+    title: defaultTitle(), questions: [], summary: '', nextSteps: [], detected: null };
+  w.stage = 'review';
+  render();
+}
+
+/* ---------------------------------------------------------- Google Drive */
+async function drive(tool, input) {
+  const r = await APP.mcp.callTool(DRIVE, tool, input, { cache: false });
+  const p = r?.payload;
+  return p && typeof p === 'object' ? p : (r?.structuredContent || {});
+}
+const qq = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+async function findFolder(name, parentId) {
+  const res = await drive('search_files', {
+    query: `mimeType = '${FOLDER_MIME}' and title = '${qq(name)}' and parentId = '${parentId || 'root'}'`,
+    pageSize: 5, excludeContentSnippets: true,
+  });
+  return (res.files || []).find((f) => f.mimeType === FOLDER_MIME)?.id || null;
+}
+async function makeFolder(name, parentId) {
+  const base = { title: name, ...(parentId ? { parentId } : {}) };
+  let res = await drive('create_file', { ...base, contentMimeType: FOLDER_MIME });
+  if (res?.mimeType && res.mimeType !== FOLDER_MIME) {
+    res = await drive('create_file', { ...base, mimeType: FOLDER_MIME });
+  }
+  if (!res?.id) throw { code: 'tool_error', message: 'Google Drive did not create the folder.' };
+  return res.id;
+}
+// Walk the folder path, creating what is missing. Ids are remembered per device.
+async function ensureFolders(parts) {
+  const cache = LS.get('folders', {});
+  let parent = null, path = '';
+  for (const name of parts) {
+    path += '/' + name;
+    let id = cache[path];
+    if (!id) {
+      id = await findFolder(name, parent) || await makeFolder(name, parent);
+      cache[path] = id;
+      LS.set('folders', cache);
+    }
+    parent = id;
+  }
+  return parent;
+}
+async function toBase64(blob) {
+  const u = new Uint8Array(await blob.arrayBuffer());
+  let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function uploadBlob(blob, title, mime, ext, parentId) {
+  const input = { title, parentId, contentMimeType: mime, disableConversionToGoogleType: true };
+  if (APP.fileArgs) input.base64Content = { $file: { data: blob, name: 'work.' + ext, type: mime } };
+  else {
+    if (blob.size > 740000) throw { code: 'too_big', message: 'That file is too big to send from this view. Try fewer pages.' };
+    input.base64Content = await toBase64(blob);
+  }
+  const res = await drive('create_file', input);
+  if (!res?.id) throw { code: 'tool_error', message: 'Google Drive did not accept the file.' };
+  return { id: res.id, url: res.viewUrl || `https://drive.google.com/file/d/${res.id}/view` };
+}
+
+/* A tiny PDF writer: several photos become one file, one page per photo, the
+   JPEG bytes embedded as they are. Keeps each piece of work to one Drive file. */
+async function jpegsToPdf(images) {
+  const enc = new TextEncoder();
+  const chunks = [], offsets = [];
+  let len = 0;
+  const put = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; chunks.push(b); len += b.length; };
+  const n = images.length;
+  const kids = images.map((_, i) => `${3 + i * 3} 0 R`).join(' ');
+  put('%PDF-1.4\n');
+  offsets[1] = len; put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offsets[2] = len; put(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${n} >>\nendobj\n`);
+  for (let i = 0; i < n; i++) {
+    const { blob, w, h } = images[i];
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const W = 595, H = Math.round(595 * h / w);
+    const p = 3 + i * 3, im = p + 1, ct = p + 2;
+    const draw = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q`;
+    offsets[p] = len;
+    put(`${p} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ct} 0 R >>\nendobj\n`);
+    offsets[im] = len;
+    put(`${im} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`);
+    put(bytes); put('\nendstream\nendobj\n');
+    offsets[ct] = len;
+    put(`${ct} 0 obj\n<< /Length ${draw.length} >>\nstream\n${draw}\nendstream\nendobj\n`);
+  }
+  const count = 3 + n * 3;
+  const xref = len;
+  put(`xref\n0 ${count}\n0000000000 65535 f \n` + offsets.slice(1).map((o) => String(o).padStart(10, '0') + ' 00000 n \n').join(''));
+  put(`trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+
+// What goes to Drive: a single photo as it is, several photos as one PDF, and
+// any PDF you picked unchanged.
+async function uploadsFor(pages) {
+  const photos = pages.filter((p) => p.kind === 'image').map((p) => p.images[0]);
+  const pdfs = pages.filter((p) => p.kind === 'pdf');
+  const out = [];
+  if (photos.length === 1) out.push({ blob: photos[0].blob, mime: 'image/jpeg', ext: 'jpg' });
+  if (photos.length > 1) out.push({ blob: await jpegsToPdf(photos), mime: 'application/pdf', ext: 'pdf' });
+  for (const p of pdfs) out.push({ blob: p.file, mime: 'application/pdf', ext: 'pdf' });
+  return out;
+}
+
+async function saveWork(noDrive = false) {
+  const w = APP.work, r = w.review;
+  w.error = null; w.driveFailed = false;
+  w.stage = 'saving';
+  let driveInfo = null;
+  try {
+    if (!noDrive) {
+      const parts = folderParts(r);
+      w.progress = 'Finding your Drive folder…'; render();
+      const folderId = await ensureFolders(parts);
+      w.progress = 'Uploading to Google Drive…'; render();
+      const files = await uploadsFor(w.pages);
+      const stamp = `${nowISO()} ${nowHM().replace(':', '.')}`;
+      const results = [];
+      for (const [i, f] of files.entries()) {
+        const title = `${stamp} · ${KINDS[r.kind] || 'Work'} · ${r.title}${files.length > 1 ? ` (${i + 1})` : ''}.${f.ext}`;
+        results.push(await uploadBlob(f.blob, title, f.mime, f.ext, folderId));
+      }
+      driveInfo = { id: results[0]?.id, url: results.length === 1 ? results[0].url : `https://drive.google.com/drive/folders/${folderId}`,
+        folder: parts.join(' / '), mime: files.length === 1 ? files[0].mime : 'multiple' };
+    }
+  } catch (e) {
+    w.stage = 'review';
+    w.driveFailed = true;
+    w.error = e?.code === 'too_big' ? e.message : 'Could not save to Google Drive: ' + connError(e, DRIVE);
+    return render();
+  }
+  w.hash ||= await hashPages(w.pages);
+  w.progress = 'Updating your dashboard…'; render();
+  const questions = r.questions.map((q) => ({ q: q.q, topicId: q.topicId || r.topicIds[0] || null, marks: Number(q.marks) || 0,
+    maxMarks: Number(q.maxMarks) || 0, errorType: Number(q.marks) < Number(q.maxMarks) ? q.errorType || 'method' : null,
+    explanation: q.explanation, correction: q.correction }));
+  send({
+    type: 'work.save',
+    attachment: { id: newId('f'), title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
+      kind: r.kind, driveId: driveInfo?.id || null, driveUrl: driveInfo?.url || null, folder: driveInfo?.folder || '',
+      mime: driveInfo?.mime || '', pages: w.pages.reduce((a, p) => a + Math.max(1, p.images.length), 0), hash: w.hash },
+    marking: questions.length ? { questions, summary: r.summary, nextSteps: r.nextSteps, tier: w.tierUsed, detected: r.detected } : null,
+  });
+  const score = questions.reduce((a, q) => a + q.marks, 0), max = questions.reduce((a, q) => a + q.maxMarks, 0);
+  const weakTopics = [...new Set(questions.filter((q) => q.marks < q.maxMarks && q.topicId).map((q) => q.topicId))];
+  w.saved = { title: r.title, subjectId: r.subjectId, score, max, summary: r.summary, nextSteps: r.nextSteps,
+    url: driveInfo?.url || null, folder: driveInfo?.folder || null, weakTopics };
+  w.stage = 'saved';
+  render();
+}
+
+function resetWork() {
+  for (const p of APP.work.pages) for (const i of p.images) URL.revokeObjectURL(i.url);
+  APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier };
+  render();
+}
+
+function topicSuggest() {
+  const host = $('#rTopicSuggest'), input = $('#rTopicSearch');
+  if (!host || !input) return;
+  const q = input.value.trim().toLowerCase();
+  if (!q) { host.innerHTML = ''; return; }
+  const r = APP.work.review || SHEET.ctx?.test;
+  host.innerHTML = `<div class="suggest">${searchTopics(q, r.subjectId, r.topicIds).map((t) =>
+    `<button data-act="topic-add" data-id="${esc(t.id)}">${esc(t.name)} <small>${esc(subjectName(t.subjectId))} · ${esc(unitShort(t.unit))}</small></button>`).join('')
+    || '<div class="empty" style="padding:8px 10px">No topic matches that.</div>'}</div>`;
+}
+// Loose matching, so "quadratcs" and "diff eq" still find their topics.
+function searchTopics(q, subjectId, exclude = []) {
+  const words = q.split(/\s+/).filter(Boolean);
+  const score = (t) => {
+    const hay = (t.name + ' ' + t.unit).toLowerCase();
+    const tokens = hay.split(/[^a-z0-9]+/).filter(Boolean);
+    let s = 0;
+    for (const w of words) {
+      if (hay.includes(w)) s += 3;
+      else if (tokens.some((tk) => tk.startsWith(w.slice(0, 4)) || (w.length >= 5 && osa(w, tk.slice(0, w.length + 1)) <= 2))) s += 2;
+      else return 0;
+    }
+    return s + (t.subjectId === subjectId ? 1 : 0);
+  };
+  return (APP.data?.topics || []).filter((t) => !exclude.includes(t.id))
+    .map((t) => [t, score(t)]).filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t]) => t);
+}
+
+/* ================================================================ history */
+function viewHistory() {
+  const d = APP.data;
+  if (!d) return noData();
+  const h = APP.history;
+  const ms = d.mistakes.filter((m) => !h.subject || m.subjectId === h.subject);
+  const atts = d.attempts.filter((a) => !h.subject || a.subjectId === h.subject);
+  const filter = `<select id="hSubj" style="width:auto">${subjectOptions(h.subject, 'All subjects')}</select>`;
+  const seg = `<div class="seg"><button data-act="hview" data-v="mistakes" aria-pressed="${h.view === 'mistakes'}">Mistakes to fix · ${ms.length}</button>
+    <button data-act="hview" data-v="all" aria-pressed="${h.view === 'all'}">All marked work · ${atts.length}</button></div>`;
+  let body;
+  if (h.view === 'mistakes') {
+    const groups = {};
+    for (const m of ms) (groups[m.topicId || m.subjectId + ':'] ||= []).push(m);
+    body = Object.keys(groups).length ? Object.entries(groups).map(([k, list]) => {
+      const t = topicOf(k);
+      return `<div class="mistake-group"><h3><span class="dot" style="--c:${colourOf(list[0].subjectId)}"></span>${esc(t ? t.name : subjectName(list[0].subjectId))}
+        <span class="count">${list.length}</span></h3>
+        ${list.map((m) => `<button class="mistake" data-act="open-attempt" data-id="${esc(m.attemptId)}" data-q="${esc(m.q)}">
+          <span class="q-label" style="padding:0">Q${esc(m.q)}</span>
+          <span><span style="font-weight:500">${esc(m.title)}</span><span class="task-meta">${esc(fmtDay(m.date))} · ${m.type ? esc(m.type) : 'mistake'}</span></span>
+          <span class="mono late">−${fmtN(m.marksLost)}</span></button>`).join('')}</div>`;
+    }).join('') : '<div class="empty">No open mistakes. Anything you get wrong in marked work lands here until you fix it.</div>';
+  } else {
+    body = atts.length ? `<div>${atts.map((a) => {
+      const open = a.questions.filter((q) => q.marksLost > 0 && !q.resolved).length;
+      return `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}">
+        <span><span class="t">${esc(a.title)}</span><span class="task-meta"><span class="dot" style="--c:${colourOf(a.subjectId)}"></span>${esc(subjectName(a.subjectId))} · ${esc(fmtDay(a.date))}
+          ${open ? `· <span class="open-n">${open} to fix</span>` : ''}</span></span>
+        <span class="score">${fmtN(a.score)}/${fmtN(a.max)}</span></button>`;
+    }).join('')}</div>` : '<div class="empty">Nothing marked yet. Add your work on the Work tab.</div>';
+  }
+  return `<div class="card"><div class="row" style="margin-bottom:12px">${seg}<span class="spacer"></span>${filter}</div>${body}</div>`;
+}
+
+async function openAttempt(id, focusQ) {
+  const a = APP.data.attempts.find((x) => x.id === id);
+  SHEET.ctx = { kind: 'attempt', id, focusQ };
+  openSheet(attemptSheet(a, APP.details[id], true));
+  try {
+    const full = APP.transport ? await APP.transport.attempt(id) : null;
+    if (full?.found) APP.details[id] = full;
+  } catch (e) { toast(connError(e)); }
+  if (SHEET.ctx?.id === id) {
+    $('#sheet').innerHTML = attemptSheet(APP.data.attempts.find((x) => x.id === id), APP.details[id]);
+    if (focusQ != null) document.getElementById('q-' + focusQ)?.scrollIntoView({ block: 'center' });
+  }
+}
+function attemptSheet(a, full, loading = false) {
+  if (!a) return '<div class="empty">That piece of work is gone.</div>';
+  const qs = full?.questions || a.questions;
+  const canCheck = Boolean(APP.sample && APP.limits?.images);
+  const notes = (full?.notes || []);
+  return `<div class="sheet-h"><h2>${esc(a.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="row" style="gap:16px;margin-bottom:10px">
+      <span class="stamp sm">${fmtN(a.score)}<small>/${fmtN(a.max)}</small></span>
+      <div style="flex:1"><div class="task-meta"><span class="dot" style="--c:${colourOf(a.subjectId)}"></span>${esc(subjectName(a.subjectId))} · ${esc(fmtDay(a.date))}</div>
+        ${a.driveUrl ? `<a href="${esc(a.driveUrl)}" target="_blank" rel="noopener" style="font-size:13.5px">Open the pages in Drive</a>` : ''}</div>
+    </div>
+    ${full?.summary ? `<p style="margin:0 0 10px;color:var(--text-2)">${esc(full.summary)}</p>` : ''}
+    ${loading ? '<div class="muted" style="font-size:13px;margin-bottom:8px">Fetching the explanations…</div>' : ''}
+    <div class="page">${qs.map((q) => {
+      const lost = Number(q.marksLost) > 0;
+      const qn = notes.filter((n) => n.q === String(q.q));
+      return `<div class="q" id="q-${esc(q.q)}">
+        <div class="q-label">${esc(q.q)}<div class="q-mark ${lost ? 'no' : 'ok'}">${lost ? '✗' : '✓'}</div></div>
+        <div>
+          <div class="q-head"><span class="mono">${fmtN(q.marks)}/${fmtN(q.max)}</span>
+            ${lost && q.type ? `<span class="kind">${esc(q.type)}</span>` : ''}
+            ${q.topicId ? `<span class="slot-meta">${esc(topicOf(q.topicId)?.name || '')}</span>` : ''}</div>
+          ${lost ? `${q.explanation ? `<div class="q-text"><b>Why:</b> ${esc(q.explanation)}</div>` : ''}
+            ${q.correction ? `<div class="working">${esc(q.correction)}</div>` : ''}
+            ${qn.map((n) => `<div class="q-text" style="white-space:pre-wrap"><b>${n.kind === 'check' ? 'Your redo' : 'More'}:</b> ${esc(n.text)}</div>`).join('')}
+            ${q.resolved ? `<div class="resolved" style="margin-top:6px">Fixed${q.resolved === 'checked' ? ' — checked by Claude' : ''} ✓</div>`
+              : `<div class="opt-actions">
+                <button class="btn sm primary" data-act="fix" data-q="${esc(q.q)}">I've fixed it</button>
+                ${canCheck ? `<button class="btn sm" data-act="check-redo" data-q="${esc(q.q)}">Check my redo</button>` : ''}
+                ${APP.sample ? `<button class="btn sm" data-act="explain" data-q="${esc(q.q)}">Explain more</button>` : ''}
+                <button class="btn sm ghost" data-act="remark" data-q="${esc(q.q)}">Marked wrong?</button></div>`}`
+            : ''}
+          <div id="qx-${esc(q.q)}"></div>
+        </div></div>`;
+    }).join('')}</div>
+    ${full?.nextSteps?.length ? `<div style="margin-top:12px"><div class="eyebrow">Next</div><ul style="margin:6px 0 0;padding-left:18px">${full.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}`;
+}
+function questionOf(q) {
+  const id = SHEET.ctx?.id;
+  const full = APP.details[id];
+  const a = APP.data.attempts.find((x) => x.id === id);
+  return { a, q: (full?.questions || a?.questions || []).find((x) => String(x.q) === String(q)) };
+}
+function questionContext(a, q) {
+  return `Subject: ${subjectName(a.subjectId)}. Topic: ${topicOf(q.topicId)?.name || 'unknown'}. Question ${q.q} of "${a.title}", worth ${q.max} marks; the student got ${q.marks}.
+Why it was marked wrong: ${q.explanation || '(not recorded)'}
+The correct working: ${q.correction || '(not recorded)'}`;
+}
+async function explainMore(qKey) {
+  const { a, q } = questionOf(qKey);
+  const out = document.getElementById('qx-' + qKey);
+  if (!a || !q || !out) return;
+  out.innerHTML = '<div class="q-text">Thinking…</div>';
+  try {
+    const { text } = await APP.sample(`You are a patient A Level tutor. A Year 12 student got this question wrong and wants to understand it.
+${questionContext(a, q)}
+
+Explain it step by step in plain language, in under 180 words: what the question wants, the key idea, each step, and the trap the student fell into. Use plain text; write maths inline like x^2.`,
+    { modelTier: 'quick', cache: { gcTime: 86400000 }, onText: ({ text }) => { out.innerHTML = `<div class="q-text" style="white-space:pre-wrap">${esc(text)}</div>`; } });
+    send({ type: 'attempt.note', attemptId: a.id, q: q.q, kind: 'explain', text });
+    const full = APP.details[a.id];
+    if (full) (full.notes ||= []).push({ q: String(q.q), text, kind: 'explain' });
+  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
+}
+async function checkRedo(qKey, file) {
+  const { a, q } = questionOf(qKey);
+  const out = document.getElementById('qx-' + qKey);
+  if (!a || !q || !out) return;
+  out.innerHTML = '<div class="q-text">Reading your redo…</div>';
+  try {
+    const img = await downscale(file);
+    const r = await APP.sample.json(`A Year 12 student has redone a question they got wrong. The photo shows the redo.
+${questionContext(a, q)}
+
+Check the redo. Is the final answer right and the method sound? Reply with only JSON: {"correct": true, "feedback": "one or two sentences to the student"}`,
+    { images: [img.blob], modelTier: APP.work.tier === 'careful' ? 'default' : 'quick' });
+    URL.revokeObjectURL(img.url);
+    const ok = r?.correct === true;
+    const feedback = String(r?.feedback || (ok ? 'Correct.' : 'Not quite yet.'));
+    out.innerHTML = `<div class="notice${ok ? '' : ' bad'}">${ok ? '<b>Right.</b> ' : '<b>Not yet.</b> '}${esc(feedback)}</div>`;
+    send({ type: 'attempt.note', attemptId: a.id, q: q.q, kind: 'check', text: (ok ? 'Correct. ' : 'Not yet. ') + feedback });
+    if (ok) {
+      send({ type: 'mistake.resolve', attemptId: a.id, q: q.q, how: 'checked' });
+      q.resolved = 'checked';
+      setTimeout(() => { if (SHEET.ctx?.id === a.id) $('#sheet').innerHTML = attemptSheet(APP.data.attempts.find((x) => x.id === a.id), APP.details[a.id]); }, 1600);
+    }
+  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
+}
+function remarkForm(qKey) {
+  const { q } = questionOf(qKey);
+  const out = document.getElementById('qx-' + qKey);
+  if (!q || !out) return;
+  out.innerHTML = `<div class="q-edit" style="margin-top:8px">
+    <span class="muted" style="font-size:13px">Your marks:</span>
+    <input type="number" id="rm-${esc(qKey)}" min="0" max="${esc(q.max)}" step="0.5" value="${esc(q.max)}">
+    <span class="muted">/ ${fmtN(q.max)}</span>
+    <button class="btn sm primary" data-act="remark-save" data-q="${esc(qKey)}">Save</button></div>`;
+}
+
+/* ================================================================= skills */
+function viewSkills() {
+  const d = APP.data;
+  if (!d) return noData();
+  const M = d.mastery || { subjects: {}, topics: {} };
+  const focus = d.studyPeriods.flatMap((s) => s.chosen ? [s.chosen] : s.options.slice(0, 1));
+  const cards = subjects().filter((s) => s.active).map((s) => {
+    const m = M.subjects[s.id] || {};
+    const open = APP.skillsOpen === s.id;
+    const ts = d.topics.filter((t) => t.subjectId === s.id && (t.started || t.finished || (M.topics[t.id]?.evidence > 0)))
+      .sort((a, b) => (M.topics[a.id]?.score ?? 50) - (M.topics[b.id]?.score ?? 50));
+    const chips = (ids) => ids.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}</span>`).join('');
+    return `<div class="card subj-level" style="--c:${s.colour}">
+      <div class="row"><span class="dot"></span><h2 style="font-size:16px;flex:1">${esc(s.name)}</h2>
+        <span class="level-num">${m.score == null ? '–' : m.score}<span class="muted" style="font-size:14px">${m.score == null ? '' : '%'}</span></span></div>
+      <div class="bar"><span class="${lvClass(m.score)}" style="width:${m.score ?? 0}%"></span></div>
+      <div class="muted" style="font-size:12.5px">${m.met ? `from ${m.met} of ${m.total} topics you have met` : 'No topics started yet — mark them on the dashboard.'}</div>
+      ${m.weakest?.length ? `<div><div class="eyebrow" style="margin-bottom:4px">Weakest</div><div class="row">${chips(m.weakest)}</div></div>` : ''}
+      ${m.strongest?.length ? `<div><div class="eyebrow" style="margin-bottom:4px">Strongest</div><div class="row">${chips(m.strongest)}</div></div>` : ''}
+      ${m.advice ? `<div class="advice">${esc(m.advice)}</div>` : ''}
+      ${ts.length ? `<button class="btn ghost sm" data-act="skills-open" data-id="${esc(s.id)}" style="justify-self:start">${open ? 'Hide topics' : `Every topic (${ts.length})`}</button>` : ''}
+      ${open ? `<div>${ts.map((t) => {
+        const v = M.topics[t.id] || { score: null, level: 'none' };
+        return `<div class="topic-row"><span>${esc(t.name)} <span class="ev">${esc(v.level === 'none' ? 'no marks yet' : v.level + ' evidence')}${v.trend === 'up' ? ' ↑' : v.trend === 'down' ? ' ↓' : ''}</span></span>
+          <div class="bar"><span class="${lvClass(v.score)}" style="width:${v.score ?? 0}%"></span></div><span class="mono">${v.score ?? '–'}</span></div>`;
+      }).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="stack">
+    ${testsFull(d)}
+    ${focus.length ? `<div class="card"><div class="card-h"><h2>Where today's study periods point</h2></div>
+      ${focus.map((o) => `<div class="row" style="padding:5px 0;border-top:1px solid var(--line)"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>${esc(optTitle(o))}</div>`).join('')}
+      <div class="opt-why" style="margin-top:6px">Chosen from your level, your tests, your to-dos and what school is teaching now.</div></div>` : ''}
+    <div class="skills-grid">${cards}</div>
+    <p class="muted" style="font-size:12.5px;margin:0">Your level in a topic is the share of marks you get on it in marked work and tests, recent work counting most.
+      Your own 0–5 ratings count a little until there are real marks. It moves every time you save marked work.</p>
+  </div>`;
+}
+
+function testsFull(d) {
+  const tests = d.tests.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const today = nowISO();
+  return `<div class="card"><div class="card-h"><h2>Tests</h2><button class="btn sm primary" data-act="test-new">Add a test</button></div>
+    ${tests.length ? `<div class="tests-strip">${tests.map((t) => {
+      const n = daysBetween(today, t.date);
+      const past = n < 0;
+      return `<div class="test-row" style="flex-wrap:wrap">
+        <button class="task-main" data-act="test-edit" data-id="${esc(t.id)}" style="flex:1;min-width:180px">
+          <span style="font-weight:500">${esc(t.title)}</span>
+          <span class="task-meta"><span class="dot" style="--c:${colourOf(t.subjectId)}"></span>${esc(subjectName(t.subjectId))} · ${esc(fmtDay(t.date))}
+            · ${t.topicIds?.length ? `${t.topicIds.length} topic${t.topicIds.length === 1 ? '' : 's'}` : 'no topics picked'}</span></button>
+        ${t.result != null ? `<span class="score">${t.result}%</span>`
+          : past ? `<span class="row"><input type="number" id="tm-${esc(t.id)}" placeholder="mark" style="width:74px" inputmode="decimal">
+              <input type="number" id="tt-${esc(t.id)}" placeholder="out of" style="width:74px" inputmode="decimal">
+              <button class="btn sm" data-act="test-result" data-id="${esc(t.id)}">Log result</button></span>`
+          : `<span class="days-left${n <= 3 ? ' close' : ''}">${n === 0 ? 'today' : n === 1 ? '1 day' : n + ' days'}</span>`}
+      </div>`;
+    }).join('')}</div>` : '<div class="empty">Add a test or a unit test and your free periods start preparing you for it, weakest topics first.</div>'}
+  </div>`;
+}
+
+function testSheet(id) {
+  const existing = id && APP.data.tests.find((t) => t.id === id);
+  const t = existing ? JSON.parse(JSON.stringify(existing))
+    : { id: newId('t'), title: '', subjectId: lessonSubjectNow(), date: addDays(nowISO(), 7), kind: 'unit', topicIds: [] };
+  SHEET.ctx = { kind: 'test', isNew: !existing, test: t };
+  renderTestSheet();
+}
+function renderTestSheet() {
+  const t = SHEET.ctx.test;
+  const units = [...new Set(APP.data.topics.filter((x) => x.subjectId === t.subjectId).map((x) => x.unit))];
+  openSheet(`<div class="sheet-h"><h2>${SHEET.ctx.isNew ? 'Add a test' : 'Edit test'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>Name</span><input id="xTitle" value="${esc(t.title)}" placeholder="P1 unit test"></label>
+      <div class="fields two">
+        <label class="field"><span>Subject</span><select id="xSubj">${subjectOptions(t.subjectId, 'Choose…')}</select></label>
+        <label class="field"><span>Date</span><input type="date" id="xDate" value="${esc(t.date)}"></label>
+      </div>
+      <div class="field"><span>Kind</span><div class="seg" id="xKind">${[['unit', 'Unit test'], ['test', 'Test'], ['mock', 'Mock'], ['exam', 'Exam']].map(([k, v]) =>
+        `<button type="button" data-kind="${k}" aria-pressed="${t.kind === k}">${v}</button>`).join('')}</div></div>
+      <div class="field"><span>Topics it covers</span>
+        <div class="row">${t.topicIds.map((tid) => `<span class="chip">${esc(topicOf(tid)?.name || tid)}<button data-act="topic-remove" data-id="${esc(tid)}" aria-label="Remove">×</button></span>`).join('') || '<span class="muted" style="font-size:13px">none yet</span>'}</div>
+        ${units.length ? `<div class="row" style="margin-top:4px">${units.map((u) => `<button class="btn sm" data-act="unit-add" data-unit="${esc(u)}">+ all of ${esc(unitShort(u))}</button>`).join('')}</div>` : ''}
+        <input id="rTopicSearch" placeholder="Or add one topic — type a few letters" autocomplete="off">
+        <div id="rTopicSuggest"></div></div>
+      <div class="row"><button class="btn primary" data-act="test-save">Save</button><span class="spacer"></span>
+        ${SHEET.ctx.isNew ? '' : '<button class="btn danger" data-act="test-delete" data-armed="0">Delete</button>'}</div>
+    </div>`);
+}
+function readTestFields() {
+  const t = SHEET.ctx.test;
+  t.title = $('#xTitle')?.value.trim() ?? t.title;
+  t.subjectId = $('#xSubj')?.value ?? t.subjectId;
+  t.date = $('#xDate')?.value || t.date;
+}
+
+/* ================================================================= setup */
+function statusSheet() {
+  const inClaude = APP.mode === 'claude' || APP.mode === 'claude-no-mcp';
+  openSheet(`<div class="sheet-h"><h2>Connection</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="notice ${['error', 'setup'].includes(APP.status.kind) ? 'bad' : ''}">${esc(APP.status.text)}</div>
+    <p style="font-size:14px">${APP.syncedAt ? 'Last synced ' + esc(new Date(APP.syncedAt).toLocaleString('en-GB')) + '.' : 'Not synced yet.'}
+      ${APP.outbox.length ? ` ${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting — they are kept on this device and sent as soon as the dashboard answers.` : ''}</p>
+    ${inClaude ? `<div class="setup"><h3 style="font-size:15px">Connect the dashboard (once)</h3>
+      <ol>
+        <li>On claude.ai open <b>Settings → Connectors → Add custom connector</b>.</li>
+        <li>Name it exactly <code>${DASH}</code>.</li>
+        <li>URL: <code>https://&lt;your dashboard&gt;/mcp/&lt;APP_TOKEN&gt;</code> — the address of your dashboard, and the key from its host's environment settings.</li>
+        <li>Make sure <b>Google Drive</b> is connected too, with your school account.</li>
+        <li>Reload this page and allow both when Claude asks.</li>
+      </ol></div>` : `<p style="font-size:14px">This is the dashboard's own copy of the app. Uploading and marking work runs in the Claude app.</p>`}
+    <div class="row"><button class="btn primary" data-act="retry">Try again now</button></div>`);
+}
+
+let toastTimer = null;
+function toast(text) {
+  const t = $('#toast');
+  t.textContent = text; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+/* ================================================================ events */
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, [data-act]');
+  if (!t) { if (e.target.id === 'scrim') closeSheet(); return; }
+  if (t.dataset.tab && !t.dataset.act) { APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render(); }
+  const act = t.dataset.act;
+  const d = APP.data;
+  switch (act) {
+    case 'tab': APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render();
+    case 'status': return statusSheet();
+    case 'retry': closeSheet(); refresh(); return flush();
+    case 'close': return closeSheet();
+
+    /* today */
+    case 'choose': {
+      const sp = d.studyPeriods.find((s) => s.key === t.dataset.key);
+      const o = sp?.options[Number(t.dataset.i)];
+      if (o) send({ type: 'study.choose', date: d.date, key: sp.key, option: o });
+      return;
+    }
+    case 'study-change': return send({ type: 'study.choose', date: d.date, key: t.dataset.key, option: null });
+    case 'study-done': return doneSheet(t.dataset.key);
+    case 'done-save': {
+      const c = SHEET.ctx;
+      send({ type: 'study.done', date: d.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
+        confidence: c.conf ?? undefined, taskDone: Boolean($('#dTask')?.checked) });
+      if ($('#dTask')?.checked) {
+        const o = d.studyPeriods.find((s) => s.key === c.key)?.chosen;
+        if (o?.taskId) applyLocal({ type: 'task.done', taskId: o.taskId, done: true });
+      }
+      closeSheet(); return render();
+    }
+    case 'task-done': {
+      const done = d.done.some((x) => x.id === t.dataset.id);
+      return send({ type: 'task.done', taskId: t.dataset.id, done: !done });
+    }
+    case 'task-edit': return taskSheet(t.dataset.id);
+    case 'task-save': {
+      const id = SHEET.ctx.id;
+      const prio = $('#tPrio [aria-pressed="true"]')?.dataset.prio || 'normal';
+      send({ type: 'task.update', taskId: id, patch: { title: $('#tTitle').value.trim() || undefined, subjectId: $('#tSubj').value,
+        due: $('#tDue').value || null, priority: prio, notes: $('#tNote').value } });
+      return closeSheet();
+    }
+    case 'task-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      send({ type: 'task.delete', taskId: SHEET.ctx.id });
+      return closeSheet();
+
+    /* work */
+    case 'pick': return document.getElementById(t.dataset.input).click();
+    case 'page-remove': APP.work.pages.splice(Number(t.dataset.i), 1); APP.work.already = null; return render();
+    case 'work-analyse': return analyse(t.dataset.force === '1');
+    case 'work-file-only': return fileOnly();
+    case 'work-stop': APP.work.ctl?.abort(); return;
+    case 'work-back': APP.work.stage = 'idle'; APP.work.error = null; return render();
+    case 'work-reset': return resetWork();
+    case 'work-save': return saveWork(t.dataset.nodrive === '1');
+    case 'topic-add': {
+      const ctx = APP.work.stage === 'review' && SHEET.ctx?.kind !== 'test' ? APP.work.review : SHEET.ctx?.test;
+      if (ctx && !ctx.topicIds.includes(t.dataset.id)) ctx.topicIds.push(t.dataset.id);
+      if (SHEET.ctx?.kind === 'test') { readTestFields(); return renderTestSheet(); }
+      $('#rTopicSearch').value = '';
+      return render();
+    }
+    case 'topic-remove': {
+      if (SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = SHEET.ctx.test.topicIds.filter((x) => x !== t.dataset.id); return renderTestSheet(); }
+      APP.work.review.topicIds = APP.work.review.topicIds.filter((x) => x !== t.dataset.id);
+      return render();
+    }
+
+    /* history */
+    case 'hview': APP.history.view = t.dataset.v; return render();
+    case 'open-attempt': return openAttempt(t.dataset.id, t.dataset.q);
+    case 'fix': {
+      send({ type: 'mistake.resolve', attemptId: SHEET.ctx.id, q: t.dataset.q, how: 'self' });
+      const { q } = questionOf(t.dataset.q);
+      if (q) q.resolved = 'self';
+      $('#sheet').innerHTML = attemptSheet(APP.data.attempts.find((x) => x.id === SHEET.ctx.id), APP.details[SHEET.ctx.id]);
+      return;
+    }
+    case 'explain': return explainMore(t.dataset.q);
+    case 'check-redo': { const f = $('#fileRedo'); f.dataset.q = t.dataset.q; f.value = ''; return f.click(); }
+    case 'remark': return remarkForm(t.dataset.q);
+    case 'remark-save': {
+      const { a, q } = questionOf(t.dataset.q);
+      const marks = Math.min(Number(q.max), Math.max(0, Number($('#rm-' + t.dataset.q)?.value) || 0));
+      send({ type: 'attempt.update', attemptId: a.id, questions: [{ q: q.q, marks }] });
+      delete APP.details[a.id];
+      closeSheet();
+      return toast('Marks corrected — your level updates in a moment.');
+    }
+
+    /* skills */
+    case 'skills-open': APP.skillsOpen = APP.skillsOpen === t.dataset.id ? null : t.dataset.id; return render();
+    case 'test-new': return testSheet(null);
+    case 'test-edit': return testSheet(t.dataset.id);
+    case 'unit-add': {
+      readTestFields();
+      const tt = SHEET.ctx.test;
+      for (const x of APP.data.topics) if (x.subjectId === tt.subjectId && x.unit === t.dataset.unit && !tt.topicIds.includes(x.id)) tt.topicIds.push(x.id);
+      return renderTestSheet();
+    }
+    case 'test-save': {
+      readTestFields();
+      const tt = SHEET.ctx.test;
+      if (!tt.title || !tt.date) { toast('Give the test a name and a date.'); return; }
+      if (SHEET.ctx.isNew) send({ type: 'test.add', test: tt });
+      else send({ type: 'test.update', testId: tt.id, patch: { title: tt.title, subjectId: tt.subjectId, date: tt.date, kind: tt.kind, topicIds: tt.topicIds } });
+      return closeSheet();
+    }
+    case 'test-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      send({ type: 'test.delete', testId: SHEET.ctx.test.id });
+      return closeSheet();
+    case 'test-result': {
+      const mark = Number($('#tm-' + t.dataset.id)?.value), total = Number($('#tt-' + t.dataset.id)?.value);
+      if (!(total > 0) || !(mark >= 0) || mark > total) return toast('Enter your mark and what it was out of.');
+      return send({ type: 'test.result', testId: t.dataset.id, mark, total });
+    }
+  }
+
+  /* segmented controls inside sheets and the work form */
+  if (t.dataset.prio) { t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
+  if (t.dataset.conf) { SHEET.ctx.conf = Number(t.dataset.conf); t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
+  if (t.dataset.kind && SHEET.ctx?.kind === 'test') { SHEET.ctx.test.kind = t.dataset.kind; t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
+  if (t.dataset.tier) {
+    APP.work.hint = { subjectId: $('#wSubj')?.value ?? APP.work.hint.subjectId, homeworkId: $('#wHw')?.value ?? APP.work.hint.homeworkId };
+    APP.work.tier = t.dataset.tier; LS.set('tier', APP.work.tier); return render();
+  }
+});
+
+document.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (e.target.id === 'qaForm') quickAdd();
+});
+
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (el.id === 'qaText') return updateQuickPreview();
+  if (el.id === 'rTopicSearch') return topicSuggest();
+  if (el.id === 'rTitle' && APP.work.review) { APP.work.review.title = el.value; return; }
+  if (el.dataset.qf && APP.work.review) {
+    const q = APP.work.review.questions[Number(el.dataset.i)];
+    if (!q) return;
+    q[el.dataset.qf] = el.dataset.qf === 'marks' || el.dataset.qf === 'maxMarks' ? Number(el.value) : el.value;
+  }
+});
+
+document.addEventListener('change', async (e) => {
+  const el = e.target;
+  const r = APP.work.review;
+  if (['fileCamera', 'filePhotos', 'fileAny'].includes(el.id) && el.files?.length) { await addFiles([...el.files]); el.value = ''; return; }
+  if (el.id === 'fileRedo' && el.files?.[0]) return checkRedo(el.dataset.q, el.files[0]);
+  if (el.id === 'wSubj') { APP.work.hint.subjectId = el.value; APP.work.hint.homeworkId = ''; return render(); }
+  if (el.id === 'wHw') { APP.work.hint.homeworkId = el.value; return; }
+  if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
+  if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
+  if (!r) return;
+  if (el.id === 'rSubj') { r.subjectId = el.value; r.topicIds = r.topicIds.filter((id) => topicOf(id)?.subjectId === el.value); return render(); }
+  if (el.id === 'rKind') { r.kind = el.value; return render(); }
+  if (el.id === 'rHw') { r.homeworkId = el.value; return render(); }
+  if (el.dataset.qf) {
+    const q = r.questions[Number(el.dataset.i)];
+    if (q) { q[el.dataset.qf] = el.dataset.qf === 'marks' || el.dataset.qf === 'maxMarks' ? Number(el.value) : el.value; render(); }
+  }
+});
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+
+/* =================================================================== boot */
+async function boot() {
+  render();
+  if (window.claude?.use) {
+    const [mcp, sample] = await Promise.all([claude.use('mcp'), claude.use('sample')].map((p) => p.catch(() => null)));
+    APP.mcp = mcp; APP.sample = sample;
+    if (sample) APP.limits = await sample.limits().catch(() => null);
+    if (mcp) {
+      try { const l = await mcp.listTools(); APP.fileArgs = Boolean(l?.fileArgs); } catch { /* listing is advisory */ }
+      APP.transport = TRANSPORT.mcp;
+      APP.mode = 'claude';
+    } else {
+      APP.mode = 'claude-no-mcp';
+      setStatus('setup', APP.data ? 'Showing your last sync — connectors are off in this view' : 'Connectors are off in this view');
+    }
+  } else {
+    APP.transport = TRANSPORT.rest;
+    APP.mode = 'web';
+  }
+  render();
+  await refresh();
+  flush();
+  // the progress bar and "now" move with the clock; the day itself refreshes
+  // every few minutes and whenever you come back to the app
+  let ticks = 0;
+  setInterval(() => {
+    if (document.hidden) return;
+    if (++ticks % 10 === 0) refresh(); else if (APP.tab === 'today' && $('#sheet').hidden && !document.activeElement?.matches('input, textarea, select')) render();
+  }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); flush(); } });
+}
+boot();
+</script>

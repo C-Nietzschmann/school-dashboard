@@ -400,6 +400,22 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
+const COMPANION_HEAD = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Companion">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+<link rel="manifest" href="/icons/companion.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+`;
+
 const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 const server = createServer(async (req, res) => {
@@ -579,6 +595,10 @@ const server = createServer(async (req, res) => {
     if (!file.startsWith(ROOT + '/')) return send(res, 403, { error: 'nope' });
     // the dashboard page carries the shared planner, pasted in where it says @inline
     if (rel === '/app.html') return send(res, 200, inlineModules(await readFile(file, 'utf8'), ROOT), 'text/html');
+    // companion.html is written as an artifact body (claude.ai adds the page
+    // skeleton there); served from here it gets the same skeleton, plus what an
+    // iPhone needs to put it on the Home Screen
+    if (rel === '/companion.html') return send(res, 200, COMPANION_HEAD + await readFile(file, 'utf8') + '\n</body>\n</html>\n', 'text/html');
     if (existsSync(file)) return send(res, 200, await readFile(file), MIME[ext]);
     return send(res, 404, { error: 'not found' });
   } catch (e) {
