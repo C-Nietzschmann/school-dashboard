@@ -11,6 +11,7 @@ profile.json
 config.json
 whiteboards/
 marks/
+app-token.json
 .cache/
 .school-dashboard/
 

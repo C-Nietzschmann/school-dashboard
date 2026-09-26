@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, summarize, getAttempt } from '../lib/companion.mjs';
+import { applyOps, todayPayload, summarize, getAttempt, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -212,4 +212,17 @@ test('the dashboard page gets the planner pasted in and still parses', () => {
   assert.ok(html.includes('function createPlanner('));
   const js = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
   assert.doesNotThrow(() => new Function(js));
+});
+
+test('the companion key: made once and kept, the environment wins, rotation replaces it', async () => {
+  const store = memStore();
+  const a = await loadAppToken({ env: {}, store });
+  assert.match(a.token, /^[0-9a-f]{48}$/);
+  assert.equal(a.fromEnv, false);
+  assert.equal((await loadAppToken({ env: {}, store })).token, a.token, 'the same key after a restart');
+  const b = await rotateAppToken({ env: {}, store });
+  assert.notEqual(b.token, a.token);
+  assert.equal((await loadAppToken({ env: {}, store })).token, b.token);
+  assert.deepEqual(await loadAppToken({ env: { APP_TOKEN: 'mine' }, store }), { token: 'mine', fromEnv: true });
+  await assert.rejects(rotateAppToken({ env: { APP_TOKEN: 'mine' }, store }), /APP_TOKEN/);
 });

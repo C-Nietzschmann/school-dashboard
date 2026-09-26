@@ -19,8 +19,8 @@ services:
         sync: false
       - key: SESSION_SECRET        # generated once; keeps you signed in across restarts
         generateValue: true
-      - key: APP_TOKEN            # the companion app's key: generated once, then pasted into the
-        generateValue: true       # claude.ai connector URL (…/mcp/<APP_TOKEN>). See DEPLOY.md.
+      - key: APP_TOKEN            # optional: the dashboard makes its own companion key and shows the
+        sync: false               # connector URL on its Files tab. Set this only to choose the key yourself.
       - key: TZ                   # your time zone, e.g. Europe/London — so "today" on the server is
         sync: false               # your day when Claude chat asks the connector without a date
       - key: ANTHROPIC_API_KEY    # powers the Claude features; without it they hide themselves

@@ -320,7 +320,7 @@ section.tab.on{display:block}
    ====================================================================== */
 const DASH = 'A Level Dashboard';
 const DRIVE = 'Google Drive';
-const DRIVE_ROOT = 'A Level Dashboard';
+const DRIVE_ROOT = 'A Levels';          // default top folder; found by name, created only if missing
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 
@@ -448,6 +448,21 @@ function setStatus(kind, text) {
   $('#statusText').textContent = text;
 }
 
+/* Calling a connector you have not added yet fails like a network blip, which
+   read as "the dashboard may be waking up" when the real answer is "connect
+   it". Ask the connector list which one it is. */
+async function dashboardMissing(e) {
+  if (APP.mode !== 'claude' || !APP.mcp) return null;
+  if (!['upstream_error', 'server_not_connected', 'server_not_found', 'not_in_manifest', 'selection_required'].includes(e?.code)) return null;
+  try {
+    const { servers = [] } = await APP.mcp.listTools(DASH);
+    const me = servers.find((s) => s.server === DASH);
+    if (!me || !me.tools?.length) return 'Connect your dashboard first — tap here for how';
+    if (me.authStatus !== 'connected') return 'Could not reach the dashboard. Not connected yet? Tap here for how';
+  } catch { return 'Connect your dashboard first — tap here for how'; }
+  return null;
+}
+
 let refreshing = null;
 function refresh() {
   if (!APP.transport) return Promise.resolve();
@@ -464,7 +479,9 @@ function refresh() {
       for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
       setStatus('ok');
     } catch (e) {
-      setStatus(e?.code === 'server_not_connected' ? 'setup' : 'error', connError(e));
+      const setup = await dashboardMissing(e);
+      if (setup) setStatus('setup', setup);
+      else setStatus(e?.code === 'server_not_connected' ? 'setup' : 'error', connError(e));
     } finally {
       clearTimeout(slow);
       refreshing = null;
@@ -930,15 +947,21 @@ function viewWork() {
   </div>`;
 }
 
-function folderParts(r) {
-  const s = subjectOf(r.subjectId);
-  if (!s) return [DRIVE_ROOT, 'General'];
-  const clean = (x) => String(x).replace(/[\\/]+/g, '-').slice(0, 90);
-  const hw = r.homeworkId && [...APP.data.tasks, ...APP.data.done].find((t) => t.id === r.homeworkId);
-  if (hw) return [DRIVE_ROOT, s.name, 'Homework', clean(`${hw.due || nowISO()} ${hw.title}`)];
-  const t = topicOf(r.topicIds[0]);
-  if (t) return [DRIVE_ROOT, s.name, clean(`${unitShort(t.unit)} · ${t.name}`)];
-  return [DRIVE_ROOT, s.name, 'Other'];
+// Where the review screen says the work will go, as text.
+function destLabel(d) {
+  if (!d || d.status !== 'ready') return '';
+  const o = d.options.find((x) => x.key === d.choice);
+  return [d.root.title, d.subjectTitle, o && !o.isSubject ? o.title : null].filter(Boolean).join(' › ');
+}
+function destView(w) {
+  const d = w.dest;
+  if (!APP.mcp) return '<div class="muted" style="font-size:13px">Drive is not available in this view.</div>';
+  if (!d || d.status === 'loading') return '<div class="muted" style="font-size:13px">Finding the right folder in your Drive…</div>';
+  if (d.status === 'error') return `<div class="notice bad">${esc(d.error)}</div>`;
+  return `<div class="folder">${esc(d.root.title)}${d.root.id ? '' : ' (new)'} › ${esc(d.subjectTitle)}${d.subjectDir ? '' : ' (new)'} ›</div>
+    <select id="rDest">${d.options.map((o) => `<option value="${esc(o.key)}" ${o.key === d.choice ? 'selected' : ''}>${esc(o.isSubject
+      ? `Straight into ${d.subjectTitle}` : o.isNew ? `New folder: ${o.title}` : o.title)}</option>`).join('')}</select>
+    ${d.why ? `<div class="muted" style="font-size:12.5px">${esc(d.why)}</div>` : ''}`;
 }
 
 function reviewView() {
@@ -969,7 +992,7 @@ function reviewView() {
           <div id="rTopicSuggest"></div></div>
         <label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
           ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
-        <div class="field"><span>Goes to Google Drive</span><div class="folder">${folderParts(r).map(esc).join(' › ')}</div></div>
+        <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
       </div>
     </div>
     ${r.questions.length ? `<div class="card">
@@ -1007,7 +1030,7 @@ function savedView(s) {
     <div class="row" style="align-items:center;gap:18px">
       ${s.max ? `<span class="stamp">${fmtN(s.score)}<small>/${fmtN(s.max)}</small></span>` : ''}
       <div style="flex:1;min-width:200px"><h2 style="font-size:17px">${esc(s.title)}</h2>
-        <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.folder ? ' · filed in Drive' : ' · not in Drive'}</div></div>
+        <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.folder ? ' · filed in ' + esc(s.folder) : ' · not in Drive'}</div></div>
     </div>
     ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
     ${s.weakTopics.length ? `<div class="notice" style="margin-top:10px">Added to your revision:
@@ -1227,7 +1250,9 @@ async function analyse(force = false) {
 function startReview(a) {
   APP.work.review = JSON.parse(JSON.stringify(a));
   APP.work.stage = 'review';
+  APP.work.dest = null;
   render();
+  planDestination();
 }
 function fileOnly() {
   const w = APP.work;
@@ -1235,7 +1260,9 @@ function fileOnly() {
   w.review = { subjectId: w.hint.subjectId, topicIds: [], homeworkId: w.hint.homeworkId, kind: 'notes',
     title: defaultTitle(), questions: [], summary: '', nextSteps: [], detected: null };
   w.stage = 'review';
+  w.dest = null;
   render();
+  planDestination();
 }
 
 /* ---------------------------------------------------------- Google Drive */
@@ -1245,12 +1272,128 @@ async function drive(tool, input) {
   return p && typeof p === 'object' ? p : (r?.structuredContent || {});
 }
 const qq = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-async function findFolder(name, parentId) {
-  const res = await drive('search_files', {
-    query: `mimeType = '${FOLDER_MIME}' and title = '${qq(name)}' and parentId = '${parentId || 'root'}'`,
-    pageSize: 5, excludeContentSnippets: true,
-  });
-  return (res.files || []).find((f) => f.mimeType === FOLDER_MIME)?.id || null;
+/* Your Drive probably already has a shape — a top "A Levels" folder, a folder
+   per subject named your way ("FM", "A level Physics"), and inside those topic
+   folders and folders like "Class notes" or "Past papers". Work is
+   filed into that shape: existing folders are matched by name, and a folder is
+   created only when nothing fits. You see the choice before saving. */
+const FOLDERS = {};                          // parent id -> its folders, this session
+const norm = (s) => String(s).replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+async function listFolders(parent) {
+  if (FOLDERS[parent]) return FOLDERS[parent];
+  const res = await drive('search_files', { query: `mimeType = '${FOLDER_MIME}' and parentId = '${qq(parent)}'`,
+    pageSize: 100, excludeContentSnippets: true });
+  return (FOLDERS[parent] = (res.files || []).filter((f) => f.mimeType === FOLDER_MIME)
+    .map((f) => ({ id: f.id, title: String(f.title || '').trim() })));
+}
+async function driveRoot() {
+  const name = LS.get('driveRootName', DRIVE_ROOT);
+  const saved = LS.get('driveRoot', null);
+  if (saved?.id && saved.name === name) return saved;
+  const top = await listFolders('root');
+  const hit = top.find((f) => norm(f.title) === norm(name))
+    || (norm(name) === norm(DRIVE_ROOT) && top.find((f) => /^a ?levels?$/.test(norm(f.title))));
+  const root = hit ? { id: hit.id, title: hit.title, name } : { id: null, title: name, name };
+  if (hit) LS.set('driveRoot', root);
+  return root;
+}
+const SUBJECT_FOLDER = {
+  maths: ['maths', 'math', 'mathematics'],
+  fmaths: ['f maths', 'further maths', 'further mathematics', 'f math', 'further math', 'fm'],
+  physics: ['physics', 'phys'],
+  cs: ['computer science', 'computing', 'compsci', 'comp sci', 'cs'],
+  german: ['german', 'deutsch'],
+};
+function matchSubject(folders, s) {
+  const aliases = [...(SUBJECT_FOLDER[s.id] || []), norm(s.name)];
+  const bare = (t) => norm(t).replace(/^(as |a )?levels? /, '').replace(/ (year|yr) ?\d+$/, '').trim();
+  return folders.find((f) => aliases.includes(bare(f.title)))
+    || folders.find((f) => aliases.some((a) => a.length >= 6 && ` ${bare(f.title)} `.includes(` ${a} `)))
+    || null;
+}
+const STOP = new Set(['and', 'the', 'of', 'a', 'an', 'to', 'in', 'on', 'for', 'with', 'unit', 'notes', 'work']);
+const words = (s) => norm(s).split(' ').filter((x) => x && !STOP.has(x) && !/^\d+$/.test(x));
+const sameWord = (a, b) => a === b || (a.length >= 5 && b.length >= 5 && a.slice(0, 5) === b.slice(0, 5));
+function topicScore(folderTitle, t) {
+  const f = words(folderTitle), tw = words(t.name);
+  if (!tw.length) return 0;
+  let s = tw.filter((x) => f.some((y) => sameWord(x, y))).length / tw.length;
+  const u = unitShort(t.unit).toLowerCase();                     // "p1", "9", "unit 1"
+  const n = (u.match(/\d+/) || [])[0];
+  const title = norm(folderTitle);
+  if (n && (new RegExp(`\\bunit ${n}\\b`).test(title) || (/^[a-z]+\d+$/.test(u) && new RegExp(`\\b${u}\\b`).test(title)))) s += 0.35;
+  return s;
+}
+const CATEGORY = {
+  notes: /worksheet|notes|class/, worksheet: /worksheet|notes|class/,
+  test: /past papers?|papers?|tests?|exams?|mocks?/, answers: /worksheet|homework|exercise|answers|classwork/,
+};
+function suggestFolder(folders, r) {
+  const topics = r.topicIds.map(topicOf).filter(Boolean);
+  let best = null;
+  for (const f of folders) for (const t of topics) {
+    const s = topicScore(f.title, t);
+    if (s >= 0.6 && (!best || s > best.s)) best = { s, f };
+  }
+  if (best) return { key: 'id:' + best.f.id, why: 'Your folder for this topic.' };
+  if (r.homeworkId) {
+    const hw = folders.find((f) => /homework|assignment/.test(norm(f.title)));
+    if (hw) return { key: 'id:' + hw.id, why: 'Your homework folder.' };
+  }
+  const cat = folders.find((f) => CATEGORY[r.kind]?.test(norm(f.title)));
+  if (cat) return { key: 'id:' + cat.id, why: `Your folder for ${(KINDS[r.kind] || 'work').toLowerCase()}.` };
+  if (topics[0]) return { key: 'new', title: `${topics[0].name} (${unitShort(topics[0].unit)})`, why: 'No folder fits yet, so one is made for the topic.' };
+  return { key: 'subject', why: '' };
+}
+let destToken = 0;
+async function planDestination() {
+  const w = APP.work, r = w.review;
+  if (!r || !APP.mcp) return;
+  const token = ++destToken;
+  const keep = w.dest?.status === 'ready' && w.dest.subjectId === r.subjectId ? w.dest.userChoice : null;
+  w.dest = { status: 'loading' };
+  render();
+  try {
+    const root = await driveRoot();
+    const s = subjectOf(r.subjectId);
+    const top = root.id ? await listFolders(root.id) : [];
+    const subjectDir = s ? matchSubject(top, s) : top.find((f) => norm(f.title) === 'general') || null;
+    const inside = subjectDir ? await listFolders(subjectDir.id) : [];
+    const sug = suggestFolder(inside, r);
+    const options = inside.map((f) => ({ key: 'id:' + f.id, id: f.id, title: f.title }));
+    if (sug.key === 'new') options.push({ key: 'new', id: null, title: sug.title, isNew: true });
+    options.push({ key: 'subject', id: subjectDir?.id || null, title: '', isSubject: true });
+    if (token !== destToken) return;
+    w.dest = { status: 'ready', root, subjectId: r.subjectId, subjectDir, subjectTitle: subjectDir?.title || s?.name || 'General',
+      options, choice: keep && options.some((o) => o.key === keep) ? keep : sug.key, userChoice: keep, why: sug.why };
+  } catch (e) {
+    if (token === destToken) w.dest = { status: 'error', error: 'Could not look in Google Drive: ' + connError(e, DRIVE) };
+  }
+  render();
+}
+// Turn the chosen option into a folder id, creating only what is missing.
+async function resolveDestination() {
+  const d = APP.work.dest;
+  if (d?.status !== 'ready') throw { code: 'tool_error', message: d?.error || 'Drive is still being checked — try again in a moment.' };
+  let root = d.root;
+  if (!root.id) {
+    root = { ...root, id: await makeFolder(root.title, null) };
+    LS.set('driveRoot', root);
+    FOLDERS[root.id] = [];
+  }
+  let subjectId = d.subjectDir?.id;
+  if (!subjectId) {
+    subjectId = await makeFolder(d.subjectTitle, root.id);
+    (FOLDERS[root.id] ||= []).push({ id: subjectId, title: d.subjectTitle });
+    FOLDERS[subjectId] = [];
+  }
+  const o = d.options.find((x) => x.key === d.choice) || { isSubject: true };
+  const path = [root.title, d.subjectTitle];
+  if (o.isSubject) return { id: subjectId, path };
+  if (o.id) return { id: o.id, path: [...path, o.title] };
+  const id = await makeFolder(o.title, subjectId);
+  (FOLDERS[subjectId] ||= []).push({ id, title: o.title });
+  return { id, path: [...path, o.title] };
 }
 // The Drive connector documents folders as "set the mime type to the folder
 // type" without saying which of its two mime fields that is, so try the
@@ -1266,22 +1409,6 @@ async function makeFolder(name, parentId) {
   }
   if (!res?.id) throw { code: 'tool_error', message: 'Google Drive did not create the folder.' };
   return res.id;
-}
-// Walk the folder path, creating what is missing. Ids are remembered per device.
-async function ensureFolders(parts) {
-  const cache = LS.get('folders', {});
-  let parent = null, path = '';
-  for (const name of parts) {
-    path += '/' + name;
-    let id = cache[path];
-    if (!id) {
-      id = await findFolder(name, parent) || await makeFolder(name, parent);
-      cache[path] = id;
-      LS.set('folders', cache);
-    }
-    parent = id;
-  }
-  return parent;
 }
 async function toBase64(blob) {
   const u = new Uint8Array(await blob.arrayBuffer());
@@ -1353,9 +1480,8 @@ async function saveWork(noDrive = false) {
   let driveInfo = null;
   try {
     if (!noDrive) {
-      const parts = folderParts(r);
       w.progress = 'Finding your Drive folder…'; render();
-      const folderId = await ensureFolders(parts);
+      const { id: folderId, path: parts } = await resolveDestination();
       w.progress = 'Uploading to Google Drive…'; render();
       const files = await uploadsFor(w.pages);
       const stamp = `${nowISO()} ${nowHM().replace(':', '.')}`;
@@ -1365,7 +1491,7 @@ async function saveWork(noDrive = false) {
         results.push(await uploadBlob(f.blob, title, f.mime, f.ext, folderId));
       }
       driveInfo = { id: results[0]?.id, url: results.length === 1 ? results[0].url : `https://drive.google.com/drive/folders/${folderId}`,
-        folder: parts.join(' / '), mime: files.length === 1 ? files[0].mime : 'multiple' };
+        folder: parts.join(' › '), mime: files.length === 1 ? files[0].mime : 'multiple' };
     }
   } catch (e) {
     w.stage = 'review';
@@ -1679,12 +1805,15 @@ function statusSheet() {
       ${APP.outbox.length ? ` ${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting — they are kept on this device and sent as soon as the dashboard answers.` : ''}</p>
     ${inClaude ? `<div class="setup"><h3 style="font-size:15px">Connect the dashboard (once)</h3>
       <ol>
-        <li>On claude.ai open <b>Settings → Connectors → Add custom connector</b>.</li>
-        <li>Name it exactly <code>${DASH}</code>.</li>
-        <li>URL: <code>https://&lt;your dashboard&gt;/mcp/&lt;APP_TOKEN&gt;</code> — the address of your dashboard, and the key from its host's environment settings.</li>
+        <li>Open your dashboard in a browser, go to the <b>Files</b> tab, and copy the URL in the <b>Companion app</b> box.</li>
+        <li>On claude.ai open <b>Settings → Connectors → Add custom connector</b>. Name it exactly <code>${DASH}</code> and paste that URL.</li>
         <li>Make sure <b>Google Drive</b> is connected too, with your school account.</li>
         <li>Reload this page and allow both when Claude asks.</li>
-      </ol></div>` : `<p style="font-size:14px">This is the dashboard's own copy of the app. Uploading and marking work runs in the Claude app.</p>`}
+      </ol>
+      <h3 style="font-size:15px;margin-top:14px">Your Drive folder</h3>
+      <p style="font-size:14px;margin:4px 0 8px">Work is filed inside this top folder, into your subject folders. It is found by name and made only if it does not exist.</p>
+      <div class="row"><input id="rootName" value="${esc(LS.get('driveRootName', DRIVE_ROOT))}" style="max-width:240px" aria-label="Top Drive folder">
+        <button class="btn sm" data-act="root-save">Use this folder</button></div></div>` : `<p style="font-size:14px">This is the dashboard's own copy of the app. Uploading and marking work runs in the Claude app.</p>`}
     <div class="row"><button class="btn primary" data-act="retry">Try again now</button></div>`);
 }
 
@@ -1707,6 +1836,14 @@ document.addEventListener('click', (e) => {
     case 'tab': APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render();
     case 'status': return statusSheet();
     case 'retry': closeSheet(); refresh(); return flush();
+    case 'root-save': {
+      const name = $('#rootName')?.value.trim();
+      if (!name) return;
+      LS.set('driveRootName', name); LS.set('driveRoot', null);
+      for (const k of Object.keys(FOLDERS)) delete FOLDERS[k];
+      toast(`Work will be filed under “${name}”.`);
+      return closeSheet();
+    }
     case 'close': return closeSheet();
 
     /* today */
@@ -1759,12 +1896,12 @@ document.addEventListener('click', (e) => {
       if (ctx && !ctx.topicIds.includes(t.dataset.id)) ctx.topicIds.push(t.dataset.id);
       if (SHEET.ctx?.kind === 'test') { readTestFields(); return renderTestSheet(); }
       $('#rTopicSearch').value = '';
-      return render();
+      return planDestination();
     }
     case 'topic-remove': {
       if (SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = SHEET.ctx.test.topicIds.filter((x) => x !== t.dataset.id); return renderTestSheet(); }
       APP.work.review.topicIds = APP.work.review.topicIds.filter((x) => x !== t.dataset.id);
-      return render();
+      return planDestination();
     }
 
     /* history */
@@ -1855,9 +1992,10 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
   if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
   if (!r) return;
-  if (el.id === 'rSubj') { r.subjectId = el.value; r.topicIds = r.topicIds.filter((id) => topicOf(id)?.subjectId === el.value); return render(); }
-  if (el.id === 'rKind') { r.kind = el.value; return render(); }
-  if (el.id === 'rHw') { r.homeworkId = el.value; return render(); }
+  if (el.id === 'rSubj') { r.subjectId = el.value; r.topicIds = r.topicIds.filter((id) => topicOf(id)?.subjectId === el.value); return planDestination(); }
+  if (el.id === 'rKind') { r.kind = el.value; return planDestination(); }
+  if (el.id === 'rHw') { r.homeworkId = el.value; return planDestination(); }
+  if (el.id === 'rDest' && APP.work.dest) { APP.work.dest.choice = APP.work.dest.userChoice = el.value; return render(); }
   if (el.dataset.qf) {
     const q = r.questions[Number(el.dataset.i)];
     if (q) { q[el.dataset.qf] = el.dataset.qf === 'marks' || el.dataset.qf === 'maxMarks' ? Number(el.value) : el.value; render(); }

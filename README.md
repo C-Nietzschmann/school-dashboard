@@ -157,8 +157,8 @@ suggestions and the revision queue both use. Add a test and the suggestions shif
 towards its topics as the date approaches.
 
 It reaches the dashboard two ways: inside Claude through a custom connector
-(`/mcp/<APP_TOKEN>`, see [DEPLOY.md](DEPLOY.md)), or from this server at
-`/companion`. Both use the same small API in `lib/companion.mjs`; the planning
+(the URL to paste is on the Files tab — see [DEPLOY.md](DEPLOY.md)), or from this
+server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
 `npm test` runs the checks on the planner, the change log and the connector.

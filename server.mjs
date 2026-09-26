@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, summarize, applyOps, getAttempt, OP_TYPES } from './lib/companion.mjs';
+import { todayPayload, summarize, applyOps, getAttempt, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -80,8 +80,14 @@ const markStore = {
    requires a signed cookie. */
 const PASSWORD = process.env.DASHBOARD_PASSWORD || '';
 // The companion app's key. It unlocks /api/app/* as a Bearer token and the MCP
-// connector as part of its URL — nothing else. Unset, both are switched off.
-const APP_TOKEN = process.env.APP_TOKEN || '';
+// connector as part of its URL — nothing else. The dashboard makes one on first
+// start (see lib/companion.mjs); APP_TOKEN in the environment overrides it.
+const keyFile = (id) => join(paths.dir, id + '.json');
+const keyStore = { read: (id) => readDoc(id, keyFile(id)), write: (id, doc) => writeDoc(id, keyFile(id), doc) };
+let APP_KEY = null;                                   // { token, fromEnv }
+const appKeyReady = loadAppToken({ store: keyStore })
+  .then((k) => { APP_KEY = k; })
+  .catch((e) => console.error('companion key:', e.message));
 const SIGNING_KEY = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
 const authRequired = () => Boolean(PASSWORD);
 
@@ -423,6 +429,7 @@ const server = createServer(async (req, res) => {
   const path = url.pathname;
 
   try {
+    await appKeyReady;
     /* ---- sign in ---- */
     if (path === '/api/login' && req.method === 'POST') {
       const key = clientKey(req);
@@ -456,7 +463,9 @@ const server = createServer(async (req, res) => {
     // clean 404 says so (the static handler would answer 403 to a dot-path).
     if (path.startsWith('/.well-known/')) return send(res, 404, { error: 'not found' });
     const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || '')?.[1] || '';
-    const appKey = Boolean(APP_TOKEN) && path.startsWith('/api/app/') && equalish(bearer, APP_TOKEN);
+    // The key opens the app's API, but never the route that reveals the key.
+    const appKey = Boolean(APP_KEY) && path.startsWith('/api/app/') && !path.startsWith('/api/app/connector')
+      && equalish(bearer, APP_KEY.token);
     if (authRequired() && !publicPath && !appKey && !validCookie(req.headers.cookie)) {
       if (path.startsWith('/api/')) return send(res, 401, { error: 'sign in' });
       if (path === '/' || path.endsWith('.html') || path === '/companion') {
@@ -494,12 +503,25 @@ const server = createServer(async (req, res) => {
     if (path === '/api/app/ops' && req.method === 'POST') {
       return send(res, 200, await appApply(await readBody(req)));
     }
+    // What to paste into claude.ai to add the dashboard as a connector — for the
+    // signed-in dashboard only (the gate above keeps the Bearer key out of here).
+    if (path === '/api/app/connector') {
+      if (req.method === 'POST') {
+        try { APP_KEY = await rotateAppToken({ store: keyStore }); }
+        catch (e) { return send(res, 409, { error: e.message }); }
+      }
+      const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim()
+        || (process.env.RENDER ? 'https' : 'http');
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      return send(res, 200, { name: 'A Level Dashboard', url: `${proto}://${host}/mcp/${APP_KEY.token}`,
+        fromEnv: APP_KEY.fromEnv, https: proto === 'https' });
+    }
     if (path === '/api/app/attempt' && req.method === 'GET') {
       return send(res, 200, await appAttempt(Object.fromEntries(url.searchParams)));
     }
     const mcpPath = path.match(/^\/mcp\/([^/]+)\/?$/);
     if (mcpPath) {
-      if (!APP_TOKEN || !equalish(decodeURIComponent(mcpPath[1]), APP_TOKEN)) {
+      if (!APP_KEY || !equalish(decodeURIComponent(mcpPath[1]), APP_KEY.token)) {
         return send(res, 404, { error: 'not found' });
       }
       if (req.method !== 'POST') {
@@ -628,7 +650,7 @@ server.listen(PORT, BIND, () => {
   console.log('');
   console.log('  store:  ' + backend() + (backend() === 'file' ? ' (' + DATA + ')' : ''));
   console.log('  auth:   ' + (authRequired() ? 'password required' : 'open (local only — set DASHBOARD_PASSWORD before hosting)'));
-  console.log('  app:    ' + (APP_TOKEN ? 'companion key set — /companion, /api/app/*, /mcp/<key>' : 'no APP_TOKEN — companion only with the password'));
+  console.log('  app:    companion at /companion — its connector URL is on the Files tab');
   console.log('  stop:   Ctrl-C');
   console.log('');
 });

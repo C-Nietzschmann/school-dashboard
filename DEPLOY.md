@@ -115,27 +115,31 @@ It runs best **inside Claude**, where it can use your Google Drive connector and
 Claude itself — marking is billed to your Claude plan, not to an API key. Claude
 reaches the dashboard through a connector, set up once:
 
-**1. Deploy this version.** Render generates `APP_TOKEN` from `render.yaml`. A
-service created before that line existed will not have it: add it yourself in
-Render → Environment, any long random string (`openssl rand -hex 24`). Set `TZ`
-to your time zone while you are there.
+**1. Deploy this version.** Nothing to configure: on first start the dashboard
+makes its own companion key and keeps it in the database. (Set `APP_TOKEN` in
+Render → Environment only if you want to choose the key yourself.) Setting `TZ`
+to your time zone is worth doing while you are there.
 
-**2. Add the connector.** claude.ai → **Settings → Connectors → Add custom
-connector**. Name it exactly `A Level Dashboard`; the URL is
+**2. Copy the connector URL.** Open the hosted dashboard, go to the **Files**
+tab, and press **Copy** next to the URL in the **Companion app** box. It is your
+dashboard's address plus `/mcp/` plus the key, ready to paste — do not type one
+by hand.
 
-```
-https://<your-service>.onrender.com/mcp/<APP_TOKEN>
-```
+**3. Add the connector.** claude.ai → **Settings → Connectors → Add custom
+connector**. Name it exactly `A Level Dashboard` and paste the URL. That URL *is*
+the key: anyone with it can read and change your dashboard, so keep it to
+yourself. **Make a new key** in the same Files box revokes it; then update the
+connector with the new URL.
 
-That URL *is* the key — anyone with it can read and change your dashboard, so do
-not share it. To revoke it, change `APP_TOKEN` in Render and update the connector.
+**4. Connect Google Drive** in the same place, with the school account whose
+Drive should hold your work. The app files into the folders you already have: a
+top folder (`A Levels` unless you change it in the app), your folder for each
+subject whatever you called it, and inside that the folder that matches the
+topic, or the kind of work ("Class notes", "Past papers"). It makes
+a folder only when nothing fits, and the review screen shows where each file will
+go before anything is saved.
 
-**3. Connect Google Drive** in the same place, with the school account whose
-Drive should hold your work. The app files everything under
-`A Level Dashboard / <subject> / <topic or assignment>`, creating folders as it
-goes.
-
-**4. Open the app.** The companion is published as a claude.ai artifact; open its
+**5. Open the app.** The companion is published as a claude.ai artifact; open its
 link in the Claude app on each device (or in Safari, then Share → Add to Home
 Screen) and allow the two connectors and Claude when asked.
 

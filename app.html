@@ -2062,6 +2062,19 @@ views.uni = () => {
 };
 
 views.files = () => `
+  <div class="card" style="margin-bottom:16px" id="companionCard">
+    <h2>Companion app</h2>
+    <div class="hint">Your phone and iPad reach this dashboard through Claude. Add it there once, as a connector:</div>
+    <ol class="uni-list" style="font-size:13.5px;line-height:1.9;margin:10px 0 6px">
+      <li>On claude.ai open <b>Settings → Connectors → Add custom connector</b>.</li>
+      <li>Name <code>A Level Dashboard</code> <button class="btn ghost sm" data-copy="A Level Dashboard">Copy</button></li>
+      <li>URL <code id="compUrl" style="word-break:break-all">loading…</code> <button class="btn ghost sm" id="compCopy">Copy</button></li>
+      <li>Open <b>A Level Companion</b> in Claude and allow the connector when it asks.</li>
+    </ol>
+    <div class="hint" id="compNote" style="margin:0 0 10px"></div>
+    <button class="btn sm" id="compRotate" data-armed="0">Make a new key</button>
+  </div>
+
   <div class="card" style="margin-bottom:16px">
     <h2>Your data</h2>
     <div class="hint">Everything the dashboard knows, as one file. Worth exporting now and then —
@@ -2241,6 +2254,7 @@ async function saveConfig(section, btn) {
 let currentView = 'today';
 
 function renderAll() {
+  if (!S) return;            // a tab tapped while the state is still loading; boot renders it
   $('#view-' + currentView).innerHTML = views[currentView]();
   afterRender(currentView);
   const t = daysBetween(todayISO(), S.profile.termStart);
@@ -2258,6 +2272,34 @@ function afterRender(v) {
   renderAlert();
   if (v === 'whiteboard') initWhiteboard();
   if (v === 'files') { loadIntegrationStatus(); loadConfigUI(); }
+  if (v === 'files') loadCompanionCard();
+}
+
+// The Files tab's companion card: the exact connector URL, ready to copy. The
+// URL holds the key, so it is only ever fetched by this signed-in page.
+async function loadCompanionCard(rotate = false) {
+  const el = $('#compUrl'); if (!el) return;
+  try {
+    const r = await fetch('/api/app/connector', { method: rotate ? 'POST' : 'GET' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+    el.textContent = d.url;
+    $('#compNote').innerHTML = [
+      d.https ? '' : '<b>This is the address on this computer.</b> claude.ai needs the https address of your hosted dashboard — open this tab there to copy it.',
+      d.fromEnv ? 'The key comes from <code>APP_TOKEN</code> in your host\'s settings; change it there to replace it.'
+        : 'The URL is the key: anyone with it can read and change your dashboard, so keep it to yourself.',
+    ].filter(Boolean).join(' ');
+    $('#compRotate').hidden = d.fromEnv;
+  } catch (e) {
+    el.textContent = 'not available — ' + e.message;
+  }
+}
+function copyText(text, btn) {
+  const done = () => { const was = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = was; }, 1400); };
+  navigator.clipboard?.writeText(text).then(done, () => {
+    const range = document.createRange(); range.selectNodeContents(btn.previousElementSibling || btn);
+    getSelection().removeAllRanges(); getSelection().addRange(range);
+  });
 }
 
 function switchView(v) {
@@ -2382,6 +2424,13 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.rate) return rateTopic(t.dataset.rate, Number(t.dataset.conf));
+  if (t.dataset.copy) return copyText(t.dataset.copy, t);
+  if (t.id === 'compCopy') return copyText($('#compUrl').textContent, t);
+  if (t.id === 'compRotate') {
+    if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'The old URL stops working — tap again'; return; }
+    t.dataset.armed = '0'; t.textContent = 'Make a new key';
+    return loadCompanionCard(true);
+  }
   if (t.dataset.coachact === 'plan') return coachPlan(t);
   if (t.dataset.coachact === 'questions') return coachQuestions(t);
   if (t.dataset.coachact === 'analysis') return coachAnalysis(t);
