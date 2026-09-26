@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, summarize, applyOps, getAttempt, uploadsList, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -312,6 +312,9 @@ async function appToday({ date, time, detail = 'full' } = {}) {
   const payload = todayPayload(await loadState(), { date, time });
   return detail === 'summary' ? summarize(payload) : payload;
 }
+async function appWeek(args = {}) {
+  return weekPayload(await loadState(), args);
+}
 function appApply({ ops, date, time } = {}) {
   return withState(async (S) => {
     const out = await applyOps(S, ops, { date, time, store: markStore });
@@ -319,8 +322,8 @@ function appApply({ ops, date, time } = {}) {
     return { ...out, rev: S.rev || 0 };
   });
 }
-async function appAttempt({ id, hash } = {}) {
-  return getAttempt(await loadState(), { id, hash }, markStore);
+async function appAttempt({ id, hash, worksheetId } = {}) {
+  return getAttempt(await loadState(), { id, hash, worksheetId }, markStore);
 }
 
 const mcp = createMcpServer({
@@ -329,9 +332,10 @@ const mcp = createMcpServer({
   instructions: 'One student\'s A Level dashboard (Year 12: Maths, Further Maths, Physics, '
     + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
-    + 'writes: to-dos, study-period choices, tests, marked work and question packs. get_uploads lists '
-    + 'the photos and PDFs the student uploaded (stored in Google Drive; read them by driveId through the '
-    + 'Google Drive connector). Every change needs a unique id; resending the same id is harmless.',
+    + 'writes: to-dos, study-period choices and study sessions, tests, worksheets, notes, marked work '
+    + 'and question packs. get_uploads lists the photos and PDFs the student uploaded (stored in Google '
+    + 'Drive; read them by driveId through the Google Drive connector). Every change needs a unique id; '
+    + 'resending the same id is harmless.',
   tools: [
     {
       name: 'get_today',
@@ -356,21 +360,27 @@ const mcp = createMcpServer({
         + 'task.add {task:{title, subjectId?, due?: YYYY-MM-DD, priority?: high|normal|low, notes?}}; '
         + 'task.update {taskId, patch}; task.done {taskId, done}; task.delete {taskId}; '
         + 'study.choose {date, key, option} (key and option from get_today studyPeriods); '
-        + 'study.done {date, key, minutes?, confidence?: 0-5}; '
+        + 'study.done {date, key, minutes?, confidence?: 0-5, note?}; study.undo {date, key}; '
+        + 'study.slot.add {date, start: HH:MM, minutes?, title?} (a study session on any day, weekends too; '
+        + 'its key comes back and it gets options like a free period); study.slot.remove {date, key}; '
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
         + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
-        + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, kind, driveId?, driveUrl?, hash?}, '
+        + 'worksheet.add {worksheet:{id?, title, subjectId, topicIds, folderId?, folderUrl?, fileId?, fileUrl?}, '
+        + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch}; '
+        + 'worksheet.delete {worksheetId}; '
+        + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, worksheetId?, kind: answers|notes|worksheet|test, '
+        + 'driveId?, driveUrl?, correctionsUrl?, hash?}, notes?:{summary, keyPoints} (kind notes), '
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
         + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
         + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
-        + 'attempt.delete {attemptId}; '
+        + 'attempt.delete {attemptId}; attachment.delete {attachmentId}; '
         + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
         + 'markScheme}] (1-30 questions)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
         + 'pack.delete {packId}. Returns one result per op.',
       inputSchema: { type: 'object', required: ['ops'], properties: {
         ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
-          properties: { id: { type: 'string' }, type: { type: 'string', enum: OP_TYPES } } } },
+          properties: { id: { type: 'string' }, type: { type: 'string', description: 'one of: ' + OP_TYPES.join(', ') } } } },
         date: { type: 'string', description: 'YYYY-MM-DD local; the day the changes belong to' },
         time: { type: 'string', description: 'HH:MM local' },
       } },
@@ -378,12 +388,31 @@ const mcp = createMcpServer({
       handler: (a) => appApply(a),
     },
     {
+      name: 'get_week',
+      title: 'Study periods ahead, and the study log',
+      description: 'The study (free) periods of the next days — each with up to three suggested options and whatever '
+        + 'the student already chose — for planning ahead, plus the study log: what was chosen for each past study '
+        + 'period, whether it was done, for how long and how it went. Choose ahead with apply_changes study.choose '
+        + 'using the date and key given here.',
+      inputSchema: { type: 'object', properties: {
+        from: { type: 'string', description: 'YYYY-MM-DD first day; default today' },
+        days: { type: 'number', description: 'how many days ahead, 1–28; default 14' },
+        date: { type: 'string', description: 'YYYY-MM-DD local today' },
+        time: { type: 'string', description: 'HH:MM local' },
+        logDays: { type: 'number', description: 'how far back the study log goes, in days; default 60' },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: (a) => appWeek(a),
+    },
+    {
       name: 'get_attempt',
-      title: 'One piece of marked work',
+      title: 'One piece of marked work, or a worksheet',
       description: 'The full marking of one attempt: every question with marks, error type, why it was '
         + 'wrong and the correct working, plus the summary, next steps and follow-up notes. Pass the '
-        + 'attempt id from get_today (detail="full"), or the image hash.',
-      inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' } } },
+        + 'attempt id from get_today (detail="full"), or the image hash. Pass worksheetId instead to get '
+        + 'a saved worksheet: its questions as read from the sheet, and the answers marked against it.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' },
+        worksheetId: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       handler: (a) => appAttempt(a),
     },
@@ -519,6 +548,9 @@ const server = createServer(async (req, res) => {
     /* ---- the companion app (REST; the MCP connector below is the same) ---- */
     if (path === '/api/app/today' && req.method === 'GET') {
       return send(res, 200, await appToday(Object.fromEntries(url.searchParams)));
+    }
+    if (path === '/api/app/week' && req.method === 'GET') {
+      return send(res, 200, await appWeek(Object.fromEntries(url.searchParams)));
     }
     if (path === '/api/app/ops' && req.method === 'POST') {
       return send(res, 200, await appApply(await readBody(req)));

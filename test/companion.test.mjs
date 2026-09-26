@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, summarize, getAttempt, uploadsList, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
+import { applyOps, todayPayload, weekPayload, summarize, getAttempt, uploadsList, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -260,7 +260,9 @@ test('upgrade adds the new fields only where they are missing', () => {
   S.tests = [{ id: 'keep' }];
   upgrade(S, { ...S, generic: true }, 999);
   assert.deepEqual(S.attempts, []);
+  assert.deepEqual(S.worksheets, []);
   assert.deepEqual(S.dayPlans, {});
+  assert.deepEqual(S.extraSlots, {});
   assert.equal(S.rev, 0);
   assert.equal(S.homework[0].priority, 'high');
   assert.equal(S.homework[1].priority, 'normal');
@@ -292,4 +294,151 @@ test('the companion key: made once and kept, the environment wins, rotation repl
   assert.equal((await loadAppToken({ env: {}, store })).token, b.token);
   assert.deepEqual(await loadAppToken({ env: { APP_TOKEN: 'mine' }, store }), { token: 'mine', fromEnv: true });
   await assert.rejects(rotateAppToken({ env: { APP_TOKEN: 'mine' }, store }), /APP_TOKEN/);
+});
+
+test('a tutorial next to a study period is not study time, and is not merged into it', () => {
+  const S = fixture();
+  S.timetable.A.mon = [
+    { id: 't', subjectId: 'free', period: '1', start: '08:45', end: '09:05', title: 'KS5 Tutorial' },
+    { id: 's', subjectId: 'free', period: '2', start: '09:05', end: '10:50', title: 'Study period' },
+    { id: 'p', subjectId: 'free', period: '3', start: '11:00', end: '11:45', title: 'PE' },
+  ];
+  const P = at(S);
+  const lessons = P.lessonsOn(MONDAY);
+  assert.equal(lessons.length, 3, 'different titles stay separate slots');
+  assert.deepEqual(lessons.filter(P.isStudySlot).map((l) => l.start), ['09:05']);
+  assert.deepEqual(P.studyOptions(MONDAY).map((s) => s.key), ['09:05']);
+});
+
+test('planning ahead: choose for a later day, then the log shows what was done', async () => {
+  const S = fixture();
+  S.timetable.A.wed = [{ id: 'w', subjectId: 'free', period: '1', start: '10:00', end: '11:00' }];
+  const wk = weekPayload(S, { from: MONDAY, days: 7, date: MONDAY });
+  const wed = wk.days.find((d) => d.date === '2026-09-30');
+  assert.equal(wed.studyPeriods.length, 1);
+  assert.ok(wk.days.find((d) => d.date === '2026-10-03').weekend);
+  const pick = wed.studyPeriods[0].options[0];
+  await applyOps(S, [{ id: 'p1', type: 'study.choose', date: '2026-09-30', key: '10:00', option: pick }], { date: MONDAY });
+  assert.equal(weekPayload(S, { from: MONDAY, days: 7, date: MONDAY }).days[2].studyPeriods[0].chosen.id, pick.id);
+  // Wednesday comes: it gets done, with a rating and a note
+  await applyOps(S, [{ id: 'p2', type: 'study.done', date: '2026-09-30', key: '10:00', minutes: 50, confidence: 4, note: 'q1-8' }],
+    { date: '2026-09-30' });
+  const log = weekPayload(S, { from: '2026-09-28', date: '2026-10-01' }).log;
+  assert.equal(log.length, 1);
+  assert.deepEqual([log[0].done, log[0].minutes, log[0].confidence, log[0].note, log[0].start], [true, 50, 4, 'q1-8', '10:00']);
+  const sessions = S.sessions.length;
+  await applyOps(S, [{ id: 'p3', type: 'study.undo', date: '2026-09-30', key: '10:00' }], { date: '2026-09-30' });
+  assert.equal(S.sessions.length, sessions - (pick.subjectId ? 1 : 0), 'undo removes the logged session');
+  assert.equal(weekPayload(S, { from: '2026-09-28', date: '2026-10-01' }).log[0].done, false);
+});
+
+test('your own plan for a study period is kept as written', async () => {
+  const S = fixture();
+  const sp = at(S).studyOptions(MONDAY)[0];
+  const own = { id: 'custom:x', kind: 'custom', title: 'Physics past paper Jan 2024', why: 'your own plan', subjectId: 'physics', mins: 60 };
+  await applyOps(S, [{ id: 'c1', type: 'study.choose', date: MONDAY, key: sp.key, option: own },
+    { id: 'c2', type: 'study.done', date: MONDAY, key: sp.key }], { date: MONDAY });
+  const log = weekPayload(S, { date: MONDAY }).log;
+  assert.equal(log[0].option.title, 'Physics past paper Jan 2024');
+  assert.equal(log[0].minutes, 60);
+  assert.equal(S.sessions.at(-1).subjectId, 'physics');
+});
+
+test('a worksheet: saved with its questions, offered in study periods, answered, then shown with its answers', async () => {
+  const S = fixture();
+  const store = memStore();
+  const ws = { id: 'w1', title: 'Forces sheet 2', subjectId: 'physics', topicIds: ['t071'], pages: 3,
+    folderId: 'F1', folderUrl: 'https://drive.google.com/drive/folders/F1', fileId: 'D1', fileUrl: 'https://drive.google.com/file/d/D1/view' };
+  const add = { id: 'w-op', type: 'worksheet.add', worksheet: ws, summary: 'Newton',
+    questions: [{ q: '1', text: 'Resolve the forces', maxMarks: 3, topicId: 't071' }, { q: '2', text: 'Find a', maxMarks: 2 }] };
+  const r = await applyOps(S, [add, { ...add, id: 'w-op2' }], { date: MONDAY, store });
+  assert.equal(r.results[0].worksheetId, 'w1');
+  assert.equal(S.worksheets.length, 1, 'the same worksheet id is saved once');
+  assert.deepEqual([S.worksheets[0].questionCount, S.worksheets[0].maxMarks, S.worksheets[0].folderId], [2, 5, 'F1']);
+  assert.equal(store.m.get('ws-w1').questions[1].topicId, 't071', 'a question without a topic takes the sheet\'s');
+
+  // it turns up as something to do in a study period, and can be planned there
+  const opt = at(S).studyOptions(MONDAY).flatMap((s) => s.options).find((o) => o.worksheetId === 'w1');
+  assert.equal(opt.kind, 'worksheet');
+  assert.match(opt.title, /Worksheet: Forces sheet 2/);
+  const key = at(S).studyOptions(MONDAY)[0].key;
+  await applyOps(S, [{ id: 'w-plan', type: 'study.choose', date: MONDAY, key, option: opt }], { date: MONDAY, store });
+  let p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.deepEqual(p.worksheets[0].planned, [{ date: MONDAY, key, done: false }]);
+  assert.equal(summarize(p).worksheetsToDo[0].title, 'Forces sheet 2');
+
+  // the answers, marked against it, belong to it
+  await applyOps(S, [{ id: 'w-ans', type: 'work.save',
+    attachment: { id: 'f9', title: 'Answers', kind: 'answers', worksheetId: 'w1', correctionsUrl: 'https://docs.google.com/document/d/C1/edit' },
+    marking: { questions: [{ q: '1', marks: 3, maxMarks: 3 }, { q: '2', marks: 0, maxMarks: 2, errorType: 'method', explanation: 'x', correction: 'y' }] } }],
+  { date: MONDAY, store });
+  const att = S.attempts[0];
+  assert.deepEqual([att.worksheetId, att.subjectId, att.topicIds[0], att.score, att.max], ['w1', 'physics', 't071', 3, 5]);
+  assert.match(att.correctionsUrl, /C1/);
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.deepEqual(p.worksheets[0].attempts.map((a) => a.id), [att.id]);
+  assert.equal(summarize(p).worksheetsToDo.length, 0);
+  assert.ok(!at(S).studyOptions(MONDAY).flatMap((s) => s.options).some((o) => o.worksheetId === 'w1' && o.id !== opt.id),
+    'an answered worksheet is not suggested again');
+
+  const full = await getAttempt(S, { worksheetId: 'w1' }, store);
+  assert.equal(full.found, true);
+  assert.deepEqual(full.questions.map((q) => q.text), ['Resolve the forces', 'Find a']);
+  assert.deepEqual(full.attempts.map((a) => a.score), [3]);
+  assert.equal((await getAttempt(S, { worksheetId: 'nope' }, store)).found, false);
+
+  // renamed, then deleted: the marked answers stay in the history
+  await applyOps(S, [{ id: 'w-up', type: 'worksheet.update', worksheetId: 'w1', patch: { title: 'Forces 2', topicIds: ['t071', 'zzz'] } }], { date: MONDAY, store });
+  assert.deepEqual([S.worksheets[0].title, S.worksheets[0].topicIds], ['Forces 2', ['t071']]);
+  await applyOps(S, [{ id: 'w-del', type: 'worksheet.delete', worksheetId: 'w1' }], { date: MONDAY, store });
+  assert.equal(S.worksheets.length, 0);
+  assert.equal(S.attempts.length, 1);
+  assert.equal(S.attempts[0].worksheetId, undefined);
+  assert.equal(S.dayPlans[MONDAY][key], undefined, 'the planned period is free again');
+});
+
+test('study sessions on a weekend get options, can be planned and logged, and removed', async () => {
+  const S = fixture();
+  const SAT = '2026-10-03';
+  assert.deepEqual(weekPayload(S, { from: MONDAY, days: 7, date: MONDAY }).days.find((d) => d.date === SAT).studyPeriods, []);
+  const r = await applyOps(S, [
+    { id: 's1', type: 'study.slot.add', date: SAT, start: '10:00', minutes: 90 },
+    { id: 's2', type: 'study.slot.add', date: SAT, start: '09:61' },
+  ], { date: MONDAY });
+  assert.equal(r.results[0].key, 'x10:00');
+  assert.equal(r.results[1].ok, false);
+  const sat = weekPayload(S, { from: MONDAY, days: 7, date: MONDAY }).days.find((d) => d.date === SAT);
+  assert.equal(sat.weekend, true);
+  assert.equal(sat.studyPeriods.length, 1);
+  const sp = sat.studyPeriods[0];
+  assert.deepEqual([sp.key, sp.start, sp.end, sp.mins, sp.extra], ['x10:00', '10:00', '11:30', 90, true]);
+  assert.ok(sp.options.length >= 1);
+  await applyOps(S, [{ id: 's3', type: 'study.choose', date: SAT, key: sp.key, option: sp.options[0] },
+    { id: 's4', type: 'study.done', date: SAT, key: sp.key, confidence: 3 }], { date: SAT });
+  const log = weekPayload(S, { date: SAT }).log;
+  assert.deepEqual([log[0].date, log[0].start, log[0].end, log[0].minutes], [SAT, '10:00', '11:30', 90]);
+  // a session on a school day sits next to the timetable's periods, in time order
+  await applyOps(S, [{ id: 's5', type: 'study.slot.add', date: MONDAY, start: '16:30', minutes: 45 }], { date: MONDAY });
+  assert.deepEqual(at(S).studyOptions(MONDAY).map((s) => s.key), ['09:30', '11:50', 'x16:30']);
+  const before = S.sessions.length;
+  await applyOps(S, [{ id: 's6', type: 'study.slot.remove', date: SAT, key: 'x10:00' }], { date: SAT });
+  assert.equal(S.extraSlots[SAT], undefined);
+  assert.equal(S.dayPlans[SAT]?.['x10:00'], undefined);
+  assert.equal(S.sessions.length, before - (sp.options[0].subjectId ? 1 : 0));
+});
+
+test('notes are kept as notes, with what Claude read in them, and count as studying the topic', async () => {
+  const S = fixture();
+  const t = S.topics.find((x) => x.id === 't004');
+  t.lastStudied = null;
+  await applyOps(S, [{ id: 'n1', type: 'work.save',
+    attachment: { id: 'nf1', title: 'Quadratics notes', kind: 'notes', subjectId: 'maths', topicIds: ['t004'], driveUrl: 'https://drive.google.com/file/d/N/view' },
+    notes: { summary: 'Completing the square', keyPoints: ['vertex form', '', 'discriminant'] } }], { date: MONDAY });
+  assert.equal(S.attempts.length, 0, 'notes are not marked');
+  assert.equal(t.lastStudied, MONDAY);
+  const p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.equal(p.notes.length, 1);
+  assert.deepEqual([p.notes[0].title, p.notes[0].summary, p.notes[0].keyPoints], ['Quadratics notes', 'Completing the square', ['vertex form', 'discriminant']]);
+  await applyOps(S, [{ id: 'n2', type: 'attachment.delete', attachmentId: 'nf1' }], { date: MONDAY });
+  assert.equal(todayPayload(S, { date: MONDAY, time: '08:00' }).notes.length, 0);
 });

@@ -11,7 +11,7 @@
   --text:#0b0b0b; --text-2:#52514e; --muted:#84837c;
   --accent:#2a78d6; --accent-ink:#ffffff; --accent-soft:#e3eefb;
   --pen:#c8322f; --pen-soft:#fbe7e5; --tick:#1a8a3a; --tick-soft:#e2f3e6; --warn:#a86f00; --warn-soft:#fbf0d9;
-  --violet:#7a4fc2; --violet-soft:#efe8fa;
+  --violet:#7a4fc2; --violet-soft:#efe8fa; --teal:#0f7f86; --teal-soft:#dcf1f2;
   --rule:#e8eef6;
   --radius:12px;
   --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
@@ -25,7 +25,7 @@
     --text:#ffffff; --text-2:#c3c2b7; --muted:#8e8d84;
     --accent:#3987e5; --accent-soft:#1c2a3b;
     --pen:#ef6a5f; --pen-soft:#3a1f1c; --tick:#4cc574; --tick-soft:#18301f; --warn:#e0a53a; --warn-soft:#352a15;
-    --violet:#a988e8; --violet-soft:#2a2238; --rule:#23262b;
+    --violet:#a988e8; --violet-soft:#2a2238; --teal:#4cc3c9; --teal-soft:#16302f; --rule:#23262b;
   }
 }
 :root[data-theme="dark"]{
@@ -34,13 +34,13 @@
   --text:#ffffff; --text-2:#c3c2b7; --muted:#8e8d84;
   --accent:#3987e5; --accent-soft:#1c2a3b;
   --pen:#ef6a5f; --pen-soft:#3a1f1c; --tick:#4cc574; --tick-soft:#18301f; --warn:#e0a53a; --warn-soft:#352a15;
-  --violet:#a988e8; --violet-soft:#2a2238; --rule:#23262b;
+  --violet:#a988e8; --violet-soft:#2a2238; --teal:#4cc3c9; --teal-soft:#16302f; --rule:#23262b;
 }
 
 *{box-sizing:border-box}
 html,body{background:var(--bg)}
-body{margin:0;color:var(--text);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
-  padding-inline:16px;padding-block:0 calc(84px + env(safe-area-inset-bottom, 0px))}
+body{margin:0;color:var(--text);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh;min-height:100dvh;
+  padding-inline:max(16px, env(safe-area-inset-left, 0px));padding-block:0 calc(84px + env(safe-area-inset-bottom, 0px));overscroll-behavior-y:none}
 h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.015em;text-wrap:balance}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -54,12 +54,26 @@ a{color:var(--accent)}
 .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 
 /* ---------- header + tabs ---------- */
-header.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:20;background:var(--bg);
-  margin-inline:-16px;padding:12px 16px 10px;border-bottom:1px solid var(--line)}
+header.top{position:sticky;top:0;z-index:20;background:var(--bg);
+  margin-inline:-16px;padding:calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;border-bottom:1px solid var(--line);transition:transform .22s ease}
+header.top.hide{transform:translateY(-105%)}
+@media (prefers-reduced-motion: reduce){header.top{transition:none}}
+.iconbtn{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;width:32px;height:32px;padding:0;
+  display:inline-grid;place-items:center;color:var(--text-2);flex:none}
+.iconbtn svg{width:17px;height:17px}
 .top-in{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .today-line{flex:1;min-width:0}
 .today-line h1{font-size:19px}
 .today-line .sub{font-family:var(--mono);font-size:12px;color:var(--text-2);display:flex;gap:8px;flex-wrap:wrap;margin-top:1px}
+@media (min-width:820px){.today-line h1 .short{display:none}}
+@media (max-width:819px){
+  .top-in{flex-wrap:nowrap;gap:8px}
+  .today-line{display:flex;align-items:baseline;gap:8px;min-width:0}
+  .today-line h1{font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .today-line h1 .long,.today-line .sub span + span:not(.late){display:none}
+  .today-line .sub{font-size:11.5px;white-space:nowrap;overflow:hidden;flex-wrap:nowrap}
+  .status{padding:4px 9px;font-size:12px;max-width:46vw}
+}
 .status{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:5px 11px;
   font-size:12.5px;display:inline-flex;align-items:center;gap:7px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
@@ -89,7 +103,8 @@ section.tab{display:none}
 section.tab.on{display:block}
 .grid2{display:grid;gap:16px}
 @media (min-width:820px){.grid2{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}}
-.stack{display:grid;gap:16px}
+.stack{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+.grid2 > *,.stack > *{min-width:0}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
 .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
 .card-h h2{font-size:16px}
@@ -115,6 +130,8 @@ section.tab.on{display:block}
 .kind.k-mistakes{background:var(--warn-soft);color:var(--warn)}
 .kind.k-current{background:var(--tick-soft);color:var(--tick)}
 .kind.k-review{background:var(--violet-soft);color:var(--violet)}
+.kind.k-worksheet{background:var(--teal-soft);color:var(--teal)}
+.kind.k-notes{background:var(--surface-2);color:var(--text-2)}
 .notice{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:14px}
 .notice.bad{border-color:color-mix(in srgb,var(--pen) 40%,var(--line));background:var(--pen-soft)}
 .field{display:grid;gap:5px;font-size:13px;color:var(--text-2)}
@@ -178,7 +195,29 @@ section.tab.on{display:block}
 .days-left.close{color:var(--pen);font-weight:500}
 
 /* ---------- work: upload, read, review ---------- */
-.pickers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pickers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:430px){.pickers{grid-template-columns:repeat(2,1fr)}}
+/* the week strip: pick a day to plan or look back at */
+.strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px}
+.daychip{flex:none;display:grid;justify-items:center;gap:0;min-width:56px;border:1px solid var(--line-strong);background:var(--surface);border-radius:12px;padding:6px 8px}
+.daychip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.daychip.off{opacity:.5}
+.daychip.wkend{border-style:dashed}
+.slot.own .slot-body{border-left-style:solid;border-left-color:var(--accent);background:var(--surface)}
+.dc-wd{font-size:11.5px}
+.dc-d{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1.3}
+.dc-n{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.daychip.on .dc-n{color:var(--accent)}
+.logrow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.logrow:first-child{border-top:0}
+.logrow .when{font-family:var(--mono);font-size:12px;color:var(--text-2);line-height:1.3}
+.logrow .res{font-size:12.5px;text-align:right;white-space:nowrap}
+.kind.k-custom{background:var(--surface-2);color:var(--text)}
+.drive-list{border:1px solid var(--line);border-radius:10px;max-height:52vh;overflow:auto;background:var(--surface)}
+.drive-list button{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:9px 11px;font-size:14px}
+.drive-list button:first-child{border-top:0}
+.drive-list small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.crumbs{font-family:var(--mono);font-size:12.5px;color:var(--text-2);margin:0 0 8px;overflow-wrap:anywhere}
 .picker{border:1px dashed var(--line-strong);background:var(--surface);border-radius:12px;padding:16px 8px;display:grid;justify-items:center;gap:6px;
   font-weight:500;font-size:14px;text-align:center}
 .picker svg{width:26px;height:26px;color:var(--accent)}
@@ -187,6 +226,25 @@ section.tab.on{display:block}
 .thumb{position:relative;flex:none;width:92px}
 .thumb img,.thumb .pdf{width:92px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .thumb button{position:absolute;top:-7px;right:-7px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);padding:0;font-size:14px;line-height:1}
+.thumb.addpage{width:92px;height:120px;border:1px dashed var(--line-strong);border-radius:8px;background:var(--surface);
+  display:grid;place-items:center;align-content:center;gap:2px;font-size:12.5px;color:var(--text-2);padding:0;align-self:flex-start}
+.thumb.addpage span{font-size:26px;line-height:1;color:var(--accent)}
+.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:640px){.modes{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.mode{border:1px solid var(--line-strong);background:var(--surface);border-radius:10px;padding:9px 11px;text-align:left;display:grid;gap:1px}
+.mode b{font-weight:600;font-size:14px;color:var(--text)}
+.mode small{font-size:12px;color:var(--muted);line-height:1.3}
+.mode[aria-pressed="true"]{border:2px solid var(--accent);padding:8px 10px;background:var(--accent-soft)}
+.segwrap{max-width:100%;overflow-x:auto;scrollbar-width:none}
+.segwrap .seg button{white-space:nowrap}
+.segwrap .seg b{font-family:var(--mono);font-weight:500;font-size:.92em;margin-left:3px}
+@media (max-width:559px){
+  .segwrap{width:100%}
+  .segwrap .seg{display:flex;width:100%}
+  .segwrap .seg button{flex:1 1 auto;padding:7px 6px;font-size:13px}
+}
+.meta{font-size:13px;color:var(--text-2);line-height:1.5}
+.meta .dot{margin-right:5px;vertical-align:1px}
 .thumb figcaption{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
 .reading{display:grid;justify-items:center;gap:10px;padding:26px 10px;text-align:center}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--pen);animation:spin 0.9s linear infinite}
@@ -276,6 +334,8 @@ section.tab.on{display:block}
       <div class="sub" id="daySub"></div>
     </div>
     <button class="status" id="statusBtn" data-kind="busy" data-act="status"><i></i><span id="statusText">Connecting…</span></button>
+    <button class="iconbtn" id="fsBtn" data-act="fullscreen" hidden aria-label="Full screen" aria-pressed="false" title="Full screen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <nav class="tabbar" role="tablist" aria-label="Sections">
       <button role="tab" data-tab="today" aria-selected="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Today</button>
@@ -322,7 +382,8 @@ section.tab.on{display:block}
    work in folders) and Claude itself (to read and mark it), billed to your
    Claude plan rather than an API key.
    ====================================================================== */
-const DASH = 'A Level Dashboard';
+// The connector's name as you typed it in claude.ai; any capitalisation is found at load.
+let DASH = 'A Level Dashboard';
 const DRIVE = 'Google Drive';
 const DRIVE_ROOT = 'A Levels';          // default top folder; found by name, created only if missing
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
@@ -361,10 +422,14 @@ const APP = {
   tab: LS.get('tab', 'today'),
   transport: null, mode: 'connecting', status: { kind: 'busy', text: 'Connecting…' },
   mcp: null, sample: null, limits: null, fileArgs: false,
-  work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick') },
+  work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick'),
+    mode: LS.get('workMode', 'worksheet'), worksheetId: '' },
   history: { view: 'mistakes', subject: '' },
   details: {},            // attempt id -> full marking, fetched on demand
+  sheets: {},             // worksheet id -> its questions, fetched on demand
   skillsOpen: null,
+  week: LS.get('week', null),  // study periods ahead, and the study log
+  selDay: null,                // the day shown in Today; null = today
 };
 
 /* ================================================================ lookups */
@@ -394,16 +459,20 @@ async function dash(tool, input) {
   const p = r?.payload;
   return p && typeof p === 'object' ? p : r?.structuredContent;
 }
+// Plans cover this week from Monday, and next week.
+const weekFrom = () => { const d = parseD(nowISO()); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoOf(d); };
 const TRANSPORT = {
   rest: {
     today: () => rest(`/api/app/today?date=${nowISO()}&time=${nowHM()}`),
+    week: () => rest(`/api/app/week?from=${weekFrom()}&days=14&date=${nowISO()}&time=${nowHM()}`),
     apply: (ops) => rest('/api/app/ops', { method: 'POST', body: JSON.stringify({ ops, date: nowISO(), time: nowHM() }) }),
-    attempt: (id) => rest('/api/app/attempt?id=' + encodeURIComponent(id)),
+    attempt: (q) => rest('/api/app/attempt?' + new URLSearchParams(typeof q === 'string' ? { id: q } : q)),
   },
   mcp: {
     today: () => dash('get_today', { date: nowISO(), time: nowHM(), detail: 'full' }),
+    week: () => dash('get_week', { from: weekFrom(), days: 14, date: nowISO(), time: nowHM() }),
     apply: (ops) => dash('apply_changes', { ops, date: nowISO(), time: nowHM() }),
-    attempt: (id) => dash('get_attempt', { id }),
+    attempt: (q) => dash('get_attempt', typeof q === 'string' ? { id: q } : q),
   },
 };
 
@@ -426,6 +495,8 @@ function connError(e, server = DASH) {
     default: return e?.message || 'Could not reach the dashboard.';
   }
 }
+const SAMPLE_CODES = new Set(['not_granted', 'sampling_disabled', 'rate_limited', 'images_unavailable', 'image_rejected',
+  'refused', 'invalid_json', 'empty_completion', 'session_expired', 'prompt_too_large', 'cancelled']);
 function sampleError(e) {
   return ({
     not_granted: 'You declined Claude for this page. Reload to be asked again.',
@@ -478,6 +549,11 @@ function refresh() {
       const d = await APP.transport.today();
       if (!d || !Array.isArray(d.lessons)) throw { code: 'bad', message: 'The dashboard sent something unexpected. Is it up to date?' };
       APP.data = d;
+      // the week view is a bonus: a dashboard too old to have it still works
+      try {
+        const wk = await APP.transport.week();
+        if (wk && Array.isArray(wk.days)) { APP.week = wk; LS.set('week', wk); }
+      } catch { /* keep the last copy */ }
       APP.syncedAt = new Date().toISOString();
       LS.set('data', d); LS.set('syncedAt', APP.syncedAt);
       for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
@@ -549,8 +625,56 @@ const LOCAL = {
     d.packs = (d.packs || []).filter((x) => x.id !== op.packId);
     if (k) d.tasks = d.tasks.filter((x) => x.id !== k.taskId);
   },
-  'study.choose': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) { s.chosen = op.option; s.done = false; } },
-  'study.done': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) s.done = true; },
+  'study.choose': (d, op) => {
+    for (const s of studySlots(op.date)) if (s.key === op.key) { s.chosen = op.option; s.done = false; }
+    for (const w of (d.worksheets || [])) w.planned = (w.planned || []).filter((p) => !(p.date === op.date && p.key === op.key));
+    const w = op.option?.worksheetId && (d.worksheets || []).find((x) => x.id === op.option.worksheetId);
+    if (w) w.planned.push({ date: op.date, key: op.key, done: false });
+  },
+  'worksheet.add': (d, op) => {
+    const w = op.worksheet;
+    if ((d.worksheets ||= []).some((x) => x.id === w.id)) return;
+    d.worksheets.unshift({ ...w, date: nowISO(), created: new Date().toISOString(), questionCount: op.questions.length,
+      maxMarks: op.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0), attempts: [], planned: [] });
+    if (w.hash) (d.worksheetHashes ||= {})[w.hash] = w.id;
+    APP.sheets[w.id] ||= { found: true, questions: op.questions, summary: op.summary || '', attempts: [] };
+  },
+  'worksheet.update': (d, op) => { const w = (d.worksheets || []).find((x) => x.id === op.worksheetId); if (w) Object.assign(w, op.patch); },
+  'worksheet.delete': (d, op) => {
+    d.worksheets = (d.worksheets || []).filter((x) => x.id !== op.worksheetId);
+    for (const a of d.attempts) if (a.worksheetId === op.worksheetId) delete a.worksheetId;
+  },
+  'work.save': (d, op) => {
+    const a = op.attachment;
+    if (a.kind !== 'notes' || (d.notes ||= []).some((x) => x.id === a.id)) return;
+    d.notes.unshift({ id: a.id, title: a.title, date: nowISO(), subjectId: a.subjectId, topicIds: a.topicIds || [], driveUrl: a.driveUrl,
+      folder: a.folder, summary: op.notes?.summary || '', keyPoints: op.notes?.keyPoints || [] });
+  },
+  'attachment.delete': (d, op) => { d.notes = (d.notes || []).filter((x) => x.id !== op.attachmentId); },
+  'study.done': (d, op) => {
+    for (const s of studySlots(op.date)) if (s.key === op.key) {
+      s.done = true;
+      const log = APP.week?.log;
+      if (log && s.chosen && !log.some((e) => e.date === op.date && e.key === op.key)) {
+        log.unshift({ date: op.date, key: op.key, start: s.start, end: s.end, option: s.chosen, done: true,
+          minutes: op.minutes ?? s.mins, confidence: op.confidence ?? null, note: op.note || '' });
+      }
+    }
+  },
+  'study.undo': (d, op) => {
+    for (const s of studySlots(op.date)) if (s.key === op.key) s.done = false;
+    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key));
+  },
+  'study.slot.add': (d, op) => {
+    const key = 'x' + op.start;
+    const end = (() => { const m = Math.min(1439, toMins(op.start) + (op.minutes || 60)); return pad(Math.floor(m / 60)) + ':' + pad(m % 60); })();
+    const sp = { key, start: op.start, end, mins: op.minutes || 60, extra: true, title: op.title || 'Study session', options: [], chosen: null, done: false };
+    for (const list of studyLists(op.date)) if (!list.some((x) => x.key === key)) { list.push({ ...sp }); list.sort((a, b) => toMins(a.start) - toMins(b.start)); }
+  },
+  'study.slot.remove': (d, op) => {
+    for (const list of studyLists(op.date)) { const i = list.findIndex((x) => x.key === op.key); if (i >= 0) list.splice(i, 1); }
+    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key));
+  },
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
   'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
   'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
@@ -561,6 +685,15 @@ const LOCAL = {
     if (q) q.resolved = op.how;
   },
 };
+// A study period can appear twice on screen — in today's copy and in the week's.
+function studyLists(date) {
+  const out = [];
+  if (APP.data?.date === date) out.push(APP.data.studyPeriods ||= []);
+  const day = APP.week?.days?.find((x) => x.date === date);
+  if (day) out.push(day.studyPeriods ||= []);
+  return out;
+}
+const studySlots = (date) => studyLists(date).flat();
 function applyLocal(op) { try { if (APP.data) LOCAL[op.type]?.(APP.data, op); } catch { /* the refresh will correct it */ } }
 
 /* ================================================================= render */
@@ -599,7 +732,9 @@ function renderNow() {
 function renderHeader() {
   const d = APP.data;
   const today = nowISO();
-  $('#dayTitle').textContent = parseD(today).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const day = parseD(today);
+  $('#dayTitle').innerHTML = `<span class="long">${esc(day.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>`
+    + `<span class="short">${esc(day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))}</span>`;
   const bits = [];
   if (d) {
     if (d.holiday) bits.push(esc(d.holiday));
@@ -620,65 +755,181 @@ function noData() {
 }
 
 /* ================================================================== today */
-const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards' };
+const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards',
+  custom: 'Own plan', worksheet: 'Worksheet' };
 function optTitle(o) {
   // "Test prep: Quadratics" -> the chip already says "Test prep"
-  return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes):\s*/, '');
+  return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes|Worksheet):\s*/, '');
 }
 
 function viewToday() {
   const d = APP.data;
   if (!d) return noData();
-  return `<div class="grid2">
-    <div class="stack">${dayCard(d)}</div>
+  // every day of the fortnight, weekends too: a Saturday can hold study sessions
+  const days = APP.week?.days || [];
+  const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
+  return `${weekStrip(days)}<div class="grid2">
+    <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
     <div class="stack">${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
   </div>`;
 }
 
-function dayCard(d) {
-  if (d.holiday) return `<div class="card"><div class="holiday">${esc(d.holiday)} — no lessons today.</div></div>`;
-  if (!d.lessons.length) return `<div class="card"><div class="holiday">No lessons today.</div></div>`;
-  const now = toMins(nowHM());
-  const rows = d.lessons.map((l) => {
-    const state = d.date !== nowISO() ? l.state : now >= toMins(l.end) ? 'past' : now >= toMins(l.start) ? 'now' : 'later';
+function weekStrip(days) {
+  if (!days.length) return '';
+  const sel = APP.selDay || APP.data.date;
+  return `<div class="strip" aria-label="Days">${days.map((x) => {
+    const d = parseD(x.date);
+    const n = x.studyPeriods.length, planned = x.studyPeriods.filter((s) => s.chosen).length;
+    const label = x.date === nowISO() ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short' });
+    const off = (x.holiday || x.weekend) && !n;
+    return `<button class="daychip${x.date === sel ? ' on' : ''}${off ? ' off' : ''}${x.weekend ? ' wkend' : ''}" data-act="day" data-date="${x.date}"
+      title="${esc(`${x.holiday ? x.holiday + ' · ' : ''}${n} study period${n === 1 ? '' : 's'}, ${planned} planned`)}">
+      <span class="dc-wd">${label}</span><span class="dc-d">${d.getDate()}</span>
+      <span class="dc-n">${n ? `${planned}/${n}` : x.holiday && !x.weekend ? 'off' : '–'}</span></button>`;
+  }).join('')}</div>`;
+}
+
+// One day's timetable with its study periods. Today's copy knows what is on
+// now; another day's is all past or all ahead.
+function timetable(date, week, lessons, studyPeriods, title, note = '') {
+  const today = nowISO(), now = toMins(nowHM());
+  // your own study sessions are rows of their own, slotted in by time
+  const own = studyPeriods.filter((s) => s.extra).map((s) => ({ key: s.key, start: s.start, end: s.end,
+    name: s.title || 'Study session', free: true, own: true }));
+  const all = [...lessons, ...own].sort((a, b) => toMins(a.start) - toMins(b.start));
+  const rows = all.map((l) => {
+    const state = date < today ? 'past' : date > today ? 'later'
+      : now >= toMins(l.end) ? 'past' : now >= toMins(l.start) ? 'now' : 'later';
     const pct = state === 'now' ? Math.round((now - toMins(l.start)) / Math.max(1, toMins(l.end) - toMins(l.start)) * 100) : 0;
-    const sp = l.free ? d.studyPeriods.find((s) => s.key === l.key) : null;
-    return `<li class="slot ${state}${l.free ? ' free' : ''}" style="--c:${l.colour || 'var(--line-strong)'}">
+    const sp = studyPeriods.find((s) => s.key === l.key);
+    const study = Boolean(sp) || l.study;
+    return `<li class="slot ${state}${study || l.free ? ' free' : ''}${l.own ? ' own' : ''}" style="--c:${l.colour || 'var(--line-strong)'}">
       <div class="slot-time">${esc(l.start)}<span>${esc(l.end)}</span></div>
       <div class="slot-body">
         <div class="row"><span class="slot-name">${esc(l.name)}</span>
-          <span class="slot-meta">${[l.room, l.double ? 'double' : '', state === 'now' ? 'now' : ''].filter(Boolean).map(esc).join(' · ')}</span></div>
+          <span class="slot-meta">${[l.room, l.double ? 'double' : '', state === 'now' ? 'now' : ''].filter(Boolean).map(esc).join(' · ')}</span>
+          ${l.own && !sp?.done ? `<span class="spacer"></span><button class="btn ghost sm" data-act="slot-remove" data-date="${esc(date)}" data-key="${esc(l.key)}" data-armed="0">Remove</button>` : ''}</div>
         ${state === 'now' ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ''}
-        ${sp ? studyBlock(sp, state) : ''}
+        ${sp ? studyBlock(sp, state, date) : ''}
       </div>
     </li>`;
   }).join('');
-  return `<div class="card"><div class="card-h"><h2>Timetable</h2><span class="count">week ${esc(d.week)}</span></div>
-    <ol class="day">${rows}</ol></div>`;
+  return `<div class="card"><div class="card-h"><h2>${esc(title)}</h2>${week ? `<span class="count">week ${esc(week)}</span>` : ''}</div>
+    ${note ? `<div class="holiday" style="padding:4px 2px 12px">${note}</div>` : ''}
+    ${rows ? `<ol class="day">${rows}</ol>` : ''}
+    <button class="btn sm" data-act="slot-new" data-date="${esc(date)}" style="margin-top:${rows ? 12 : 0}px">+ Add study session</button></div>`;
 }
 
-function studyBlock(sp, state) {
+// A day without lessons — a weekend, a holiday — is still a day you can study.
+function freeDayNote(x, isToday) {
+  const own = x.studyPeriods.length;
+  const what = x.holiday ? esc(x.holiday) : x.weekend ? 'Weekend' : 'No lessons';
+  return own ? `${what} — your study sessions:`
+    : `${what}${isToday ? ' today' : ''}. Add a study session to plan work for this day.`;
+}
+
+function dayCard(d) {
+  const isFree = d.holiday || !d.lessons.length;
+  const weekend = [0, 6].includes(parseD(d.date).getDay());
+  if (isFree) return timetable(d.date, '', [], d.studyPeriods, 'Today', freeDayNote({ ...d, weekend }, true));
+  return timetable(d.date, d.week, d.lessons, d.studyPeriods, 'Today');
+}
+
+function otherDay(x) {
+  const title = parseD(x.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+  if (x.holiday || !x.lessons.length) return timetable(x.date, '', [], x.studyPeriods, title, freeDayNote(x, false));
+  const lessons = x.lessons.map((l) => ({ ...l,
+    name: l.title || (l.subjectId === 'free' ? 'Free period' : subjectName(l.subjectId)),
+    colour: l.subjectId === 'free' ? null : colourOf(l.subjectId), free: l.subjectId === 'free' }));
+  return timetable(x.date, x.week, lessons, x.studyPeriods, title);
+}
+
+// A study session of your own: a Saturday morning, an evening, a holiday.
+function slotSheet(date) {
+  const weekend = [0, 6].includes(parseD(date).getDay());
+  SHEET.ctx = { kind: 'slot', date };
+  openSheet(`<div class="sheet-h"><h2>Study session · ${esc(fmtDay(date))}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <div class="fields two">
+        <label class="field"><span>Start</span><input type="time" id="slStart" value="${weekend ? '10:00' : '17:00'}" step="300"></label>
+        <label class="field"><span>How long</span><select id="slMins">${[30, 45, 60, 90, 120, 180].map((m) =>
+          `<option value="${m}" ${m === 60 ? 'selected' : ''}>${m < 60 ? m + ' min' : m / 60 + ' h'}</option>`).join('')}</select></label>
+      </div>
+      <label class="field"><span>Name (optional)</span><input id="slTitle" placeholder="Study session"></label>
+      <div class="muted" style="font-size:13px">It gets suggestions like a study period at school, and you can plan a worksheet or a to-do into it.</div>
+      <button class="btn primary" data-act="slot-save">Add it</button>
+    </div>`);
+}
+
+function studyBlock(sp, state, date) {
+  const at = `data-date="${esc(date)}" data-key="${esc(sp.key)}"`;
   if (sp.chosen) {
     const o = sp.chosen;
+    const logged = (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key);
+    const doneText = sp.done ? `Done${logged?.minutes ? ` · ${logged.minutes} min` : ''}${logged?.confidence != null ? ` · felt ${logged.confidence}/5` : ''}` : '';
     return `<div class="opts"><div class="opt chosen${sp.done ? ' done' : ''}">
         <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
-        ${sp.done ? '<div class="resolved">Done — logged in your study time</div>' : `<div class="opt-why">${esc(o.why)}</div>`}
+        ${sp.done ? `<div class="resolved">${esc(doneText)}</div>` : `<div class="opt-why">${state === 'later' ? 'Planned' : esc(o.why)}</div>`}
       </div></div>
-      ${sp.done ? '' : `<div class="opt-actions">
-        <button class="btn primary sm" data-act="study-done" data-key="${esc(sp.key)}">Done</button>
-        <button class="btn ghost sm" data-act="study-change" data-key="${esc(sp.key)}">Change</button></div>`}`;
+      <div class="opt-actions">${sp.done
+        ? `<button class="btn ghost sm" data-act="study-undo" ${at}>Undo</button>`
+        : `${state !== 'later' ? `<button class="btn primary sm" data-act="study-done" ${at}>Done</button>` : ''}
+           <button class="btn ghost sm" data-act="study-change" ${at}>Change</button>`}
+        ${o.worksheetId && worksheetOf(o.worksheetId) ? `<button class="btn sm" data-act="ws-answers" data-id="${esc(o.worksheetId)}">Add answers</button>
+          <button class="btn ghost sm" data-act="open-ws" data-id="${esc(o.worksheetId)}">The sheet</button>` : ''}</div>`;
   }
-  if (!sp.options.length) return '<div class="opt-why" style="margin-top:6px">Nothing to suggest yet — mark topics as started on the dashboard.</div>';
-  return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'You could have done:' : 'Pick one for this period:'}</div>
+  const own = `<button class="btn ghost sm" data-act="study-custom" ${at} style="justify-self:start">Something else…</button>`;
+  if (!sp.options.length) return `<div class="opts">${own}</div>`;
+  return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'What did you do?' : state === 'later' ? 'Plan this period:' : 'Pick one for this period:'}</div>
     <div class="opts">${sp.options.map((o, i) => `
-      <button class="opt" data-act="choose" data-key="${esc(sp.key)}" data-i="${i}">
+      <button class="opt" data-act="choose" ${at} data-i="${i}">
         <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
         <div class="opt-why">${esc(o.why)}</div>
-      </button>`).join('')}</div>`;
+      </button>`).join('')}${own}</div>`;
+}
+
+// What you did in your study periods, newest first.
+function logRow(e) {
+  const d = parseD(e.date);
+  return `<div class="logrow">
+    <div class="when">${esc(d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }))}<br>${esc(e.start)}</div>
+    <div><div style="font-weight:500">${esc(optTitle(e.option))}</div>
+      <div class="task-meta"><span class="row" style="gap:6px;flex-wrap:nowrap">${e.option.subjectId ? `<span class="dot" style="--c:${colourOf(e.option.subjectId)}"></span>${esc(subjectName(e.option.subjectId))}` : 'General'}</span>
+        ${e.note ? `<span>· ${esc(e.note)}</span>` : ''}</div></div>
+    <div class="res">${e.done ? `<span class="resolved">✓</span> ${e.minutes ? `${e.minutes} min` : ''}${e.confidence != null ? `<br><span class="muted">felt ${e.confidence}/5</span>` : ''}`
+      : e.date < nowISO() ? '<span class="late">not done</span>' : '<span class="muted">planned</span>'}</div>
+  </div>`;
+}
+function logCard() {
+  const log = (APP.week?.log || []).filter((e) => e.date <= nowISO());
+  if (!APP.week) return '';
+  const done = log.filter((e) => e.done);
+  const mins = done.reduce((a, e) => a + (Number(e.minutes) || 0), 0);
+  return `<div class="card"><div class="card-h"><h2>Study log</h2>
+      ${log.length > 6 ? '<button class="btn ghost sm" data-act="log-all">See all</button>' : ''}</div>
+    ${log.length ? `<div class="muted" style="font-size:12.5px;margin:-4px 0 6px">${done.length} of ${log.length} study periods done · ${(mins / 60).toFixed(1)} h</div>
+      ${log.slice(0, 6).map(logRow).join('')}`
+      : '<div class="empty">Nothing yet. What you pick and finish in your study periods is kept here.</div>'}
+  </div>`;
+}
+function logSheet() {
+  const log = (APP.week?.log || []).filter((e) => e.date <= nowISO());
+  const weeks = {};
+  for (const e of log) {
+    const d = parseD(e.date); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    (weeks[isoOf(d)] ||= []).push(e);
+  }
+  openSheet(`<div class="sheet-h"><h2>Study log</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    ${Object.entries(weeks).map(([mon, list]) => {
+      const done = list.filter((e) => e.done);
+      return `<div style="margin-bottom:14px"><div class="eyebrow" style="margin-bottom:4px">Week of ${esc(fmtDay(mon))} ·
+        ${done.length}/${list.length} done · ${(done.reduce((a, e) => a + (Number(e.minutes) || 0), 0) / 60).toFixed(1)} h</div>
+        ${list.map(logRow).join('')}</div>`;
+    }).join('') || '<div class="empty">Nothing logged yet.</div>'}`);
 }
 
 function taskRow(t) {
@@ -871,24 +1122,60 @@ function taskSheet(id) {
     </div>`);
 }
 
-function doneSheet(key) {
-  const sp = APP.data.studyPeriods.find((s) => s.key === key);
+function doneSheet(date, key) {
+  const sp = studySlots(date).find((s) => s.key === key);
   if (!sp?.chosen) return;
   const o = sp.chosen;
-  SHEET.ctx = { kind: 'done', key, conf: null };
+  SHEET.ctx = { kind: 'done', date, key, conf: null };
   openSheet(`<div class="sheet-h"><h2>How did it go?</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <p style="margin:0 0 12px">${esc(optTitle(o))}</p>
     <div class="fields">
-      ${o.topicId ? `<div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
-        <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>` : ''}
+      <div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
+        <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>
       <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${sp.mins || 45}" min="1" max="600" inputmode="numeric"></label>
+      <label class="field"><span>Note (optional)</span><input id="dNote" placeholder="e.g. did q1–8, stuck on 6"></label>
       ${o.taskId ? `<label class="row" style="font-size:14px"><input type="checkbox" id="dTask" style="width:auto" checked> Tick off “${esc(o.title)}”</label>` : ''}
       <button class="btn primary" data-act="done-save">Log it</button>
     </div>`);
 }
 
-/* =================================================================== work */
+// Planning (or logging) something that is not on the list of suggestions.
+function customSheet(date, key) {
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!sp) return;
+  SHEET.ctx = { kind: 'custom', date, key, past: date < nowISO() || (date === nowISO() && toMins(nowHM()) >= toMins(sp.end)) };
+  openSheet(`<div class="sheet-h"><h2>${SHEET.ctx.past ? 'What did you do?' : 'Plan something else'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>What</span><input id="cTitle" placeholder="e.g. Physics past paper Jan 2024 P1"></label>
+      <label class="field"><span>Subject</span><select id="cSubj">${subjectOptions('', 'None')}</select></label>
+      <button class="btn primary" data-act="custom-save">${SHEET.ctx.past ? 'Next' : 'Plan it'}</button>
+    </div>`);
+}
+
+/* =================================================================== work
+   What you upload is one of four things, and you say which:
+     - a worksheet: questions to do later. Claude reads the questions and the
+       topic; it gets its own Drive folder inside the topic's folder, and can
+       be planned into study periods.
+     - your answers to a saved worksheet: marked against its questions, and
+       filed in the worksheet's folder with Claude's corrections beside them.
+     - notes: read for their topic and key points, filed, and logged as notes.
+     - anything else: marked straight away, or just filed.                 */
 const KINDS = { answers: 'Worked answers', notes: 'Notes', worksheet: 'Worksheet', test: 'Test paper' };
+const MODES = [
+  ['worksheet', 'Worksheet', 'questions to do later'],
+  ['answers', 'My answers', 'to a saved worksheet'],
+  ['notes', 'Notes', 'filed and logged as notes'],
+  ['other', 'Other', 'mark it now, or just file it'],
+];
+const worksheetList = () => APP.data?.worksheets || [];
+const worksheetOf = (id) => worksheetList().find((w) => w.id === id) || null;
+// Worksheets to answer: unanswered ones first, the ones planned soonest before the rest.
+function answerable() {
+  const next = (w) => (w.planned || []).find((p) => !p.done)?.date || '9999';
+  return worksheetList().slice().sort((a, b) => (a.attempts?.length ? 1 : 0) - (b.attempts?.length ? 1 : 0)
+    || next(a).localeCompare(next(b)) || String(b.created || b.date).localeCompare(String(a.created || a.date)));
+}
 
 function viewWork() {
   const w = APP.work;
@@ -902,10 +1189,17 @@ function viewWork() {
       Everything you save there shows up in History and Skills here.</p></div>`;
   }
   if (w.stage === 'analysing') {
+    const ws = worksheetOf(w.worksheetId);
+    const [head, sub] = {
+      worksheet: ['Reading the worksheet…', 'Finding the subject and topic, and listing its questions.'],
+      notes: ['Reading your notes…', 'Finding the subject, the topic and the key points.'],
+      answers: [w.progress || `Marking your answers${ws ? ` to “${ws.title}”` : ''}…`, 'Checking each answer against the worksheet\'s questions.'],
+      other: [`Reading ${w.pages.length === 1 ? 'your page' : `${w.pages.length} pages`}…`, 'Working out the subject and topic, then marking each question.'],
+    }[w.mode] || [];
     return `<div class="card reading"><div class="spinner"></div>
-      <div><b>Reading ${w.pages.length === 1 ? 'your page' : `${w.pages.length} pages`}…</b></div>
-      <div class="muted" style="font-size:13.5px">Working out the subject and topic, then marking each question.
-        ${w.tier === 'careful' ? 'Careful mode thinks first — this can take a minute.' : 'Usually under half a minute.'}</div>
+      <div><b>${esc(head)}</b></div>
+      <div class="muted" style="font-size:13.5px">${esc(sub)}
+        ${w.tier === 'careful' && w.mode !== 'notes' ? 'Careful mode thinks first — this can take a minute.' : 'Usually under half a minute.'}</div>
       <button class="btn sm" data-act="work-stop">Stop</button></div>`;
   }
   if (w.stage === 'saving') {
@@ -914,95 +1208,226 @@ function viewWork() {
   if (w.stage === 'saved') return savedView(w.saved);
   if (w.stage === 'review') return reviewView();
 
-  const hint = w.hint;
-  const openTasks = (APP.data?.tasks || []).filter((t) => !hint.subjectId || t.subjectId === hint.subjectId);
+  const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
   return `<div class="stack">
+    ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. Photograph your answer pages —
+      as many as you need — then tap <b>Mark my answers</b>.</div>` : ''}
     <div class="card">
       <div class="card-h"><h2>Add your work</h2><span class="count">photos · scans · PDF</span></div>
       <div class="pickers">
         <button class="picker" data-act="pick" data-input="fileCamera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Camera<small>one page</small></button>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Camera<small>one page at a time</small></button>
         <button class="picker" data-act="pick" data-input="filePhotos">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 16l5-5 4 4 3-3 5 5"/></svg>Photos<small>several pages</small></button>
         <button class="picker" data-act="pick" data-input="fileAny">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M7 12h10"/></svg>File or scan<small>PDF, or ⋯ → Scan</small></button>
+        <button class="picker" data-act="drive-pick">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5l6 10.5h7M2.5 14h12l-3.5 6"/></svg>Drive<small>a file you already have</small></button>
       </div>
       ${w.pages.length ? `<div style="margin-top:14px" class="thumbs">${w.pages.map((p, i) => `
         <figure class="thumb" style="margin:0">${p.thumb ? `<img src="${p.thumb}" alt="Page ${i + 1}">` : '<div class="pdf">PDF</div>'}
           <button data-act="page-remove" data-i="${i}" aria-label="Remove page">×</button>
-          <figcaption>${esc(p.name)}${p.images.length > 1 ? ` · ${p.images.length} pp` : ''}</figcaption></figure>`).join('')}</div>` : `
-      <p class="muted" style="font-size:13.5px;margin:12px 0 0">To scan a notebook page as a clean PDF: tap <b>File or scan</b>,
-        then the <b>⋯</b> menu → <b>Scan Documents</b>.</p>`}
+          <figcaption>${i + 1}. ${esc(p.name)}${p.images.length > 1 ? ` · ${p.images.length} pp` : ''}</figcaption></figure>`).join('')}
+        <button class="thumb addpage" data-act="pick" data-input="fileCamera"><span>+</span>Add page</button></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">All ${w.pages.length === 1 ? 'of this' : `${w.pages.length} of these`} go together as one piece of work. Keep adding pages until it is complete.</p>` : `
+      <p class="muted" style="font-size:13.5px;margin:12px 0 0">A worksheet over several pages? Add each page — they stay together.
+        To scan a page as a clean PDF: <b>File or scan</b>, then <b>⋯</b> → <b>Scan Documents</b>.</p>`}
     </div>
-    ${w.pages.length ? `<div class="card">
-      <div class="fields">
-        <div class="fields two">
-          <label class="field"><span>Subject</span><select id="wSubj">${subjectOptions(hint.subjectId, 'Work it out from the page')}</select></label>
-          <label class="field"><span>Assignment</span><select id="wHw"><option value="">None / work it out</option>
-            ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === hint.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
-        </div>
-        <div class="row"><span class="field" style="display:inline"><span>Marking</span></span>
-          <div class="seg" id="wTier"><button type="button" data-tier="quick" aria-pressed="${w.tier !== 'careful'}">Fast</button><button type="button" data-tier="careful" aria-pressed="${w.tier === 'careful'}">Careful</button></div>
-          <span class="muted" style="font-size:12.5px">${w.tier === 'careful' ? 'Uses more of your Claude plan; better on long proofs.' : 'Cheapest; fine for most worksheets.'}</span></div>
-        ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
-        ${w.already ? `<div class="notice">You have marked this exact page before.
-          <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-attempt" data-id="${esc(w.already)}">Open it</button>
-          <button class="btn sm ghost" data-act="work-analyse" data-force="1">Mark it again</button></div></div>` : ''}
-        <div class="row">
-          <button class="btn primary" data-act="work-analyse" ${canMark && w.pages.some((p) => p.images.length) ? '' : 'disabled'}>Mark it and file it</button>
-          <button class="btn" data-act="work-file-only">Just file it</button>
-          <span class="spacer"></span><button class="btn ghost sm" data-act="work-reset">Clear</button>
-        </div>
-        ${canMark ? '' : `<div class="muted" style="font-size:12.5px">${APP.sample ? 'This Claude view cannot send photos, so marking is off here — filing still works.' : 'Claude is not available in this view, so marking is off — filing still works.'}</div>`}
-      </div></div>` : ''}
+    ${w.pages.length ? workForm(w, canMark) : ''}
   </div>`;
+}
+
+// "What is it?" and what each answer needs before Claude reads it.
+function workForm(w, canMark) {
+  const markable = canMark && w.pages.some((p) => p.images.length);
+  const subj = `<label class="field"><span>Subject</span><select id="wSubj">${subjectOptions(w.hint.subjectId, 'Work it out from the pages')}</select></label>`;
+  const tier = `<div class="row"><span class="field" style="display:inline"><span>Claude</span></span>
+    <div class="seg" id="wTier"><button type="button" data-tier="quick" aria-pressed="${w.tier !== 'careful'}">Fast</button><button type="button" data-tier="careful" aria-pressed="${w.tier === 'careful'}">Careful</button></div>
+    <span class="muted" style="font-size:12.5px">${w.tier === 'careful' ? 'Uses more of your Claude plan; better on long proofs and diagrams.' : 'Cheapest; fine for most work.'}</span></div>`;
+  const clear = '<span class="spacer"></span><button class="btn ghost sm" data-act="work-reset">Clear</button>';
+  let body;
+  if (w.mode === 'worksheet') {
+    body = `${subj}${tier}
+      <div class="muted" style="font-size:13px">Claude reads the questions and finds the subject and topic. You check it all before it is saved,
+        in its own folder inside the topic's folder in Drive.</div>
+      ${alreadyNotice(w)}
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read worksheet</button>
+        <button class="btn" data-act="work-file-only">Save without reading</button>${clear}</div>`;
+  } else if (w.mode === 'answers') {
+    const list = answerable();
+    if (list.length && !worksheetOf(w.worksheetId)) w.worksheetId = list[0].id;
+    body = list.length ? `<label class="field"><span>Answers to</span><select id="wSheet">${list.map((x) => `<option value="${esc(x.id)}" ${x.id === w.worksheetId ? 'selected' : ''}>${esc(x.title)} · ${esc(subjectName(x.subjectId))}${x.attempts?.length ? ' · answered before' : ''}</option>`).join('')}</select></label>
+      ${tier}
+      <div class="muted" style="font-size:13px">Claude marks each answer against the worksheet's questions. The answers and the corrections are saved in the worksheet's folder.</div>
+      ${alreadyNotice(w)}
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark my answers</button>${clear}</div>`
+      : `<div class="notice">No saved worksheets yet. Save the worksheet first — choose <b>Worksheet</b> above — or choose <b>Other</b> to mark this straight away.</div>`;
+  } else if (w.mode === 'notes') {
+    body = `${subj}
+      <div class="muted" style="font-size:13px">Claude reads them for the subject, the topic and the key points. They are filed in the topic's folder and kept under Notes in History.</div>
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read notes</button>
+        <button class="btn" data-act="work-file-only">Just file them</button>${clear}</div>`;
+  } else {
+    const openTasks = (APP.data?.tasks || []).filter((t) => !w.hint.subjectId || t.subjectId === w.hint.subjectId);
+    body = `<div class="fields two">${subj}
+        <label class="field"><span>Assignment</span><select id="wHw"><option value="">None / work it out</option>
+          ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === w.hint.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
+      </div>${tier}
+      ${alreadyNotice(w)}
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark it and file it</button>
+        <button class="btn" data-act="work-file-only">Just file it</button>${clear}</div>`;
+  }
+  return `<div class="card"><div class="fields">
+    <div class="field"><span>What is it?</span><div class="modes">${MODES.map(([k, label, sub]) =>
+      `<button type="button" class="mode" data-mode="${k}" aria-pressed="${w.mode === k}"><b>${label}</b><small>${sub}</small></button>`).join('')}</div></div>
+    ${body}
+    ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
+    ${canMark ? '' : `<div class="muted" style="font-size:12.5px">${APP.sample ? 'This Claude view cannot send photos, so reading and marking are off here — filing still works.' : 'Claude is not available in this view, so reading and marking are off — filing still works.'}</div>`}
+  </div></div>`;
+}
+function alreadyNotice(w) {
+  if (!w.already) return '';
+  if (w.mode === 'worksheet') {
+    return `<div class="notice">You saved this worksheet before.
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-ws" data-id="${esc(w.already)}">Open it</button>
+      <button class="btn sm ghost" data-act="work-analyse" data-force="1">Read it again</button></div></div>`;
+  }
+  return `<div class="notice">You have marked these exact pages before.
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-attempt" data-id="${esc(w.already)}">Open it</button>
+    <button class="btn sm ghost" data-act="work-analyse" data-force="1">Mark it again</button></div></div>`;
 }
 
 // Where the review screen says the work will go, as text.
 function destLabel(d) {
   if (!d || d.status !== 'ready') return '';
+  if (d.fixed) return d.path;
   const o = d.options.find((x) => x.key === d.choice);
   return [d.root.title, d.subjectTitle, o && !o.isSubject ? o.title : null].filter(Boolean).join(' › ');
 }
+// A file you picked from Drive is already filed — unless it is a worksheet or
+// answers, which go into the worksheet's own folder.
+const keepsDriveFile = (w) => ['notes', 'other'].includes(w.review?.mode || w.mode);
+const allFromDrive = (w) => w.pages.length > 0 && w.pages.every((p) => p.drive);
+const folderName = (s) => String(s || '').replace(/[\\/]+/g, '-').trim().slice(0, 100) || 'Worksheet';
 function destView(w) {
-  const d = w.dest;
+  const d = w.dest, r = w.review;
   if (!APP.mcp) return '<div class="muted" style="font-size:13px">Drive is not available in this view.</div>';
+  if (allFromDrive(w) && keepsDriveFile(w)) return `<div class="folder">Already in your Drive — “${esc(w.pages[0].drive.title)}” stays where it is.</div>`;
   if (!d || d.status === 'loading') return '<div class="muted" style="font-size:13px">Finding the right folder in your Drive…</div>';
   if (d.status === 'error') return `<div class="notice bad">${esc(d.error)}</div>`;
+  if (d.fixed) return `<div class="folder">${esc(d.path)}</div><div class="muted" style="font-size:12.5px">The worksheet's own folder — answers and corrections go next to the sheet.</div>`;
   return `<div class="folder">${esc(d.root.title)}${d.root.id ? '' : ' (new)'} › ${esc(d.subjectTitle)}${d.subjectDir ? '' : ' (new)'} ›</div>
     <select id="rDest">${d.options.map((o) => `<option value="${esc(o.key)}" ${o.key === d.choice ? 'selected' : ''}>${esc(o.isSubject
       ? `Straight into ${d.subjectTitle}` : o.isNew ? `New folder: ${o.title}` : o.title)}</option>`).join('')}</select>
+    ${r?.mode === 'worksheet' ? `<div class="folder">› ${esc(folderName(r.title))} <span class="muted">(a new folder for this worksheet)</span></div>` : ''}
     ${d.why ? `<div class="muted" style="font-size:12.5px">${esc(d.why)}</div>` : ''}`;
 }
 
+/* --------------------------------------------------------- the review screens */
+const topicChips = (r) => r.topicIds.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}<button data-act="topic-remove" data-id="${esc(id)}" aria-label="Remove">×</button></span>`).join('')
+  || '<span class="muted" style="font-size:13px">none yet</span>';
+function topicsField(r) {
+  return `<div class="field"><span>Topics</span>
+    <div class="row">${topicChips(r)}</div>
+    <input id="rTopicSearch" data-keep placeholder="Add a topic — type a few letters" autocomplete="off">
+    <div id="rTopicSuggest"></div></div>`;
+}
+function detectedLine(r) {
+  if (!r.detected) return '';
+  return `<div class="muted" style="font-size:13px;margin-bottom:10px">Claude read this as
+    <b>${esc(subjectName(r.detected.subjectId))}</b>${r.detected.topicIds?.length ? ' — ' + r.detected.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}.
+    Change anything that is wrong.</div>`;
+}
+function topicSelect(q, i, subjectId) {
+  const here = (APP.data.topics || []).filter((t) => !subjectId || t.subjectId === subjectId);
+  return `<select data-qf="topicId" data-i="${i}"><option value="">topic?</option>${here.map((t) =>
+    `<option value="${esc(t.id)}" ${t.id === q.topicId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
+}
+function errorBlock(w) {
+  return w.error ? `<div class="notice bad">${esc(w.error)}
+    ${w.driveFailed ? '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="work-save" data-nodrive="1">Save to the dashboard without Drive</button></div>' : ''}</div>` : '';
+}
+const reviewButtons = (label) => `<div class="row"><button class="btn primary" data-act="work-save">${esc(label)}</button>
+  <button class="btn" data-act="work-back">Back</button><span class="spacer"></span>
+  <button class="btn ghost" data-act="work-reset">Discard</button></div>`;
+const cacheNote = (w) => (w.fromCache ? '<div class="notice" style="margin-bottom:10px">Already read earlier — shown from memory, no Claude usage.</div>' : '');
+
 function reviewView() {
+  const r = APP.work.review;
+  if (r.mode === 'worksheet') return sheetReviewView();
+  if (r.mode === 'notes') return notesReviewView();
+  return markReviewView();
+}
+
+function sheetReviewView() {
   const w = APP.work, r = w.review;
-  const topicsHere = (APP.data.topics || []).filter((t) => !r.subjectId || t.subjectId === r.subjectId);
+  const total = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
+  return `<div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Check the worksheet</h2><span class="count">${r.questions.length} question${r.questions.length === 1 ? '' : 's'}${total ? ` · ${fmtN(total)} marks` : ''}</span></div>
+      ${cacheNote(w)}${detectedLine(r)}
+      <div class="fields">
+        <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
+        <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
+        ${topicsField(r)}
+        <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
+      </div>
+    </div>
+    ${r.questions.length ? `<div class="card">
+      <div class="card-h"><h2>Questions</h2><span class="count">fix a mark or a topic if it is wrong</span></div>
+      <div class="page">${r.questions.map((q, i) => `<div class="q">
+        <div class="q-label">${esc(q.q)}</div>
+        <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div>
+          <div class="q-edit"><input type="number" min="0" step="0.5" value="${esc(q.maxMarks)}" data-qf="maxMarks" data-i="${i}" aria-label="Marks">
+            <span class="muted">marks</span>${topicSelect(q, i, r.subjectId)}</div></div></div>`).join('')}</div>
+      ${r.summary ? `<p style="margin:12px 0 0;color:var(--text-2)">${esc(r.summary)}</p>` : ''}
+    </div>` : `<div class="notice">No questions were read, so it is saved as it is. When you add your answers, Claude looks at the sheet itself.</div>`}
+    ${errorBlock(w)}
+    ${reviewButtons('Save worksheet')}
+  </div>`;
+}
+
+function notesReviewView() {
+  const w = APP.work, r = w.review;
+  return `<div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Check your notes</h2><span class="count">${w.pages.length} page${w.pages.length === 1 ? '' : 's'}</span></div>
+      ${cacheNote(w)}${detectedLine(r)}
+      <div class="fields">
+        <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
+        <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
+        ${topicsField(r)}
+        <label class="field"><span>What they cover</span><textarea id="rSummary" data-keep placeholder="optional">${esc(r.summary)}</textarea></label>
+        <label class="field"><span>Key points — one per line</span><textarea id="rPoints" data-keep placeholder="optional">${esc((r.keyPoints || []).join('\n'))}</textarea></label>
+        <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
+      </div>
+    </div>
+    ${errorBlock(w)}
+    ${reviewButtons('Save notes')}
+  </div>`;
+}
+
+function markReviewView() {
+  const w = APP.work, r = w.review;
+  const ws = r.mode === 'answers' ? worksheetOf(r.worksheetId) : null;
   const openTasks = (APP.data.tasks || []).filter((t) => !r.subjectId || t.subjectId === r.subjectId);
   const total = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
   const got = r.questions.reduce((a, q) => a + (Number(q.marks) || 0), 0);
-  const topicSel = (q, i) => `<select data-qf="topicId" data-i="${i}"><option value="">topic?</option>${topicsHere.map((t) =>
-    `<option value="${esc(t.id)}" ${t.id === q.topicId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
   return `<div class="stack">
     <div class="card">
       <div class="card-h"><h2>Check before saving</h2>${r.questions.length ? `<span class="stamp sm">${fmtN(got)}<small>/${fmtN(total)}</small></span>` : ''}</div>
-      ${w.fromCache ? '<div class="notice" style="margin-bottom:10px">Already read earlier — shown from memory, no Claude usage.</div>' : ''}
-      ${r.detected ? `<div class="muted" style="font-size:13px;margin-bottom:10px">Claude read this as
-        <b>${esc(subjectName(r.detected.subjectId))}</b>${r.detected.topicIds?.length ? ' — ' + r.detected.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}.
-        Change anything that is wrong.</div>` : ''}
+      ${cacheNote(w)}
+      ${ws ? `<div class="muted" style="font-size:13px;margin-bottom:10px">Your answers to the worksheet <b>${esc(ws.title)}</b>. Change a mark if Claude got it wrong.</div>` : detectedLine(r)}
       <div class="fields">
         <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
-        <div class="fields two">
+        ${ws ? `<label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>` : `<div class="fields two">
           <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
           <label class="field"><span>What it is</span><select id="rKind">${Object.entries(KINDS).map(([k, v]) =>
             `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-        </div>
-        <div class="field"><span>Topics</span>
-          <div class="row">${r.topicIds.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}<button data-act="topic-remove" data-id="${esc(id)}" aria-label="Remove">×</button></span>`).join('') || '<span class="muted" style="font-size:13px">none yet</span>'}</div>
-          <input id="rTopicSearch" data-keep placeholder="Add a topic — type a few letters" autocomplete="off">
-          <div id="rTopicSuggest"></div></div>
-        <label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
-          ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
+        </div>`}
+        ${topicsField(r)}
+        ${ws ? '' : `<label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
+          ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>`}
         <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
       </div>
     </div>
@@ -1019,7 +1444,7 @@ function reviewView() {
               <input type="number" min="0" step="0.5" value="${esc(q.maxMarks)}" data-qf="maxMarks" data-i="${i}" aria-label="Out of">
               ${ok ? '' : `<select data-qf="errorType" data-i="${i}">${['careless', 'method', 'knowledge', 'timing'].map((e) =>
                 `<option value="${e}" ${e === q.errorType ? 'selected' : ''}>${e}</option>`).join('')}</select>`}
-              ${topicSel(q, i)}
+              ${topicSelect(q, i, r.subjectId)}
             </div>
             ${q.explanation ? `<div class="q-text">${esc(q.explanation)}</div>` : ''}
             ${q.correction && !ok ? `<div class="working">${esc(q.correction)}</div>` : ''}
@@ -1027,32 +1452,111 @@ function reviewView() {
       }).join('')}</div>
       ${r.summary ? `<p style="margin:12px 0 0;color:var(--text-2)">${esc(r.summary)}</p>` : ''}
     </div>` : ''}
-    ${w.error ? `<div class="notice bad">${esc(w.error)}
-      ${w.driveFailed ? '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="work-save" data-nodrive="1">Save to the dashboard without Drive</button></div>' : ''}</div>` : ''}
-    <div class="row"><button class="btn primary" data-act="work-save">Save</button>
-      <button class="btn" data-act="work-back">Back</button><span class="spacer"></span>
-      <button class="btn ghost" data-act="work-reset">Discard</button></div>
+    ${errorBlock(w)}
+    ${reviewButtons(ws ? 'Save answers' : 'Save')}
   </div>`;
 }
 const fmtN = (n) => (Number.isInteger(Number(n)) ? String(Number(n)) : Number(n).toFixed(1));
 
+// The study period this work most likely came from, if it is not logged yet:
+// the one planned for this worksheet, else one on now or just finished.
+function studyToLog(worksheetId) {
+  const d = APP.data;
+  if (!d || d.date !== nowISO()) return null;
+  const now = toMins(nowHM());
+  const list = (d.studyPeriods || []).filter((s) => s.chosen && !s.done && toMins(s.start) <= now);
+  return (worksheetId && list.find((s) => s.chosen.worksheetId === worksheetId))
+    || list.find((s) => now <= toMins(s.end) + 30) || null;
+}
+const logButton = (sp) => (sp ? `<button class="btn" data-act="study-done" data-date="${esc(APP.data.date)}" data-key="${esc(sp.key)}">Log the ${esc(sp.start)} study period</button>` : '');
+
 function savedView(s) {
+  const filed = s.folder ? ' · filed in ' + esc(s.folder) : ' · not in Drive';
+  if (s.mode === 'worksheet') {
+    return `<div class="card">
+      <div class="eyebrow">Worksheet saved</div>
+      <h2 style="font-size:17px;margin-top:2px">${esc(s.title)}</h2>
+      <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.questions ? `${s.questions} question${s.questions === 1 ? '' : 's'}` : 'questions not read'}${filed}</div>
+      <p style="color:var(--text-2);margin:12px 0 0">When will you do it? Plan it into a study period — a school one, or a session of your own at the weekend.
+        When you have done it, add your answers and Claude marks them.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" data-act="ws-plan" data-id="${esc(s.worksheetId)}">Plan into a study period</button>
+        <button class="btn" data-act="ws-answers" data-id="${esc(s.worksheetId)}">Add my answers now</button>
+        ${s.url ? `<a class="btn ghost" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+        <span class="spacer"></span><button class="btn ghost" data-act="work-reset">Add more work</button>
+      </div></div>`;
+  }
+  if (s.mode === 'notes') {
+    return `<div class="card">
+      <div class="eyebrow">Notes saved</div>
+      <h2 style="font-size:17px;margin-top:2px">${esc(s.title)}</h2>
+      <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.topicIds?.length ? ' · ' + s.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}${filed}</div>
+      ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
+      ${s.keyPoints?.length ? `<ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="row" style="margin-top:14px">
+        ${logButton(studyToLog(null))}
+        ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+        <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
+      </div></div>`;
+  }
   return `<div class="card">
     <div class="row" style="align-items:center;gap:18px">
       ${s.max ? `<span class="stamp">${fmtN(s.score)}<small>/${fmtN(s.max)}</small></span>` : ''}
       <div style="flex:1;min-width:200px"><h2 style="font-size:17px">${esc(s.title)}</h2>
-        <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.folder ? ' · filed in ' + esc(s.folder) : ' · not in Drive'}</div></div>
+        <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${filed}</div></div>
     </div>
     ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
     ${s.weakTopics.length ? `<div class="notice" style="margin-top:10px">Added to your revision:
       <b>${s.weakTopics.map((id) => esc(topicOf(id)?.name || id)).join(', ')}</b>. They will come up in your free periods over the next few days.</div>` : ''}
     ${s.nextSteps?.length ? `<div style="margin-top:12px"><div class="eyebrow">Next</div><ul style="margin:6px 0 0;padding-left:18px">${s.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
     <div class="row" style="margin-top:14px">
-      ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
-      ${s.max && s.score < s.max ? '<button class="btn" data-act="tab" data-tab="history">See the mistakes</button>' : ''}
+      ${logButton(studyToLog(s.worksheetId))}
+      ${s.correctionsUrl ? `<a class="btn" href="${esc(s.correctionsUrl)}" target="_blank" rel="noopener">Corrections in Drive</a>` : ''}
+      ${s.url ? `<a class="btn${s.correctionsUrl ? ' ghost' : ''}" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+      ${s.worksheetId ? `<button class="btn ghost" data-act="open-ws" data-id="${esc(s.worksheetId)}">The worksheet</button>` : ''}
+      ${s.max && s.score < s.max && !s.worksheetId ? '<button class="btn" data-act="tab" data-tab="history">See the mistakes</button>' : ''}
       <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
     </div>
   </div>`;
+}
+
+// Put a worksheet into a study period: any one in the next fortnight that is not done yet.
+function planSheet(wid) {
+  const ws = worksheetOf(wid);
+  if (!ws) return toast('That worksheet is not here yet — try again in a moment.');
+  const today = nowISO(), now = toMins(nowHM());
+  const days = APP.week?.days?.length ? APP.week.days : [{ date: APP.data.date, studyPeriods: APP.data.studyPeriods || [] }];
+  const rows = days.filter((x) => x.date >= today).map((x) => {
+    const sps = (x.studyPeriods || []).filter((sp) => !sp.done && !(x.date === today && toMins(sp.end) <= now));
+    if (!sps.length) return '';
+    const label = x.date === today ? 'Today' : parseD(x.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+    return `<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px">${esc(label)}</div><div class="opts" style="margin:0">${sps.map((sp) =>
+      `<button class="opt" data-act="ws-plan-pick" data-date="${esc(x.date)}" data-key="${esc(sp.key)}">
+        <div class="row"><span class="mono">${esc(sp.start)}–${esc(sp.end)}</span>${sp.extra ? `<span class="slot-meta">${esc(sp.title || 'your study session')}</span>` : ''}</div>
+        <div class="opt-why">${sp.chosen ? (sp.chosen.worksheetId === wid ? 'Already planned here' : 'Instead of: ' + esc(optTitle(sp.chosen))) : 'Nothing planned yet'}</div></button>`).join('')}</div></div>`;
+  }).join('');
+  SHEET.ctx = { kind: 'wsplan', wid };
+  openSheet(`<div class="sheet-h"><h2>Plan “${esc(ws.title)}”</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    ${rows || '<div class="empty">No study periods in the next two weeks. Add a study session on the Today tab — weekends too.</div>'}`);
+}
+function planWorksheet(wid, date, key) {
+  const ws = worksheetOf(wid);
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!ws || !sp) return;
+  send({ type: 'study.choose', date, key, option: { id: 'ws:' + ws.id, kind: 'worksheet', title: 'Worksheet: ' + ws.title,
+    why: 'planned by you', subjectId: ws.subjectId || null, topicId: ws.topicIds?.[0] || null, taskId: null, testId: null,
+    worksheetId: ws.id, mins: sp.mins || 45 } });
+  closeSheet();
+  toast(`Planned for ${date === nowISO() ? 'today' : fmtDay(date)} at ${sp.start}.`);
+}
+// From anywhere — Today, History, the saved screen — to "add my answers" for one worksheet.
+function startAnswers(wid) {
+  closeSheet();
+  resetWork({ mode: 'answers', worksheetId: wid });
+  APP.tab = 'work'; LS.set('tab', 'work');
+  window.scrollTo(0, 0);
+  $('header.top').classList.remove('hide');
+  render();
 }
 
 /* ------------------------------------------------------------ pages in */
@@ -1120,7 +1624,7 @@ async function hashPages(pages) {
   return parts.length === 1 ? parts[0] : sha256Hex(new TextEncoder().encode(parts.join('|')));
 }
 
-async function addFiles(list) {
+async function addFiles(list, extra = {}) {
   const w = APP.work;
   w.error = null; w.already = null;
   const maxImages = APP.limits?.images?.maxCount || 8;
@@ -1130,10 +1634,10 @@ async function addFiles(list) {
         let images = [];
         try { images = await pdfToImages(f, maxImages); }
         catch { toast(`${f.name}: could not read the PDF here, so it can be filed but not marked.`); }
-        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null });
+        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null, ...extra });
       } else if (f.type.startsWith('image/') || /\.(jpe?g|png|heic|webp)$/i.test(f.name)) {
         const img = await downscale(f);
-        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url });
+        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url, ...extra });
       } else {
         toast(`${f.name} is not a photo or a PDF.`);
       }
@@ -1153,15 +1657,37 @@ function lessonSubjectNow() {
   return (on || past)?.subjectId || '';
 }
 
-/* ------------------------------------------------------------- marking */
+/* ------------------------------------------------------------- reading */
+const PROMPT_SUBJECTS = 'Subjects: Pearson Edexcel International A Level Maths (P1, P2, S1, M1…), Further Maths (FP1, D1, M2…), Physics (WPH11–16), Cambridge International 9618 Computer Science, and German.';
+// Chosen by you, the subject narrows the topic list (a shorter, cheaper
+// prompt). Left to Claude, every topic is offered, with the lesson you just
+// had as a hint only — maths homework done after Further Maths is still maths.
+function topicLines(subjectId) {
+  return APP.data.topics.filter((t) => !subjectId || t.subjectId === subjectId)
+    .map((t) => `${t.id} · ${t.subjectId} · ${unitShort(t.unit)} · ${t.name}${t.started && !t.finished ? ' (being taught now)' : ''}`).join('\n');
+}
+function subjectHint(hint) {
+  const recent = !hint.subjectId && lessonSubjectNow();
+  return hint.subjectId ? `The student says this is ${subjectName(hint.subjectId)}.`
+    : `Work out the subject from the pages.${recent ? ` (Their most recent lesson was ${subjectName(recent)}, which may or may not be related.)` : ''}`;
+}
+const MARK_RULES = `Use marks printed on the sheet, like [3], when shown; otherwise estimate 1–4 per part the way an exam mark scheme would. With no mark scheme, solve it yourself and judge the answer and the method; give method marks for a correct method with a later slip.
+For every part that loses marks, set errorType to one of:
+   careless  — a slip: sign, arithmetic, copying, units
+   method    — the wrong or an incomplete approach
+   knowledge — did not know the content
+   timing    — left blank or unfinished
+   explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
+   correction: the correct working and final answer, at most five short lines.
+If you cannot read something, say so in its explanation instead of guessing.`;
+const MARK_JSON = (sid) => `Reply with only this JSON:
+{"subjectId":"${sid || 'maths'}","topicIds":["t002"],"homeworkId":null,"kind":"answers","title":"a short name for this work",
+ "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"errorType":"method","explanation":"…","correction":"…"}],
+ "summary":"one or two sentences for the student","nextSteps":["one concrete next step"]}
+Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks.`;
+
 function markPrompt(hint) {
   const d = APP.data;
-  // Chosen by you, the subject narrows the topic list (a shorter, cheaper
-  // prompt). Left to Claude, every topic is offered, with the lesson you just
-  // had as a hint only — maths homework done after Further Maths is still maths.
-  const pool = d.topics.filter((t) => !hint.subjectId || t.subjectId === hint.subjectId);
-  const recent = !hint.subjectId && lessonSubjectNow();
-  const topicLines = pool.map((t) => `${t.id} · ${t.subjectId} · ${unitShort(t.unit)} · ${t.name}${t.started && !t.finished ? ' (being taught now)' : ''}`).join('\n');
   const tasks = d.tasks.filter((t) => !hint.subjectId || t.subjectId === hint.subjectId)
     .map((t) => `${t.id} · ${t.subjectId || '-'} · ${t.title}${t.due ? ' · due ' + t.due : ''}`).join('\n') || '(none)';
   const hw = hint.homeworkId && d.tasks.find((t) => t.id === hint.homeworkId);
@@ -1174,35 +1700,82 @@ ${pack.questions.map((q) => `Q${q.n} [${q.marks}]${q.topicId ? ' · ' + q.topicI
 ${q.text}
 Mark scheme: ${q.markScheme || '(none — solve it yourself)'}`).join('\n\n')}` : '';
   return `You are marking a UK Year 12 student's work from photos, like a careful teacher with a red pen.
-Subjects: Pearson Edexcel International A Level Maths (P1, P2, S1, M1…), Further Maths (FP1, D1, M2…), Physics (WPH11–16), Cambridge International 9618 Computer Science, and German.
-${hint.subjectId ? `The student says this is ${subjectName(hint.subjectId)}.` : `Work out the subject from the pages.${recent ? ` (Their most recent lesson was ${subjectName(recent)}, which may or may not be related.)` : ''}`}${hw ? ` It is for the assignment "${hw.title}".` : ''}
+${PROMPT_SUBJECTS}
+${subjectHint(hint)}${hw ? ` It is for the assignment "${hw.title}".` : ''}
 
 The ${APP.work.pages.length === 1 ? 'image is one page' : 'images are the pages, in order'}: a question sheet, the student's handwritten working, or both. The handwriting may be quick and messy — read it carefully.
 
 1. Choose the subject and the topics this work covers, using ids from TOPICS.
 2. If it is one of the OPEN ASSIGNMENTS, give that id as homeworkId.
-3. Mark every question and part you can see. Use marks printed on the sheet, like [3], when shown; otherwise estimate 1–4 per part the way an exam mark scheme would. With no mark scheme, solve it yourself and judge the answer and the method; give method marks for a correct method with a later slip.
-4. For every part that loses marks, set errorType to one of:
-   careless  — a slip: sign, arithmetic, copying, units
-   method    — the wrong or an incomplete approach
-   knowledge — did not know the content
-   timing    — left blank or unfinished
-   explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
-   correction: the correct working and final answer, at most five short lines.
-5. If you cannot read something, say so in its explanation instead of guessing.
+3. Mark every question and part you can see. ${MARK_RULES}
 If the pages are notes or an unanswered worksheet, set kind to "notes" or "worksheet" and questions to [].${packBlock}
 
 TOPICS (id · subject · unit · topic)
-${topicLines}
+${topicLines(hint.subjectId)}
 
 OPEN ASSIGNMENTS (id · subject · title)
 ${tasks}
 
+${MARK_JSON(hint.subjectId)}`;
+}
+
+function worksheetPrompt(hint) {
+  return `A UK Year 12 student photographed a worksheet to do later. Read it so it can be filed and planned.
+${PROMPT_SUBJECTS}
+${subjectHint(hint)}
+
+The ${APP.work.pages.length === 1 ? 'image is the worksheet' : 'images are its pages, in order'}.
+
+1. Choose the subject and the topics it practises, using ids from TOPICS.
+2. title: the title printed on it, or a short name like "Forces worksheet 2".
+3. questions: every question and part, in order: q (the label, like "1" or "2a"); text (the question in at most 200 characters — write maths inline like x^2, and say "see diagram" where there is one); maxMarks (printed marks like [3], else your estimate of 1–4); topicId.
+4. summary: one sentence on what the worksheet practises.
+If anything is already answered on it, still list the questions.
+
+TOPICS (id · subject · unit · topic)
+${topicLines(hint.subjectId)}
+
 Reply with only this JSON:
-{"subjectId":"maths","topicIds":["t002"],"homeworkId":null,"kind":"answers","title":"a short name for this work",
- "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"errorType":"method","explanation":"…","correction":"…"}],
- "summary":"one or two sentences for the student","nextSteps":["one concrete next step"]}
-Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks.`;
+{"subjectId":"physics","topicIds":["t071"],"title":"…","questions":[{"q":"1a","text":"…","maxMarks":3,"topicId":"t071"}],"summary":"…"}`;
+}
+
+function notesPrompt(hint) {
+  return `A UK Year 12 student photographed their own notes to file them. Read them.
+${PROMPT_SUBJECTS}
+${subjectHint(hint)}
+
+1. Choose the subject and the topics the notes cover, using ids from TOPICS.
+2. title: a short name, like "Quadratics — completing the square".
+3. summary: at most two sentences on what the notes cover.
+4. keyPoints: up to 6 of the most important facts, formulas or methods in them, each under 120 characters, maths inline like x^2. Leave out anything you cannot read.
+
+TOPICS (id · subject · unit · topic)
+${topicLines(hint.subjectId)}
+
+Reply with only this JSON:
+{"subjectId":"maths","topicIds":["t004"],"title":"…","summary":"…","keyPoints":["…"]}`;
+}
+
+function answersPrompt(ws, full, sheetPages) {
+  const qs = full?.questions || [];
+  const topics = (ws.topicIds || []).map((id) => topicOf(id)?.name).filter(Boolean).join(', ');
+  return `You are marking a UK Year 12 student's answers to a worksheet, like a careful teacher with a red pen.
+${PROMPT_SUBJECTS}
+This is ${subjectName(ws.subjectId)}: the worksheet "${ws.title}"${topics ? `, on ${topics}` : ''}.
+${qs.length ? `
+THE WORKSHEET'S QUESTIONS (q · marks · topic id · question)
+${qs.map((q) => `${q.q} · ${q.maxMarks} · ${q.topicId || '-'} · ${q.text || '(see the sheet)'}`).join('\n')}
+` : '\nThe questions were not written down when the worksheet was saved — read them from the sheet.\n'}
+${sheetPages ? `The first ${sheetPages === 1 ? 'image is' : `${sheetPages} images are`} the worksheet itself; the rest are the student's answer pages, in order.` : 'The images are the student\'s answer pages, in order.'} The handwriting may be quick and messy — read it carefully.
+
+1. Mark every question and part of the worksheet${qs.length ? ', using the q labels and the marks above' : ''}. A question the student did not attempt gets 0 marks with errorType "timing".
+2. ${MARK_RULES}
+3. topicIds: the topics the answers show, using ids from TOPICS.
+
+TOPICS (id · subject · unit · topic)
+${topicLines(ws.subjectId)}
+
+${MARK_JSON(ws.subjectId)}`;
 }
 
 function normalise(a, hint) {
@@ -1219,7 +1792,7 @@ function normalise(a, hint) {
   for (const q of questions) if (q.topicId && !topicIds.includes(q.topicId)) topicIds.push(q.topicId);
   const hw = d.tasks.some((t) => t.id === a?.homeworkId) ? a.homeworkId : hint.homeworkId || '';
   return {
-    subjectId: sid, topicIds, homeworkId: hw,
+    mode: 'other', subjectId: sid, topicIds, homeworkId: hw,
     kind: KINDS[a?.kind] ? a.kind : (questions.length ? 'answers' : 'notes'),
     title: String(a?.title || '').slice(0, 120) || defaultTitle(),
     questions, summary: String(a?.summary || '').slice(0, 1500),
@@ -1227,33 +1800,100 @@ function normalise(a, hint) {
     detected: { subjectId: a?.subjectId || '', topicIds },
   };
 }
+function normaliseSheet(a, hint) {
+  const sid = subjectOf(a?.subjectId) ? a.subjectId : hint.subjectId || '';
+  const topicIds = (Array.isArray(a?.topicIds) ? a.topicIds : []).filter((id) => topicOf(id)).slice(0, 6);
+  const questions = (Array.isArray(a?.questions) ? a.questions : []).slice(0, 80).map((q, i) => ({
+    q: String(q?.q ?? i + 1).slice(0, 12), text: String(q?.text || '').slice(0, 400),
+    maxMarks: Math.max(0, Number(q?.maxMarks ?? q?.max) || 1),
+    topicId: topicOf(q?.topicId) ? q.topicId : topicIds[0] || '' }));
+  for (const q of questions) if (q.topicId && !topicIds.includes(q.topicId)) topicIds.push(q.topicId);
+  return { mode: 'worksheet', kind: 'worksheet', subjectId: sid, topicIds, homeworkId: '',
+    title: String(a?.title || '').slice(0, 120) || defaultTitle(), questions,
+    summary: String(a?.summary || '').slice(0, 600), detected: { subjectId: a?.subjectId || '', topicIds } };
+}
+function normaliseNotes(a, hint) {
+  const sid = subjectOf(a?.subjectId) ? a.subjectId : hint.subjectId || '';
+  const topicIds = (Array.isArray(a?.topicIds) ? a.topicIds : []).filter((id) => topicOf(id)).slice(0, 6);
+  return { mode: 'notes', kind: 'notes', subjectId: sid, topicIds, homeworkId: '', questions: [],
+    title: String(a?.title || '').slice(0, 120) || defaultTitle(),
+    summary: String(a?.summary || '').slice(0, 800),
+    keyPoints: (Array.isArray(a?.keyPoints) ? a.keyPoints : []).slice(0, 8).map((x) => String(x).slice(0, 200)).filter(Boolean),
+    detected: { subjectId: a?.subjectId || '', topicIds } };
+}
 const defaultTitle = () => APP.work.pages[0]?.name?.replace(/\.[a-z0-9]+$/i, '') || 'Work ' + fmtDay(nowISO());
+
+// The worksheet in full — its questions as read when it was saved. Kept for the session.
+async function loadWorksheet(id) {
+  if (APP.sheets[id]) return APP.sheets[id];
+  const full = await APP.transport.attempt({ worksheetId: id });
+  if (full?.found) APP.sheets[id] = full;
+  return full?.found ? full : { questions: [], attempts: [] };
+}
+// The sheet's own pages, fetched back from Drive, for when its questions were
+// not written down or the marking should see the diagrams.
+async function worksheetImages(ws, max) {
+  if (!ws?.fileId || !APP.mcp || max <= 0) return [];
+  const r = await APP.mcp.callTool(DRIVE, 'download_file_content', { fileId: ws.fileId }, { cache: false });
+  const bytes = driveBytes(r);
+  if (!bytes?.length) return [];
+  const pdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;     // %PDF
+  const file = new File([bytes], pdf ? 'worksheet.pdf' : 'worksheet.jpg', { type: pdf ? 'application/pdf' : 'image/jpeg' });
+  const imgs = pdf ? await pdfToImages(file, max) : [await downscale(file)];
+  return imgs.slice(0, max).map((i) => { URL.revokeObjectURL(i.url); return i.blob; });
+}
+
+function readWorkForm() {
+  const w = APP.work;
+  w.hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
+  if ($('#wSheet')) w.worksheetId = $('#wSheet').value;
+}
 
 async function analyse(force = false) {
   const w = APP.work;
-  const hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
-  w.hint = hint;
+  readWorkForm();
+  const hint = w.hint;
   w.error = null;
   const maxImages = APP.limits?.images?.maxCount || 8;
   const images = w.pages.flatMap((p) => p.images.map((i) => i.blob)).slice(0, maxImages);
   if (!images.length) { w.error = 'There is nothing Claude can read — add a photo.'; return render(); }
+  const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
+  if (w.mode === 'answers' && !ws) { w.error = 'Pick the worksheet these answers belong to.'; return render(); }
 
   w.hash = await hashPages(w.pages);
-  // the same page is never read twice: the dashboard remembers what it marked,
+  // the same pages are never read twice: the dashboard remembers what it saved,
   // and this device remembers what it read but you did not save yet
-  if (!force && APP.data.markedHashes?.[w.hash]) { w.already = APP.data.markedHashes[w.hash]; return render(); }
+  if (!force) {
+    const seen = w.mode === 'worksheet' ? APP.data.worksheetHashes?.[w.hash]
+      : ['other', 'answers'].includes(w.mode) ? APP.data.markedHashes?.[w.hash] : null;
+    if (seen) { w.already = seen; return render(); }
+  }
   w.already = null;
-  const key = `${w.hash}|${w.tier}|${hint.subjectId}`;
+  const key = [w.hash, w.mode, w.tier, hint.subjectId, ws?.id || ''].join('|');
   const memo = LS.get('analyses', {});
   if (!force && memo[key]) { w.fromCache = true; w.tierUsed = memo[key].tier; return startReview(memo[key].a); }
 
-  w.stage = 'analysing'; w.fromCache = false;
+  w.stage = 'analysing'; w.fromCache = false; w.progress = null;
   w.ctl = new AbortController();
   render();
   try {
-    const tier = w.tier === 'careful' ? 'default' : 'quick';
-    const raw = await APP.sample.json(markPrompt(hint), { images, modelTier: tier, signal: w.ctl.signal });
-    const a = normalise(raw, hint);
+    const tier = w.mode === 'notes' ? 'quick' : w.tier === 'careful' ? 'default' : 'quick';
+    const opts = { modelTier: tier, signal: w.ctl.signal };
+    let a;
+    if (w.mode === 'worksheet') a = normaliseSheet(await APP.sample.json(worksheetPrompt(hint), { ...opts, images }), hint);
+    else if (w.mode === 'notes') a = normaliseNotes(await APP.sample.json(notesPrompt(hint), { ...opts, images }), hint);
+    else if (w.mode === 'answers') {
+      w.progress = `Getting “${ws.title}”…`; render();
+      const full = await loadWorksheet(ws.id);
+      // the sheet itself goes along when its questions were not read, or in Careful mode for the diagrams
+      let sheet = [];
+      if (!full.questions?.length || w.tier === 'careful') sheet = await worksheetImages(ws, Math.min(4, maxImages - images.length)).catch(() => []);
+      w.progress = null; render();
+      a = normalise(await APP.sample.json(answersPrompt(ws, full, sheet.length), { ...opts, images: [...sheet, ...images] }), { subjectId: ws.subjectId, homeworkId: '' });
+      Object.assign(a, { mode: 'answers', kind: 'answers', worksheetId: ws.id, homeworkId: '', title: `Answers — ${ws.title}` });
+      if (!a.subjectId) a.subjectId = ws.subjectId;
+      if (!a.topicIds.length) a.topicIds = [...(ws.topicIds || [])];
+    } else a = normalise(await APP.sample.json(markPrompt(hint), { ...opts, images }), hint);
     w.tierUsed = tier;
     const keys = Object.keys(memo);
     if (keys.length > 12) delete memo[keys[0]];
@@ -1262,7 +1902,8 @@ async function analyse(force = false) {
     startReview(a);
   } catch (e) {
     w.stage = 'idle';
-    w.error = sampleError(e);
+    // Claude's own errors read one way; the dashboard or Drive failing on the way reads another
+    w.error = !e?.code || SAMPLE_CODES.has(e.code) ? sampleError(e) : connError(e);
     render();
   }
 }
@@ -1273,11 +1914,13 @@ function startReview(a) {
   render();
   planDestination();
 }
+// Save it without Claude reading it: you fill in what it is.
 function fileOnly() {
+  readWorkForm();
   const w = APP.work;
-  w.hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
-  w.review = { subjectId: w.hint.subjectId, topicIds: [], homeworkId: w.hint.homeworkId, kind: 'notes',
-    title: defaultTitle(), questions: [], summary: '', nextSteps: [], detected: null };
+  const mode = w.mode === 'answers' ? 'other' : w.mode;
+  w.review = { mode, subjectId: w.hint.subjectId, topicIds: [], homeworkId: mode === 'other' ? w.hint.homeworkId : '',
+    kind: mode === 'worksheet' ? 'worksheet' : 'notes', title: defaultTitle(), questions: [], summary: '', keyPoints: [], nextSteps: [], detected: null };
   w.stage = 'review';
   w.dest = null;
   render();
@@ -1355,6 +1998,10 @@ function suggestFolder(folders, r) {
     if (s >= 0.6 && (!best || s > best.s)) best = { s, f };
   }
   if (best) return { key: 'id:' + best.f.id, why: 'Your folder for this topic.' };
+  if (r.mode === 'worksheet') {
+    if (topics[0]) return { key: 'new', title: `${topics[0].name} (${unitShort(topics[0].unit)})`, why: 'No folder for this topic yet, so one is made.' };
+    return { key: 'subject', why: 'Pick a topic above to file it in the topic\'s folder.' };
+  }
   if (r.homeworkId) {
     const hw = folders.find((f) => /homework|assignment/.test(norm(f.title)));
     if (hw) return { key: 'id:' + hw.id, why: 'Your homework folder.' };
@@ -1367,8 +2014,14 @@ function suggestFolder(folders, r) {
 let destToken = 0;
 async function planDestination() {
   const w = APP.work, r = w.review;
-  if (!r || !APP.mcp) return;
+  if (!r || !APP.mcp || (allFromDrive(w) && keepsDriveFile(w))) return;
   const token = ++destToken;
+  // answers go into their worksheet's own folder, when it has one
+  const ws = r.mode === 'answers' ? worksheetOf(r.worksheetId) : null;
+  if (ws?.folderId) {
+    w.dest = { status: 'ready', fixed: true, folderId: ws.folderId, path: ws.folder || ws.title, subjectId: r.subjectId };
+    return render();
+  }
   const keep = w.dest?.status === 'ready' && w.dest.subjectId === r.subjectId ? w.dest.userChoice : null;
   w.dest = { status: 'loading' };
   render();
@@ -1394,6 +2047,7 @@ async function planDestination() {
 async function resolveDestination() {
   const d = APP.work.dest;
   if (d?.status !== 'ready') throw { code: 'tool_error', message: d?.error || 'Drive is still being checked — try again in a moment.' };
+  if (d.fixed) return { id: d.folderId, path: [d.path] };
   let root = d.root;
   if (!root.id) {
     root = { ...root, id: await makeFolder(root.title, null) };
@@ -1447,6 +2101,97 @@ async function uploadBlob(blob, title, mime, ext, parentId) {
   return { id: res.id, url: res.viewUrl || `https://drive.google.com/file/d/${res.id}/view` };
 }
 
+/* ------------------------------------------------------ pick from Drive
+   A small window onto your Drive: it opens in your A Levels folder, you can
+   walk into folders or search, and a tap brings the file in like a photo. */
+const PICKABLE = (m) => /^image\//.test(m) || m === 'application/pdf'
+  || m === 'application/vnd.google-apps.document' || m === 'application/vnd.google-apps.presentation';
+async function driveItems(query) {
+  const res = await drive('search_files', { query, pageSize: 100, excludeContentSnippets: true });
+  return (res.files || []).filter((f) => f.mimeType === FOLDER_MIME || PICKABLE(f.mimeType))
+    .sort((a, b) => (b.mimeType === FOLDER_MIME) - (a.mimeType === FOLDER_MIME)
+      || (a.mimeType === FOLDER_MIME ? String(a.title).localeCompare(String(b.title)) : String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || ''))));
+}
+async function openDrivePicker() {
+  SHEET.ctx = { kind: 'drive', stack: [], items: null, busy: 'Opening your Drive…' };
+  renderDrivePicker();
+  try {
+    const root = await driveRoot();
+    SHEET.ctx.stack = [root.id ? { id: root.id, title: root.title } : { id: 'root', title: 'My Drive' }];
+    await driveGo();
+  } catch (e) { SHEET.ctx.busy = null; SHEET.ctx.error = connError(e, DRIVE); renderDrivePicker(); }
+}
+async function driveGo(search) {
+  const c = SHEET.ctx;
+  c.busy = search ? 'Searching…' : 'Loading…'; c.error = null; c.search = search || null;
+  renderDrivePicker();
+  try {
+    c.items = await driveItems(search
+      ? `title contains '${qq(search)}' and (mimeType = '${FOLDER_MIME}' or mimeType contains 'image/' or mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document')`
+      : `parentId = '${qq(c.stack.at(-1).id)}'`);
+  } catch (e) { c.error = connError(e, DRIVE); c.items = []; }
+  if (SHEET.ctx !== c) return;
+  c.busy = null;
+  renderDrivePicker();
+}
+function renderDrivePicker() {
+  const c = SHEET.ctx;
+  const icon = (m) => (m === FOLDER_MIME ? '📁' : /^image\//.test(m) ? '🖼' : '📄');
+  openSheet(`<div class="sheet-h"><h2>Google Drive</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <form class="quickadd" id="dvForm" style="margin-bottom:10px"><input id="dvSearch" placeholder="Search your Drive" value="${esc(c.search || '')}" autocomplete="off">
+      <button class="btn" type="submit">Search</button></form>
+    <div class="row" style="margin-bottom:6px">
+      ${c.stack.length > 1 || c.search ? '<button class="btn ghost sm" data-act="dv-back">‹ Back</button>' : ''}
+      <div class="crumbs" style="margin:0">${c.search ? `Results for “${esc(c.search)}”` : c.stack.map((x) => esc(x.title)).join(' › ')}</div></div>
+    ${c.error ? `<div class="notice bad">${esc(c.error)}</div>` : ''}
+    ${c.busy ? `<div class="muted" style="padding:14px 4px">${esc(c.busy)}</div>`
+      : `<div class="drive-list">${(c.items || []).map((f, i) => `<button data-act="dv-open" data-i="${i}">
+          <span>${icon(f.mimeType)}</span><span style="overflow-wrap:anywhere">${esc(f.title)}</span>
+          <small>${f.mimeType === FOLDER_MIME ? '' : esc(fmtDay(String(f.modifiedTime || '').slice(0, 10) || nowISO()))}</small></button>`).join('')
+          || '<div class="empty" style="padding:12px">Nothing here you can add — photos, PDFs and Google Docs show up.</div>'}</div>`}`);
+}
+// The connector hands the file back as base64; where it puts it is not
+// documented, so look in the likely places.
+function driveBytes(r) {
+  const p = r?.payload ?? r?.structuredContent;
+  const pick = (o) => o && typeof o === 'object'
+    && ['content', 'data', 'base64Content', 'contents', 'bytes', 'blob', 'fileContent'].map((k) => o[k]).find((v) => typeof v === 'string' && v.length > 16);
+  let b64 = typeof p === 'string' ? p : pick(p) || pick(p?.file);
+  if (!b64) for (const b of r?.content || []) {
+    if (b.type === 'image' && b.data) { b64 = b.data; break; }
+    if (b.type === 'resource' && b.resource?.blob) { b64 = b.resource.blob; break; }
+    if (b.type === 'text' && /^[A-Za-z0-9+/=\s]{40,}$/.test(b.text || '')) { b64 = b.text; break; }
+  }
+  if (!b64) return null;
+  b64 = b64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+async function driveTake(f) {
+  const c = SHEET.ctx;
+  c.busy = `Getting “${f.title}”…`;
+  renderDrivePicker();
+  try {
+    const native = f.mimeType.startsWith('application/vnd.google-apps.');
+    const r = await APP.mcp.callTool(DRIVE, 'download_file_content',
+      { fileId: f.id, ...(native ? { exportMimeType: 'application/pdf' } : {}) }, { cache: false });
+    const bytes = driveBytes(r);
+    if (!bytes?.length) throw { code: 'tool_error', message: 'Google Drive sent the file back in a form this page cannot read.' };
+    const type = native ? 'application/pdf' : f.mimeType;
+    const name = native ? `${f.title}.pdf` : f.title;
+    const file = new File([bytes], name, { type });
+    closeSheet();
+    APP.tab = 'work';
+    await addFiles([file], { drive: { id: f.id, title: f.title, url: f.viewUrl || `https://drive.google.com/file/d/${f.id}/view`, mime: type } });
+  } catch (e) {
+    if (SHEET.ctx !== c) return;
+    c.busy = null; c.error = 'Could not get that file: ' + connError(e, DRIVE);
+    renderDrivePicker();
+  }
+}
+
 /* A tiny PDF writer: several photos become one file, one page per photo, the
    JPEG bytes embedded as they are. Keeps each piece of work to one Drive file. */
 async function jpegsToPdf(images) {
@@ -1492,25 +2237,74 @@ async function uploadsFor(pages) {
   return out;
 }
 
+/* Claude's corrections as a Google Doc next to your answers: every question's
+   mark, and for each one that lost marks, what went wrong and the right
+   working. Written as HTML, which Drive turns into a Doc. */
+function correctionsHtml(r, ws) {
+  const got = r.questions.reduce((a, q) => a + (Number(q.marks) || 0), 0);
+  const max = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
+  const para = (t) => esc(t).replace(/\n/g, '<br>');
+  const PEN = '#c8322f', TICK = '#1a8a3a';
+  return `<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif">
+<h1>Corrections — ${esc(ws?.title || r.title)}</h1>
+<p>${esc(subjectName(r.subjectId))} · ${esc(fmtDay(nowISO()))} · marked by Claude · <b style="color:${PEN}">${fmtN(got)} / ${fmtN(max)}</b></p>
+${r.summary ? `<p>${para(r.summary)}</p>` : ''}
+${r.questions.map((q) => {
+    const ok = Number(q.marks) >= Number(q.maxMarks);
+    return `<h3>Question ${esc(q.q)} — ${fmtN(q.marks)}/${fmtN(q.maxMarks)} <span style="color:${ok ? TICK : PEN}">${ok ? '✓' : '✗'}</span></h3>
+${q.topicId && topicOf(q.topicId) ? `<p><i>${esc(topicOf(q.topicId).name)}</i></p>` : ''}
+${!ok && q.explanation ? `<p><b style="color:${PEN}">What went wrong${q.errorType ? ` (${esc(q.errorType)})` : ''}:</b> ${para(q.explanation)}</p>` : ''}
+${!ok && q.correction ? `<p><b>The right working:</b><br><span style="font-family:'Courier New',monospace">${para(q.correction)}</span></p>` : ''}`;
+  }).join('\n')}
+${r.nextSteps?.length ? `<h3>Next</h3><ul>${r.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+</body></html>`;
+}
+async function uploadCorrections(r, ws, folderId, stamp) {
+  const res = await drive('create_file', { title: `Corrections ${stamp} — ${ws?.title || r.title}`, parentId: folderId,
+    textContent: correctionsHtml(r, ws), contentMimeType: 'text/html' });
+  if (!res?.id) return null;
+  return res.viewUrl || `https://docs.google.com/document/d/${res.id}/edit`;
+}
+
 async function saveWork(noDrive = false) {
   const w = APP.work, r = w.review;
+  const ws = r.mode === 'answers' ? worksheetOf(r.worksheetId) : null;
   w.error = null; w.driveFailed = false;
   w.stage = 'saving';
-  let driveInfo = null;
+  const stamp = `${nowISO()} ${nowHM().replace(':', '.')}`;
+  let info = null;
   try {
-    if (!noDrive) {
+    if (!noDrive && allFromDrive(w) && keepsDriveFile(w)) {
+      const f = w.pages[0].drive;
+      info = { id: f.id, url: f.url, folder: 'your Drive', mime: f.mime };
+    } else if (!noDrive) {
       w.progress = 'Finding your Drive folder…'; render();
-      const { id: folderId, path: parts } = await resolveDestination();
+      let { id: folderId, path: parts } = await resolveDestination();
+      if (r.mode === 'worksheet') {
+        // every worksheet gets a folder of its own: the sheet now, answers and corrections later
+        w.progress = 'Making the worksheet\'s folder…'; render();
+        const name = folderName(r.title);
+        folderId = await makeFolder(name, folderId);
+        parts = [...parts, name];
+      }
       w.progress = 'Uploading to Google Drive…'; render();
-      const files = await uploadsFor(w.pages);
-      const stamp = `${nowISO()} ${nowHM().replace(':', '.')}`;
+      const files = await uploadsFor(keepsDriveFile(w) ? w.pages.filter((p) => !p.drive) : w.pages);
       const results = [];
       for (const [i, f] of files.entries()) {
-        const title = `${stamp} · ${KINDS[r.kind] || 'Work'} · ${r.title}${files.length > 1 ? ` (${i + 1})` : ''}.${f.ext}`;
+        const n = files.length > 1 ? ` (${i + 1})` : '';
+        const title = r.mode === 'worksheet' ? `Worksheet — ${r.title}${n}.${f.ext}`
+          : r.mode === 'answers' ? `Answers ${stamp}${n}.${f.ext}`
+          : `${stamp} · ${KINDS[r.kind] || 'Work'} · ${r.title}${n}.${f.ext}`;
         results.push(await uploadBlob(f.blob, title, f.mime, f.ext, folderId));
       }
-      driveInfo = { id: results[0]?.id, url: results.length === 1 ? results[0].url : `https://drive.google.com/drive/folders/${folderId}`,
-        folder: parts.join(' › '), mime: files.length === 1 ? files[0].mime : 'multiple' };
+      const folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+      info = { id: results[0]?.id, url: results.length === 1 ? results[0].url : folderUrl,
+        folder: parts.join(' › '), mime: files.length === 1 ? files[0].mime : 'multiple', folderId, folderUrl };
+      if (r.mode === 'answers' && r.questions.length) {
+        w.progress = 'Writing the corrections…'; render();
+        info.correctionsUrl = await uploadCorrections(r, ws, folderId, stamp)
+          .catch(() => { toast('Your answers are in Drive, but the corrections file could not be made. They are in History.'); return null; });
+      }
     }
   } catch (e) {
     w.stage = 'review';
@@ -1520,27 +2314,46 @@ async function saveWork(noDrive = false) {
   }
   w.hash ||= await hashPages(w.pages);
   w.progress = 'Updating your dashboard…'; render();
+  const pages = w.pages.reduce((a, p) => a + Math.max(1, p.images.length), 0);
+
+  if (r.mode === 'worksheet') {
+    const id = newId('w');
+    const questions = r.questions.map((q) => ({ q: q.q, text: q.text, maxMarks: Number(q.maxMarks) || 0, topicId: q.topicId || r.topicIds[0] || null }));
+    send({ type: 'worksheet.add', summary: r.summary, questions,
+      worksheet: { id, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, pages, hash: w.hash,
+        folderId: info?.folderId || null, folderUrl: info?.folderUrl || null, fileId: info?.id || null,
+        fileUrl: info?.url || null, folder: info?.folder || '' } });
+    w.saved = { mode: 'worksheet', worksheetId: id, title: r.title, subjectId: r.subjectId, questions: questions.length,
+      url: info?.folderUrl || info?.url || null, folder: info?.folder || null };
+    w.stage = 'saved';
+    return render();
+  }
+
   const questions = r.questions.map((q) => ({ q: q.q, topicId: q.topicId || r.topicIds[0] || null, marks: Number(q.marks) || 0,
     maxMarks: Number(q.maxMarks) || 0, errorType: Number(q.marks) < Number(q.maxMarks) ? q.errorType || 'method' : null,
     explanation: q.explanation, correction: q.correction }));
+  const kind = r.mode === 'notes' ? 'notes' : r.mode === 'answers' ? 'answers' : r.kind;
   send({
     type: 'work.save',
     attachment: { id: newId('f'), title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
-      kind: r.kind, driveId: driveInfo?.id || null, driveUrl: driveInfo?.url || null, folder: driveInfo?.folder || '',
-      mime: driveInfo?.mime || '', pages: w.pages.reduce((a, p) => a + Math.max(1, p.images.length), 0), hash: w.hash },
+      kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
+      correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash },
+    notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [] } : undefined,
     marking: questions.length ? { questions, summary: r.summary, nextSteps: r.nextSteps, tier: w.tierUsed, detected: r.detected } : null,
   });
   const score = questions.reduce((a, q) => a + q.marks, 0), max = questions.reduce((a, q) => a + q.maxMarks, 0);
   const weakTopics = [...new Set(questions.filter((q) => q.marks < q.maxMarks && q.topicId).map((q) => q.topicId))];
-  w.saved = { title: r.title, subjectId: r.subjectId, score, max, summary: r.summary, nextSteps: r.nextSteps,
-    url: driveInfo?.url || null, folder: driveInfo?.folder || null, weakTopics };
+  w.saved = { mode: r.mode, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
+    nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
+    url: info?.url || null, folder: info?.folder || null, weakTopics };
   w.stage = 'saved';
   render();
 }
 
-function resetWork() {
+function resetWork(preset = {}) {
   for (const p of APP.work.pages) for (const i of p.images) URL.revokeObjectURL(i.url);
-  APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier };
+  APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier,
+    mode: LS.get('workMode', 'worksheet'), worksheetId: '', ...preset };
   render();
 }
 
@@ -1573,15 +2386,35 @@ function searchTopics(q, subjectId, exclude = []) {
 }
 
 /* ================================================================ history */
+function bySubject(list) {
+  const groups = {};
+  for (const x of list) (groups[x.subjectId || ''] ||= []).push(x);
+  return Object.entries(groups);
+}
+function wsStatus(w) {
+  const last = w.attempts?.[0];
+  if (last) return `<span class="score">${fmtN(last.score)}/${fmtN(last.max)}</span>`;
+  const next = (w.planned || []).find((p) => !p.done && p.date >= nowISO());
+  if (next) return `<span class="muted" style="font-size:12.5px">planned ${esc(next.date === nowISO() ? 'today' : fmtDay(next.date))}</span>`;
+  return '<span class="open-n">to do</span>';
+}
 function viewHistory() {
   const d = APP.data;
   if (!d) return noData();
   const h = APP.history;
-  const ms = d.mistakes.filter((m) => !h.subject || m.subjectId === h.subject);
-  const atts = d.attempts.filter((a) => !h.subject || a.subjectId === h.subject);
+  const keep = (x) => !h.subject || x.subjectId === h.subject;
+  const ms = d.mistakes.filter(keep);
+  const atts = d.attempts.filter(keep);
+  const wss = (d.worksheets || []).filter(keep);
+  const notes = (d.notes || []).filter(keep);
   const filter = `<select id="hSubj" style="width:auto">${subjectOptions(h.subject, 'All subjects')}</select>`;
-  const seg = `<div class="seg"><button data-act="hview" data-v="mistakes" aria-pressed="${h.view === 'mistakes'}">Mistakes to fix · ${ms.length}</button>
-    <button data-act="hview" data-v="all" aria-pressed="${h.view === 'all'}">All marked work · ${atts.length}</button></div>`;
+  const seg = `<div class="segwrap"><div class="seg">
+    <button data-act="hview" data-v="mistakes" aria-pressed="${h.view === 'mistakes'}">Mistakes<b>${ms.length}</b></button>
+    <button data-act="hview" data-v="all" aria-pressed="${h.view === 'all'}">Marked<b>${atts.length}</b></button>
+    <button data-act="hview" data-v="worksheets" aria-pressed="${h.view === 'worksheets'}">Worksheets<b>${wss.length}</b></button>
+    <button data-act="hview" data-v="notes" aria-pressed="${h.view === 'notes'}">Notes<b>${notes.length}</b></button></div></div>`;
+  const head = (sid, n) => `<h3><span class="dot" style="--c:${colourOf(sid)}"></span>${esc(subjectName(sid))}<span class="count">${n}</span></h3>`;
+  const topicNames = (ids) => (ids || []).slice(0, 2).map((id) => esc(topicOf(id)?.name || '')).filter(Boolean).join(', ');
   let body;
   if (h.view === 'mistakes') {
     const groups = {};
@@ -1595,21 +2428,91 @@ function viewHistory() {
           <span><span style="font-weight:500">${esc(m.title)}</span><span class="task-meta">${esc(fmtDay(m.date))} · ${m.type ? esc(m.type) : 'mistake'}</span></span>
           <span class="mono late">−${fmtN(m.marksLost)}</span></button>`).join('')}</div>`;
     }).join('') : '<div class="empty">No open mistakes. Anything you get wrong in marked work lands here until you fix it.</div>';
+  } else if (h.view === 'worksheets') {
+    body = wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
+      ${list.map((w) => `<button class="attempt" data-act="open-ws" data-id="${esc(w.id)}">
+        <span><span class="t">${esc(w.title)}</span><span class="task-meta">${topicNames(w.topicIds) || 'no topic'} · ${esc(fmtDay(w.date))}
+          ${w.attempts?.length > 1 ? `· answered ${w.attempts.length}×` : ''}</span></span>
+        ${wsStatus(w)}</button>`).join('')}</div>`).join('')
+      : '<div class="empty">No worksheets yet. On the Work tab, add the pages and choose <b>Worksheet</b>.</div>';
+  } else if (h.view === 'notes') {
+    body = notes.length ? bySubject(notes).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
+      ${list.map((n) => `<button class="attempt" data-act="open-note" data-id="${esc(n.id)}">
+        <span><span class="t">${esc(n.title)}</span><span class="task-meta">${topicNames(n.topicIds) || 'no topic'} · ${esc(fmtDay(n.date))}</span></span>
+        <span class="kind k-notes">notes</span></button>`).join('')}</div>`).join('')
+      : '<div class="empty">No notes yet. On the Work tab, add the pages and choose <b>Notes</b>.</div>';
   } else {
     body = atts.length ? `<div>${atts.map((a) => {
       const open = a.questions.filter((q) => q.marksLost > 0 && !q.resolved).length;
+      const ws = a.worksheetId && worksheetOf(a.worksheetId);
       return `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}">
         <span><span class="t">${esc(a.title)}</span><span class="task-meta"><span class="dot" style="--c:${colourOf(a.subjectId)}"></span>${esc(subjectName(a.subjectId))} · ${esc(fmtDay(a.date))}
-          ${open ? `· <span class="open-n">${open} to fix</span>` : ''}</span></span>
+          ${ws ? '· worksheet' : ''}${open ? ` · <span class="open-n">${open} to fix</span>` : ''}</span></span>
         <span class="score">${fmtN(a.score)}/${fmtN(a.max)}</span></button>`;
     }).join('')}</div>` : '<div class="empty">Nothing marked yet. Add your work on the Work tab.</div>';
   }
   return `<div class="card"><div class="row" style="margin-bottom:12px">${seg}<span class="spacer"></span>${filter}</div>${body}</div>`;
 }
 
-async function openAttempt(id, focusQ) {
+/* One worksheet: the sheet, when it is planned, and every set of answers
+   you handed in for it — each opens to Claude's corrections. */
+async function openWorksheet(id) {
+  const w = worksheetOf(id);
+  if (!w) return toast('That worksheet is not here yet — try again in a moment.');
+  SHEET.ctx = { kind: 'ws', id };
+  openSheet(worksheetSheet(w, APP.sheets[id], !APP.sheets[id]));
+  try { await loadWorksheet(id); } catch (e) { toast(connError(e)); }
+  if (SHEET.ctx?.kind === 'ws' && SHEET.ctx.id === id) $('#sheet').innerHTML = worksheetSheet(worksheetOf(id), APP.sheets[id]);
+}
+function worksheetSheet(w, full, loading = false) {
+  if (!w) return '<div class="empty">That worksheet is gone.</div>';
+  const qs = full?.questions || [];
+  const atts = w.attempts || [];
+  const planned = w.planned || [];
+  return `<div class="sheet-h"><h2>${esc(w.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(w.subjectId)}"></span>${esc(subjectName(w.subjectId))}
+      ${w.topicIds?.length ? '· ' + w.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · saved ${esc(fmtDay(w.date))}</div>
+    <div class="row" style="margin-bottom:14px">
+      ${w.folderUrl ? `<a class="btn sm" href="${esc(w.folderUrl)}" target="_blank" rel="noopener">Folder in Drive</a>` : '<span class="muted" style="font-size:13px">Not in Drive</span>'}
+      ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}</div>
+    <div class="eyebrow">Your answers</div>
+    ${atts.length ? `<div>${atts.map((a) => `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}" data-from="${esc(w.id)}">
+        <span><span class="t">Answers · ${esc(fmtDay(a.date))}</span><span class="task-meta">tap for Claude's corrections</span></span>
+        <span class="score">${fmtN(a.score)}/${fmtN(a.max)}</span></button>`).join('')}</div>`
+      : '<div class="empty" style="padding:4px 0 8px">Not answered yet.</div>'}
+    <div class="row" style="margin:8px 0 16px">
+      <button class="btn primary sm" data-act="ws-answers" data-id="${esc(w.id)}">${atts.length ? 'Add answers again' : 'Add my answers'}</button>
+      <button class="btn sm" data-act="ws-plan" data-id="${esc(w.id)}">Plan into a study period</button></div>
+    ${planned.length ? `<div class="eyebrow">Planned</div><div style="margin:4px 0 14px;font-size:14px">${planned.map((p) =>
+      `${esc(fmtDay(p.date))} ${esc(String(p.key).replace(/^x/, ''))}${p.done ? ' ✓' : ''}`).join(' · ')}</div>` : ''}
+    <details${qs.length && !atts.length ? ' open' : ''}><summary class="eyebrow" style="cursor:pointer">Questions · ${w.questionCount ?? qs.length}${w.maxMarks ? ` · ${fmtN(w.maxMarks)} marks` : ''}</summary>
+      ${loading ? '<div class="muted" style="font-size:13px;margin-top:6px">Fetching…</div>'
+        : qs.length ? `<div class="page" style="margin-top:8px">${qs.map((q) => `<div class="q"><div class="q-label">${esc(q.q)}</div>
+            <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}</div></div></div>`).join('')}</div>`
+        : '<div class="muted" style="font-size:13px;margin-top:6px">Its questions were not read when it was saved — Claude looks at the sheet itself when marking.</div>'}
+    </details>
+    <div class="row" style="margin-top:18px"><span class="spacer"></span><button class="btn danger sm" data-act="ws-delete" data-armed="0">Delete worksheet</button></div>
+    <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">Deleting keeps its folder in Drive and your marked answers.</div>`;
+}
+
+function noteSheet(id) {
+  const n = (APP.data.notes || []).find((x) => x.id === id);
+  if (!n) return;
+  SHEET.ctx = { kind: 'note', id };
+  openSheet(`<div class="sheet-h"><h2>${esc(n.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(n.subjectId)}"></span>${esc(subjectName(n.subjectId))}
+      ${n.topicIds?.length ? '· ' + n.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · ${esc(fmtDay(n.date))}</div>
+    ${n.summary ? `<p style="margin:0 0 10px">${esc(n.summary)}</p>` : ''}
+    ${n.keyPoints?.length ? `<div class="eyebrow">Key points</div><ul style="margin:6px 0 12px;padding-left:18px">${n.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${n.folder ? `<div class="folder" style="margin-bottom:10px">${esc(n.folder)}</div>` : ''}
+    <div class="row">${n.driveUrl ? `<a class="btn sm" href="${esc(n.driveUrl)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+      <span class="spacer"></span><button class="btn danger sm" data-act="note-delete" data-armed="0">Remove from the app</button></div>
+    <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">The file stays in your Drive.</div>`);
+}
+
+async function openAttempt(id, focusQ, fromWs) {
   const a = APP.data.attempts.find((x) => x.id === id);
-  SHEET.ctx = { kind: 'attempt', id, focusQ };
+  SHEET.ctx = { kind: 'attempt', id, focusQ, fromWs: fromWs || null };
   openSheet(attemptSheet(a, APP.details[id], true));
   try {
     const full = APP.transport ? await APP.transport.attempt(id) : null;
@@ -1646,11 +2549,16 @@ function attemptSheet(a, full, loading = false) {
   const qs = full?.questions || a.questions;
   const canCheck = Boolean(APP.sample && APP.limits?.images);
   const notes = (full?.notes || []);
-  return `<div class="sheet-h"><h2>${esc(a.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+  const ws = a.worksheetId ? worksheetOf(a.worksheetId) : null;
+  const back = SHEET.ctx?.fromWs && worksheetOf(SHEET.ctx.fromWs);
+  return `<div class="sheet-h">${back ? `<button class="btn ghost sm" data-act="open-ws" data-id="${esc(back.id)}">‹ Worksheet</button>` : ''}
+      <h2>${esc(a.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="row" style="gap:16px;margin-bottom:10px">
       <span class="stamp sm">${fmtN(a.score)}<small>/${fmtN(a.max)}</small></span>
       <div style="flex:1"><div class="task-meta"><span class="dot" style="--c:${colourOf(a.subjectId)}"></span>${esc(subjectName(a.subjectId))} · ${esc(fmtDay(a.date))}</div>
-        ${a.driveUrl ? `<a href="${esc(a.driveUrl)}" target="_blank" rel="noopener" style="font-size:13.5px">Open the pages in Drive</a>` : ''}</div>
+        ${ws && !back ? `<div style="font-size:13.5px">Answers to <button class="btn ghost sm" style="padding:0 2px" data-act="open-ws" data-id="${esc(ws.id)}">${esc(ws.title)}</button></div>` : ''}
+        <div class="row" style="gap:12px">${a.driveUrl ? `<a href="${esc(a.driveUrl)}" target="_blank" rel="noopener" style="font-size:13.5px">Your pages in Drive</a>` : ''}
+        ${a.correctionsUrl ? `<a href="${esc(a.correctionsUrl)}" target="_blank" rel="noopener" style="font-size:13.5px">Corrections in Drive</a>` : ''}</div></div>
     </div>
     ${full?.summary ? `<p style="margin:0 0 10px;color:var(--text-2)">${esc(full.summary)}</p>` : ''}
     ${loading ? '<div class="muted" style="font-size:13px;margin-bottom:8px">Fetching the explanations…</div>' : ''}
@@ -1857,6 +2765,40 @@ function statusSheet() {
     <div class="row"><button class="btn primary" data-act="retry">Try again now</button></div>`);
 }
 
+/* ---------------------------------------------------------- app-like
+   Claude's own bar sits outside this page, so the page cannot hide it — but
+   where the browser allows it (a Mac, an iPad) the page can go full screen,
+   and on a phone the header slides away while you scroll down. */
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+const fsAllowed = () => Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+async function toggleFullscreen() {
+  try {
+    if (fsElement()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else {
+      const root = document.documentElement;
+      await (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+    }
+  } catch { toast('Full screen is not allowed here.'); }
+}
+function syncFullscreen() {
+  const b = $('#fsBtn');
+  if (!b) return;
+  b.hidden = !fsAllowed();
+  b.setAttribute('aria-pressed', String(Boolean(fsElement())));
+  b.setAttribute('aria-label', fsElement() ? 'Leave full screen' : 'Full screen');
+}
+document.addEventListener('fullscreenchange', syncFullscreen);
+document.addEventListener('webkitfullscreenchange', syncFullscreen);
+
+let lastY = 0;
+window.addEventListener('scroll', () => {
+  const y = Math.max(0, window.scrollY), h = $('header.top');
+  const keep = matchMedia('(min-width:820px)').matches || !$('#sheet').hidden;
+  if (keep || y < 60 || y < lastY - 8) h.classList.remove('hide');
+  else if (y > lastY + 8) h.classList.add('hide');
+  if (Math.abs(y - lastY) > 8 || y < 60) lastY = y;
+}, { passive: true });
+
 let toastTimer = null;
 function toast(text) {
   const t = $('#toast');
@@ -1869,12 +2811,13 @@ function toast(text) {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, [data-act]');
   if (!t) { if (e.target.id === 'scrim') closeSheet(); return; }
-  if (t.dataset.tab && !t.dataset.act) { APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render(); }
+  if (t.dataset.tab && !t.dataset.act) { APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); $('header.top').classList.remove('hide'); return render(); }
   const act = t.dataset.act;
   const d = APP.data;
   switch (act) {
     case 'tab': APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render();
     case 'status': return statusSheet();
+    case 'fullscreen': return toggleFullscreen();
     case 'retry': closeSheet(); refresh(); return flush();
     case 'root-save': {
       const name = $('#rootName')?.value.trim();
@@ -1887,20 +2830,65 @@ document.addEventListener('click', (e) => {
     case 'close': return closeSheet();
 
     /* today */
+    case 'day': APP.selDay = t.dataset.date === d.date ? null : t.dataset.date; return render();
     case 'choose': {
-      const sp = d.studyPeriods.find((s) => s.key === t.dataset.key);
+      const { date, key } = t.dataset;
+      const sp = studySlots(date).find((s) => s.key === key);
       const o = sp?.options[Number(t.dataset.i)];
-      if (o) send({ type: 'study.choose', date: d.date, key: sp.key, option: o });
+      if (!o) return;
+      // choosing for a period that is already over is logging it: ask how it went
+      const over = Boolean(t.closest('.slot')?.classList.contains('past'));
+      send({ type: 'study.choose', date, key, option: o });
+      if (over) doneSheet(date, key);
       return;
     }
-    case 'study-change': return send({ type: 'study.choose', date: d.date, key: t.dataset.key, option: null });
-    case 'study-done': return doneSheet(t.dataset.key);
+    case 'study-change': return send({ type: 'study.choose', date: t.dataset.date, key: t.dataset.key, option: null });
+    case 'study-done': return doneSheet(t.dataset.date, t.dataset.key);
+    case 'study-undo': return send({ type: 'study.undo', date: t.dataset.date, key: t.dataset.key });
+    case 'study-custom': return customSheet(t.dataset.date, t.dataset.key);
+    case 'custom-save': {
+      const c = SHEET.ctx, title = $('#cTitle')?.value.trim();
+      if (!title) return $('#cTitle')?.focus();
+      const sp = studySlots(c.date).find((s) => s.key === c.key);
+      const option = { id: newId('custom:'), kind: 'custom', title, why: 'your own plan', subjectId: $('#cSubj')?.value || null,
+        topicId: null, taskId: null, testId: null, mins: sp?.mins || 45 };
+      send({ type: 'study.choose', date: c.date, key: c.key, option });
+      if (c.past) return doneSheet(c.date, c.key);
+      return closeSheet();
+    }
+    case 'log-all': return logSheet();
+    case 'slot-new': return slotSheet(t.dataset.date);
+    case 'slot-save': {
+      const c = SHEET.ctx, start = $('#slStart')?.value;
+      if (!/^\d{2}:\d{2}$/.test(start || '')) return $('#slStart')?.focus();
+      const minutes = Number($('#slMins')?.value) || 60;
+      if (studySlots(c.date).some((x) => x.key === 'x' + start)) { toast('There is already a session starting then.'); return; }
+      send({ type: 'study.slot.add', date: c.date, start, minutes, title: $('#slTitle')?.value.trim() || undefined });
+      closeSheet();
+      return toast(`Added ${fmtDay(c.date)} ${start}. Suggestions appear in a moment.`);
+    }
+    case 'slot-remove':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again'; return; }
+      return send({ type: 'study.slot.remove', date: t.dataset.date, key: t.dataset.key });
+    case 'drive-pick': return openDrivePicker();
+    case 'dv-back': {
+      const c = SHEET.ctx;
+      if (c.search) return driveGo();
+      c.stack.pop();
+      return driveGo();
+    }
+    case 'dv-open': {
+      const c = SHEET.ctx, f = c.items?.[Number(t.dataset.i)];
+      if (!f) return;
+      if (f.mimeType === FOLDER_MIME) { c.stack.push({ id: f.id, title: f.title }); return driveGo(); }
+      return driveTake(f);
+    }
     case 'done-save': {
       const c = SHEET.ctx;
-      send({ type: 'study.done', date: d.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
-        confidence: c.conf ?? undefined, taskDone: Boolean($('#dTask')?.checked) });
+      send({ type: 'study.done', date: c.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
+        confidence: c.conf ?? undefined, note: $('#dNote')?.value.trim() || undefined, taskDone: Boolean($('#dTask')?.checked) });
       if ($('#dTask')?.checked) {
-        const o = d.studyPeriods.find((s) => s.key === c.key)?.chosen;
+        const o = studySlots(c.date).find((s) => s.key === c.key)?.chosen;
         if (o?.taskId) applyLocal({ type: 'task.done', taskId: o.taskId, done: true });
       }
       closeSheet(); return render();
@@ -1961,7 +2949,21 @@ document.addEventListener('click', (e) => {
 
     /* history */
     case 'hview': APP.history.view = t.dataset.v; return render();
-    case 'open-attempt': return openAttempt(t.dataset.id, t.dataset.q);
+    case 'open-attempt': return openAttempt(t.dataset.id, t.dataset.q, t.dataset.from);
+    case 'open-ws': return openWorksheet(t.dataset.id);
+    case 'open-note': return noteSheet(t.dataset.id);
+    case 'ws-answers': return startAnswers(t.dataset.id);
+    case 'ws-plan': return planSheet(t.dataset.id);
+    case 'ws-plan-pick': return planWorksheet(SHEET.ctx?.wid, t.dataset.date, t.dataset.key);
+    case 'ws-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      send({ type: 'worksheet.delete', worksheetId: SHEET.ctx.id });
+      closeSheet();
+      return toast('Worksheet deleted. Its Drive folder and your marked answers are kept.');
+    case 'note-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to remove'; return; }
+      send({ type: 'attachment.delete', attachmentId: SHEET.ctx.id });
+      return closeSheet();
     case 'fix': {
       send({ type: 'mistake.resolve', attemptId: SHEET.ctx.id, q: t.dataset.q, how: 'self' });
       const { q } = questionOf(t.dataset.q);
@@ -2014,15 +3016,19 @@ document.addEventListener('click', (e) => {
   if (t.dataset.prio) { t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.conf) { SHEET.ctx.conf = Number(t.dataset.conf); t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.kind && SHEET.ctx?.kind === 'test') { SHEET.ctx.test.kind = t.dataset.kind; t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
-  if (t.dataset.tier) {
-    APP.work.hint = { subjectId: $('#wSubj')?.value ?? APP.work.hint.subjectId, homeworkId: $('#wHw')?.value ?? APP.work.hint.homeworkId };
-    APP.work.tier = t.dataset.tier; LS.set('tier', APP.work.tier); return render();
+  if (t.dataset.tier) { readWorkForm(); APP.work.tier = t.dataset.tier; LS.set('tier', APP.work.tier); return render(); }
+  if (t.dataset.mode) {
+    readWorkForm();
+    Object.assign(APP.work, { mode: t.dataset.mode, already: null, error: null });
+    LS.set('workMode', t.dataset.mode);
+    return render();
   }
 });
 
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   if (e.target.id === 'qaForm') quickAdd();
+  if (e.target.id === 'dvForm') { const q = $('#dvSearch')?.value.trim(); if (q) driveGo(q); else driveGo(); }
 });
 
 document.addEventListener('input', (e) => {
@@ -2030,6 +3036,8 @@ document.addEventListener('input', (e) => {
   if (el.id === 'qaText') return updateQuickPreview();
   if (el.id === 'rTopicSearch') return topicSuggest();
   if (el.id === 'rTitle' && APP.work.review) { APP.work.review.title = el.value; return; }
+  if (el.id === 'rSummary' && APP.work.review) { APP.work.review.summary = el.value; return; }
+  if (el.id === 'rPoints' && APP.work.review) { APP.work.review.keyPoints = el.value.split('\n').map((x) => x.trim()).filter(Boolean); return; }
   if (el.dataset.qf && APP.work.review) {
     const q = APP.work.review.questions[Number(el.dataset.i)];
     if (!q) return;
@@ -2044,6 +3052,7 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'fileRedo' && el.files?.[0]) return checkRedo(el.dataset.q, el.files[0]);
   if (el.id === 'wSubj') { APP.work.hint.subjectId = el.value; APP.work.hint.homeworkId = ''; return render(); }
   if (el.id === 'wHw') { APP.work.hint.homeworkId = el.value; return; }
+  if (el.id === 'wSheet') { APP.work.worksheetId = el.value; APP.work.already = null; return; }
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
   if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
   if (!r) return;
@@ -2061,13 +3070,19 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#she
 
 /* =================================================================== boot */
 async function boot() {
+  syncFullscreen();
   render();
   if (window.claude?.use) {
     const [mcp, sample] = await Promise.all([claude.use('mcp'), claude.use('sample')].map((p) => p.catch(() => null)));
     APP.mcp = mcp; APP.sample = sample;
     if (sample) APP.limits = await sample.limits().catch(() => null);
     if (mcp) {
-      try { const l = await mcp.listTools(); APP.fileArgs = Boolean(l?.fileArgs); } catch { /* listing is advisory */ }
+      try {
+        const l = await mcp.listTools();
+        APP.fileArgs = Boolean(l?.fileArgs);
+        const mine = (l?.servers || []).find((s) => s.server.toLowerCase().replace(/\s+/g, ' ').trim() === 'a level dashboard');
+        if (mine) DASH = mine.server;
+      } catch { /* listing is advisory */ }
       APP.transport = TRANSPORT.mcp;
       APP.mode = 'claude';
     } else {

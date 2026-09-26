@@ -478,7 +478,7 @@ const PLANNER = createPlanner(() => S);
 const { DAY, isoOf, todayISO, parseD, daysBetween, toMins, hhmm, dayKeyOf, addDays,
   subjectById, topicById, CAL, holidayOn, termOn, priorityOf, revisionQueue, gradeFor,
   workloadPlan, predictedFor, projectedPct, igcseBaselineFor, minutesThisWeek, cardsDue, lostMarks, weakSpots, phaseOf,
-  studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, taskScore, openMistakes, mastery,
+  studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, isStudySlot, taskScore, openMistakes, mastery,
   studyOptions } = PLANNER;
 
 const fmtDay = (iso) => parseD(iso).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
@@ -840,7 +840,7 @@ let alertTimer = null, lastAlertId = null, dismissedId = null;
 // else the top of the same options the app offers (lib/plan.mjs studyOptions).
 function studyFor(slot) {
   const mins = slot.start && slot.end ? toMins(slot.end) - toMins(slot.start) : 50;
-  const sp = studyOptions(todayISO()).find((x) => x.start === slot.start);
+  const sp = studyOptions(todayISO()).find((x) => x.key === (slot.start || slot.period));
   const o = sp?.chosen || sp?.options?.[0];
   if (o) return { text: o.title + (o.subjectId ? ` — ${nameOf(o.subjectId)}` : ''),
     why: sp.chosen ? 'your pick for this period' : o.why, mins };
@@ -866,7 +866,7 @@ function renderAlert() {
   if (dismissedId === id) { host.hidden = true; return; }
 
   const free = sl.subjectId === FREE;
-  const study = free ? studyFor(sl) : null;
+  const study = isStudySlot(sl) ? studyFor(sl) : null;
   host.hidden = false;
   host.innerHTML = `
     <span class="dot" style="background:${free ? 'var(--text-muted)' : colorOf(sl.subjectId)}"></span>
@@ -971,7 +971,7 @@ views.today = () => {
       <h2>Today · ${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</h2>
       <div class="hint">${lessons.length ? 'Your lessons' : 'No lessons set for today'}</div>
       ${lessons.length ? lessons.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map((l) => {
-        const study = l.subjectId === FREE ? studyFor(l) : null;
+        const study = isStudySlot(l) ? studyFor(l) : null;
         return `
         <div class="tt-slot" style="border-left-color:${colorOf(l.subjectId)}">
           <div>${esc(slotName(l))}</div>
@@ -1401,7 +1401,7 @@ views.timetable = () => {
               .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
               .map((l) => {
                 const free = l.subjectId === 'free';
-                const study = free ? studyFor(l) : null;
+                const study = isStudySlot(l) ? studyFor(l) : null;
                 return `
                 <div class="tt-slot${free ? ' free' : ''}" style="border-left-color:${free ? 'var(--line-strong)' : colorOf(l.subjectId)}">
                   <div class="row" style="justify-content:space-between">
@@ -1814,17 +1814,24 @@ views.analysis = () => {
 // the two panels above; this lists the pieces themselves.
 function markedWorkCard() {
   const list = (S.attempts || []).slice().sort((a, b) => (b.created || b.date).localeCompare(a.created || a.date));
-  if (!list.length) return '';
+  const sheets = S.worksheets || [], notes = (S.attachments || []).filter((a) => a.kind === 'notes');
+  if (!list.length && !sheets.length && !notes.length) return '';
   const open = openMistakes().length;
+  const answered = new Set(list.map((a) => a.worksheetId).filter(Boolean));
+  const toDo = sheets.filter((w) => !answered.has(w.id)).length;
+  const sheetOf = (id) => sheets.find((w) => w.id === id);
   return `<div class="card" style="margin-bottom:16px">
     <h2>Marked work — ${list.length}</h2>
-    <div class="hint">Uploaded and marked in the companion app. ${open ? `<b>${open}</b> mistake${open === 1 ? '' : 's'} still to fix — open History in the app.` : 'Every mistake is fixed.'}</div>
+    <div class="hint">Uploaded and marked in the companion app. ${open ? `<b>${open}</b> mistake${open === 1 ? '' : 's'} still to fix — open History in the app.` : list.length ? 'Every mistake is fixed.' : ''}
+      ${sheets.length ? `<br>${sheets.length} worksheet${sheets.length === 1 ? '' : 's'}${toDo ? `, <b>${toDo}</b> still to answer` : ', all answered'}.` : ''}
+      ${notes.length ? `${sheets.length ? ' ' : '<br>'}${notes.length} set${notes.length === 1 ? '' : 's'} of notes.` : ''}</div>
     <table><tbody>${list.slice(0, 15).map((a) => {
       const lost = a.questions.filter((q) => q.marksLost > 0);
       const topics = [...new Set(lost.map((q) => q.topicId).filter(Boolean))].map((id) => topicById(id)?.name).filter(Boolean);
       return `<tr>
         <td style="white-space:nowrap">${esc(fmtDay(a.date))}</td>
-        <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(a.subjectId)}"></span>${esc(a.title)}</span>
+        <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(a.subjectId)}"></span>${esc(a.title)}${
+          sheetOf(a.worksheetId) ? ` <span style="font-size:12px;color:var(--text-muted)">· worksheet “${esc(sheetOf(a.worksheetId).title)}”</span>` : ''}</span>
           ${topics.length ? `<div style="font-size:12px;color:var(--text-muted);margin-left:17px">lost marks in ${esc(topics.join(', '))}</div>` : ''}</td>
         <td class="num">${a.score}/${a.max}</td>
         <td>${a.driveUrl ? `<a href="${esc(a.driveUrl)}" target="_blank" rel="noopener">Drive</a>` : ''}</td>
