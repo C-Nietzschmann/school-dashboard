@@ -318,7 +318,8 @@ section.tab.on{display:block}
    work in folders) and Claude itself (to read and mark it), billed to your
    Claude plan rather than an API key.
    ====================================================================== */
-const DASH = 'A Level Dashboard';
+// The connector's name as you typed it in claude.ai; any capitalisation is found at load.
+let DASH = 'A Level Dashboard';
 const DRIVE = 'Google Drive';
 const DRIVE_ROOT = 'A Levels';          // default top folder; found by name, created only if missing
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
@@ -2012,7 +2013,12 @@ async function boot() {
     APP.mcp = mcp; APP.sample = sample;
     if (sample) APP.limits = await sample.limits().catch(() => null);
     if (mcp) {
-      try { const l = await mcp.listTools(); APP.fileArgs = Boolean(l?.fileArgs); } catch { /* listing is advisory */ }
+      try {
+        const l = await mcp.listTools();
+        APP.fileArgs = Boolean(l?.fileArgs);
+        const mine = (l?.servers || []).find((s) => s.server.toLowerCase().replace(/\s+/g, ' ').trim() === 'a level dashboard');
+        if (mine) DASH = mine.server;
+      } catch { /* listing is advisory */ }
       APP.transport = TRANSPORT.mcp;
       APP.mode = 'claude';
     } else {

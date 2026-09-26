@@ -161,6 +161,22 @@ What it costs and where things live:
   not overwritten: a stale tab is refused (409), pulls the newer copy, keeps its
   own edits and saves again.
 
+### If your host deploys from a private copy
+
+Some setups keep this public repository for the code and point the host at a
+private copy of it. Your data does not live in either — it is in the host's
+database, environment and secret files — so the private copy is only a second
+home for the same code. After merging here, bring it across as a fast-forward:
+
+```bash
+git remote add private https://github.com/YOU/your-private-copy   # once
+git fetch private main
+git merge-base --is-ancestor private/main origin/main && git push private origin/main:main
+```
+
+If `merge-base` fails, the private copy has commits of its own: look at them
+before doing anything, and never push them back here.
+
 ## Afterwards
 
 `git push` redeploys automatically. Both copies still build from `app.html` —
