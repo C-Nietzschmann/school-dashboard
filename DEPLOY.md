@@ -159,8 +159,18 @@ piece of work has — they stay together) and say what it is:
 - **My answers** — to a worksheet saved earlier.
 - **Notes** — read for their topic and key points, filed in the topic's folder
   (or your "Class notes"), and kept under History → Notes. Making notes on a
-  topic counts as having studied it.
+  topic counts as having studied it. A notebook you keep writing in (a GoodNotes
+  PDF, say) can be uploaded again when it grows: it is recognised by its file
+  name or first page, Claude reads only the new or changed pages and adds them
+  to the same notes, and the new PDF replaces the old copy in Drive (the old one
+  goes to the Drive bin). Long PDFs are read in batches.
 - **Other** — marked straight away, or just filed, as before.
+
+PDF pages are drawn in the page by pdf.js. The published artifact carries its
+own copy (`pdfjs/pdf.min.js` and `pdfjs/pdf.worker.min.js` from the
+`pdfjs-dist` 3.11.174 package, published beside the page); cdnjs and jsdelivr
+are tried if that copy is missing. If none loads, the app says why under the
+Read button and in the Connection sheet.
 
 **Weekends and evenings.** Every day of the fortnight is on the Today tab.
 **+ Add study session** puts a session on any day — a Saturday morning, a

@@ -442,3 +442,35 @@ test('notes are kept as notes, with what Claude read in them, and count as study
   await applyOps(S, [{ id: 'n2', type: 'attachment.delete', attachmentId: 'nf1' }], { date: MONDAY });
   assert.equal(todayPayload(S, { date: MONDAY, time: '08:00' }).notes.length, 0);
 });
+
+test('a notebook uploaded again longer updates the same notes entry', async () => {
+  const S = fixture();
+  const store = memStore();
+  const sig = (c) => c.repeat(64);
+  await applyOps(S, [{ id: 'nb1', type: 'work.save',
+    attachment: { id: 'nb', title: 'CS chapter 3', kind: 'notes', subjectId: 'cs', topicIds: [], driveId: 'D1', folderId: 'F9', ownCopy: true,
+      driveUrl: 'https://drive.google.com/file/d/D1/view' },
+    notes: { summary: 'Networks', keyPoints: ['LAN vs WAN'], fileName: 'CS chapter 3.pdf', pageCount: 12, readPages: 12,
+      firstSig: sig('1'), pageSigs: Array.from({ length: 12 }, () => sig('2')).concat(['nothex']) } }], { date: MONDAY, store });
+  let n = todayPayload(S, { date: MONDAY, time: '08:00' }).notes[0];
+  assert.deepEqual([n.fileName, n.pageCount, n.firstSig, n.folderId, n.ownCopy, n.versions], ['CS chapter 3.pdf', 12, sig('1'), 'F9', true, 1]);
+  const got = await getAttempt(S, { noteId: 'nb' }, store);
+  assert.equal(got.found, true);
+  assert.equal(got.pageSigs.length, 13);
+  assert.equal(got.pageSigs[12], null, 'a malformed signature is kept as a gap');
+
+  const tid = S.topics.find((t) => t.subjectId === 'cs').id;
+  S.topics.find((t) => t.id === tid).lastStudied = null;
+  await applyOps(S, [{ id: 'nb2', type: 'notes.update', attachmentId: 'nb',
+    patch: { summary: 'Networks and protocols', keyPoints: ['LAN vs WAN', 'TCP/IP layers'], topicIds: [tid, 'zzz'], pageCount: 15,
+      readPages: 15, driveId: 'D2', driveUrl: 'https://drive.google.com/file/d/D2/view' },
+    pageSigs: Array.from({ length: 15 }, () => sig('3')) }], { date: '2026-09-30', store });
+  assert.equal(S.attachments.filter((a) => a.kind === 'notes').length, 1, 'no second entry');
+  n = todayPayload(S, { date: '2026-09-30', time: '08:00' }).notes[0];
+  assert.deepEqual([n.summary, n.keyPoints.length, n.pageCount, n.driveId, n.versions, n.updated, n.topicIds],
+    ['Networks and protocols', 2, 15, 'D2', 2, '2026-09-30', [tid]]);
+  assert.equal(S.topics.find((t) => t.id === tid).lastStudied, '2026-09-30');
+  assert.equal((await getAttempt(S, { noteId: 'nb' }, store)).pageSigs.length, 15);
+  const bad = await applyOps(S, [{ id: 'nb3', type: 'notes.update', attachmentId: 'missing', patch: {} }], { date: MONDAY, store });
+  assert.equal(bad.results[0].ok, false);
+});
