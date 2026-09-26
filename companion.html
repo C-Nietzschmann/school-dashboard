@@ -383,7 +383,6 @@ let DASH = 'A Level Dashboard';
 const DRIVE = 'Google Drive';
 const DRIVE_ROOT = 'A Levels';          // default top folder; found by name, created only if missing
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
-const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -638,10 +637,20 @@ const LOCAL = {
   'work.save': (d, op) => {
     const a = op.attachment;
     if (a.kind !== 'notes' || (d.notes ||= []).some((x) => x.id === a.id)) return;
-    d.notes.unshift({ id: a.id, title: a.title, date: nowISO(), subjectId: a.subjectId, topicIds: a.topicIds || [], driveUrl: a.driveUrl,
-      folder: a.folder, summary: op.notes?.summary || '', keyPoints: op.notes?.keyPoints || [] });
+    const n = op.notes || {};
+    d.notes.unshift({ id: a.id, title: a.title, date: nowISO(), subjectId: a.subjectId, topicIds: a.topicIds || [], driveId: a.driveId,
+      driveUrl: a.driveUrl, folder: a.folder, folderId: a.folderId || null, ownCopy: Boolean(a.ownCopy), summary: n.summary || '',
+      keyPoints: n.keyPoints || [], fileName: n.fileName || '', pageCount: n.pageCount || 0, readPages: n.readPages || 0,
+      firstSig: n.firstSig || null, versions: 1 });
   },
   'attachment.delete': (d, op) => { d.notes = (d.notes || []).filter((x) => x.id !== op.attachmentId); },
+  'notes.update': (d, op) => {
+    const n = (d.notes || []).find((x) => x.id === op.attachmentId);
+    if (!n) return;
+    Object.assign(n, Object.fromEntries(Object.entries(op.patch || {}).filter(([, v]) => v !== undefined)),
+      { updated: nowISO(), versions: (n.versions || 1) + 1 });
+    if (op.patch?.pageCount) n.pageCount = op.patch.pageCount;
+  },
   'study.done': (d, op) => {
     for (const s of studySlots(op.date)) if (s.key === op.key) {
       s.done = true;
@@ -1181,7 +1190,8 @@ function viewWork() {
     const ws = worksheetOf(w.worksheetId);
     const [head, sub] = {
       worksheet: ['Reading the worksheet…', 'Finding the subject and topic, and listing its questions.'],
-      notes: ['Reading your notes…', 'Finding the subject, the topic and the key points.'],
+      notes: [w.progress || (w.update && w.match?.status === 'ready' ? `Reading the new pages of “${w.match.note.title}”…` : 'Reading your notes…'),
+        'Finding the subject, the topic and the key points.'],
       answers: [w.progress || `Marking your answers${ws ? ` to “${ws.title}”` : ''}…`, 'Checking each answer against the worksheet\'s questions.'],
       other: [`Reading ${w.pages.length === 1 ? 'your page' : `${w.pages.length} pages`}…`, 'Working out the subject and topic, then marking each question.'],
     }[w.mode] || [];
@@ -1214,11 +1224,11 @@ function viewWork() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5l6 10.5h7M2.5 14h12l-3.5 6"/></svg>Drive<small>a file you already have</small></button>
       </div>
       ${w.pages.length ? `<div style="margin-top:14px" class="thumbs">${w.pages.map((p, i) => `
-        <figure class="thumb" style="margin:0">${p.thumb ? `<img src="${p.thumb}" alt="Page ${i + 1}">` : '<div class="pdf">PDF</div>'}
+        <figure class="thumb" style="margin:0">${p.thumb ? `<img src="${p.thumb}" alt="Page ${i + 1}">` : `<div class="pdf">${p.error ? 'PDF ✗' : p.kind === 'pdf' ? 'PDF…' : 'PDF'}</div>`}
           <button data-act="page-remove" data-i="${i}" aria-label="Remove page">×</button>
-          <figcaption>${i + 1}. ${esc(p.name)}${p.images.length > 1 ? ` · ${p.images.length} pp` : ''}</figcaption></figure>`).join('')}
+          <figcaption>${i + 1}. ${esc(p.name)}${p.numPages > 1 ? ` · ${p.numPages} pp` : ''}</figcaption></figure>`).join('')}
         <button class="thumb addpage" data-act="pick" data-input="fileCamera"><span>+</span>Add page</button></div>
-        <p class="muted" style="font-size:12.5px;margin:8px 0 0">All ${w.pages.length === 1 ? 'of this' : `${w.pages.length} of these`} go together as one piece of work. Keep adding pages until it is complete.</p>` : `
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">${w.pages.length === 1 ? 'This is saved' : `These ${w.pages.length} are saved together`} as one piece of work. Add pages until it is complete.</p>` : `
       <p class="muted" style="font-size:13.5px;margin:12px 0 0">A worksheet over several pages? Add each page — they stay together.
         To scan a page as a clean PDF: <b>File or scan</b>, then <b>⋯</b> → <b>Scan Documents</b>.</p>`}
     </div>
@@ -1228,7 +1238,7 @@ function viewWork() {
 
 // "What is it?" and what each answer needs before Claude reads it.
 function workForm(w, canMark) {
-  const markable = canMark && w.pages.some((p) => p.images.length);
+  const markable = canMark && readable(w) && !w.preparing;
   const subj = `<label class="field"><span>Subject</span><select id="wSubj">${subjectOptions(w.hint.subjectId, 'Work it out from the pages')}</select></label>`;
   const tier = `<div class="row"><span class="field" style="display:inline"><span>Claude</span></span>
     <div class="seg" id="wTier"><button type="button" data-tier="quick" aria-pressed="${w.tier !== 'careful'}">Fast</button><button type="button" data-tier="careful" aria-pressed="${w.tier === 'careful'}">Careful</button></div>
@@ -1252,8 +1262,13 @@ function workForm(w, canMark) {
       <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark my answers</button>${clear}</div>`
       : `<div class="notice">No saved worksheets yet. Save the worksheet first — choose <b>Worksheet</b> above — or choose <b>Other</b> to mark this straight away.</div>`;
   } else if (w.mode === 'notes') {
-    body = `${subj}
-      <div class="muted" style="font-size:13px">Claude reads them for the subject, the topic and the key points. They are filed in the topic's folder and kept under Notes in History.</div>
+    const upd = w.match?.status === 'ready' && w.update ? w.match : null;
+    body = upd ? `<div class="muted" style="font-size:13px">Claude reads ${esc(pagesLabel(readUnits(w)))} and adds what is new to
+        <b>${esc(upd.note.title)}</b>. The new file replaces the old copy in Drive.</div>
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read the new pages</button>${clear}</div>`
+      : `${subj}
+      <div class="muted" style="font-size:13px">Claude reads them for the subject, the topic and the key points. They are filed in the topic's folder and kept under Notes in History.
+        ${pageUnits(w).length > readLimit() ? ` A long notebook is read ${readLimit()} pages at most.` : ''}</div>
       <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read notes</button>
         <button class="btn" data-act="work-file-only">Just file them</button>${clear}</div>`;
   } else {
@@ -1266,13 +1281,101 @@ function workForm(w, canMark) {
       <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark it and file it</button>
         <button class="btn" data-act="work-file-only">Just file it</button>${clear}</div>`;
   }
+  // why Claude cannot read this, said where the greyed-out button is
+  const broken = w.pages.filter((p) => p.error);
+  const why = !canMark ? (APP.sample ? 'This Claude view cannot send pictures to Claude, so reading and marking are off here. Filing still works. Open the page on claude.ai in a browser to read it.'
+    : 'Claude is not available in this view, so reading and marking are off. Filing still works.')
+    : broken.length ? broken.map((p) => `Couldn't open “${p.name}” here: ${p.error}. It can still be filed, but Claude can't read it.`).join(' ')
+    : w.preparing ? w.preparing + '…' : '';
   return `<div class="card"><div class="fields">
+    ${notebookNotice(w)}
     <div class="field"><span>What is it?</span><div class="modes">${MODES.map(([k, label, sub]) =>
       `<button type="button" class="mode" data-mode="${k}" aria-pressed="${w.mode === k}"><b>${label}</b><small>${sub}</small></button>`).join('')}</div></div>
     ${body}
     ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
-    ${canMark ? '' : `<div class="muted" style="font-size:12.5px">${APP.sample ? 'This Claude view cannot send photos, so reading and marking are off here — filing still works.' : 'Claude is not available in this view, so reading and marking are off — filing still works.'}</div>`}
+    ${why ? `<div class="${broken.length || !canMark ? 'notice bad' : 'muted'}" style="font-size:13px">${esc(why)}</div>` : ''}
   </div></div>`;
+}
+
+/* ------------------------------------------ the same notebook, again
+   A notebook you keep writing in comes back as a longer PDF. It is matched to
+   the notes saved from it by its file name or its first page; then its pages
+   are compared with the saved ones, and only new or changed pages are read. */
+const notesList = () => APP.data?.notes || [];
+const notesOf = (id) => notesList().find((n) => n.id === id) || null;
+const GENERIC_NAME = /^(image|photo|img|scan|document|untitled|screenshot|pxl|dsc|work)\b|^\d+$/;
+const baseName = (s) => norm(String(s || '').replace(/\.[a-z0-9]{2,4}$/i, ''));
+function candidateNotebook(w) {
+  const names = w.pages.map((p) => baseName(p.name)).filter((n) => n.length >= 4 && !GENERIC_NAME.test(n));
+  const first = unitSigs(w)[0];
+  let best = null;
+  for (const n of notesList()) {
+    const byName = names.length && (names.includes(baseName(n.fileName)) || names.includes(baseName(n.title)));
+    const byPage = Boolean(n.firstSig && first && !sigChanged(n.firstSig, first));
+    if (!byName && !byPage) continue;
+    const score = (byName ? 2 : 0) + (byPage ? 1 : 0);
+    if (!best || score > best.score || (score === best.score && (n.updated || n.date) > (best.n.updated || best.n.date))) best = { n, score };
+  }
+  return best?.n || null;
+}
+async function findNotebook(w) {
+  const note = candidateNotebook(w);
+  if (!note) { w.match = null; return; }
+  w.match = { note, status: 'loading' };
+  render();
+  let old = [];
+  try { old = (await APP.transport.attempt({ noteId: note.id }))?.pageSigs || []; } catch { /* compare by page count instead */ }
+  if (APP.work !== w) return;
+  const now = unitSigs(w);
+  const oldCount = note.pageCount || old.length;
+  const read = [];
+  now.forEach((sig, i) => {
+    if (i >= oldCount) read.push(i);                                  // added since
+    else if (old.length ? sigChanged(old[i], sig) : false) read.push(i);  // written on since
+  });
+  // GoodNotes carries on where the page ended: the last saved page goes along for context
+  if (read.length && oldCount && now.length >= oldCount && !read.includes(oldCount - 1)) read.unshift(oldCount - 1);
+  read.sort((a, b) => a - b);
+  const added = Math.max(0, now.length - oldCount);
+  w.match = { note, status: read.length ? 'ready' : 'same', read, added, changed: read.filter((i) => i < oldCount - 1).length,
+    oldCount, newCount: now.length, compared: old.length > 0 };
+  if (read.length) { w.update = true; w.mode = 'notes'; }
+}
+function notebookNotice(w) {
+  const m = w.match;
+  if (!m || m.dismissed) return '';
+  const saved = fmtDay(m.note.updated || m.note.date);
+  if (m.status === 'loading') return `<div class="notice">Checking whether these are more of your notes “${esc(m.note.title)}”…</div>`;
+  if (m.status === 'same') {
+    return `<div class="notice">Nothing new since you saved “${esc(m.note.title)}” on ${esc(saved)} (${m.oldCount} page${m.oldCount === 1 ? '' : 's'}).
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-note" data-id="${esc(m.note.id)}">Open them</button>
+      <button class="btn sm ghost" data-act="nb-separate">Save as separate notes</button></div></div>`;
+  }
+  const bits = [m.added ? `${m.added} new page${m.added === 1 ? '' : 's'}` : '', m.changed ? `${m.changed} changed` : ''].filter(Boolean).join(', ');
+  return `<div class="notice"><b>More of your notes “${esc(m.note.title)}”</b> (saved ${esc(saved)}, ${m.oldCount} page${m.oldCount === 1 ? '' : 's'}).
+    This file has ${m.newCount} page${m.newCount === 1 ? '' : 's'}${bits ? ': ' + bits : ''}.
+    ${w.update ? `Claude reads only ${esc(pagesLabel(readUnits(w)))} and adds them to the same notes.` : 'It will be saved as separate notes.'}
+    <div class="row" style="margin-top:8px">${w.update
+      ? `<button class="btn sm ghost" data-act="nb-separate">Save as separate notes</button>
+         ${w.readAll ? '' : '<button class="btn sm ghost" data-act="nb-all">Read every page instead</button>'}`
+      : '<button class="btn sm" data-act="nb-update">Add to those notes</button>'}</div></div>`;
+}
+// The pages Claude will read: the new ones when adding to a notebook, else from the start.
+const readLimit = () => (APP.limits?.images?.maxCount || 8) * 3;
+function readUnits(w) {
+  const units = pageUnits(w);
+  if (w.mode === 'notes' && w.update && w.match?.status === 'ready' && !w.readAll) return w.match.read.map((i) => units[i]).filter(Boolean).slice(0, readLimit());
+  return units.slice(0, w.mode === 'notes' ? readLimit() : (APP.limits?.images?.maxCount || 8));
+}
+// A page's number in the whole upload, counting every page of every file.
+const unitIndex = (all, u) => all.findIndex((x) => x.p === u.p && x.n === u.n);
+function pagesLabel(units) {
+  const all = pageUnits();
+  const nums = units.map((u) => unitIndex(all, u) + 1).filter((n) => n > 0);
+  if (!nums.length) return 'no pages';
+  const runs = [];
+  for (const n of nums) { const r = runs.at(-1); if (r && n === r[1] + 1) r[1] = n; else runs.push([n, n]); }
+  return (nums.length === 1 ? 'page ' : 'pages ') + runs.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(', ');
 }
 function alreadyNotice(w) {
   if (!w.already) return '';
@@ -1304,7 +1407,9 @@ function destView(w) {
   if (allFromDrive(w) && keepsDriveFile(w)) return `<div class="folder">Already in your Drive — “${esc(w.pages[0].drive.title)}” stays where it is.</div>`;
   if (!d || d.status === 'loading') return '<div class="muted" style="font-size:13px">Finding the right folder in your Drive…</div>';
   if (d.status === 'error') return `<div class="notice bad">${esc(d.error)}</div>`;
-  if (d.fixed) return `<div class="folder">${esc(d.path)}</div><div class="muted" style="font-size:12.5px">The worksheet's own folder — answers and corrections go next to the sheet.</div>`;
+  if (d.fixed) return `<div class="folder">${esc(d.path)}</div><div class="muted" style="font-size:12.5px">${d.notebook
+    ? 'Where these notes already are. The new file replaces the old copy, which goes to the Drive bin.'
+    : 'The worksheet\'s own folder — answers and corrections go next to the sheet.'}</div>`;
   return `<div class="folder">${esc(d.root.title)}${d.root.id ? '' : ' (new)'} › ${esc(d.subjectTitle)}${d.subjectDir ? '' : ' (new)'} ›</div>
     <select id="rDest">${d.options.map((o) => `<option value="${esc(o.key)}" ${o.key === d.choice ? 'selected' : ''}>${esc(o.isSubject
       ? `Straight into ${d.subjectTitle}` : o.isNew ? `New folder: ${o.title}` : o.title)}</option>`).join('')}</select>
@@ -1378,10 +1483,16 @@ function sheetReviewView() {
 
 function notesReviewView() {
   const w = APP.work, r = w.review;
+  const into = r.updateOf ? notesOf(r.updateOf) : null;
+  const total = r.pageCount || pageUnits(w).length || w.pages.length;
   return `<div class="stack">
     <div class="card">
-      <div class="card-h"><h2>Check your notes</h2><span class="count">${w.pages.length} page${w.pages.length === 1 ? '' : 's'}</span></div>
-      ${cacheNote(w)}${detectedLine(r)}
+      <div class="card-h"><h2>${into ? `Adding to “${esc(into.title)}”` : 'Check your notes'}</h2><span class="count">${total} page${total === 1 ? '' : 's'}</span></div>
+      ${cacheNote(w)}${into ? '' : detectedLine(r)}
+      ${r.readLabel && (into || r.readPages < total) ? `<div class="muted" style="font-size:13px;margin-bottom:10px">Claude read ${esc(r.readLabel)} of ${total}.</div>` : ''}
+      ${into && r.newPoints?.length ? `<div class="notice" style="margin-bottom:10px"><b>New from these pages:</b>
+        <ul style="margin:6px 0 0;padding-left:18px">${r.newPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+        : into ? '<div class="notice" style="margin-bottom:10px">Claude found nothing new to add to the key points. Check the summary below.</div>' : ''}
       <div class="fields">
         <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
         <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
@@ -1392,7 +1503,7 @@ function notesReviewView() {
       </div>
     </div>
     ${errorBlock(w)}
-    ${reviewButtons('Save notes')}
+    ${reviewButtons(into ? 'Update notes' : 'Save notes')}
   </div>`;
 }
 
@@ -1473,6 +1584,20 @@ function savedView(s) {
         <button class="btn" data-act="ws-answers" data-id="${esc(s.worksheetId)}">Add my answers now</button>
         ${s.url ? `<a class="btn ghost" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
         <span class="spacer"></span><button class="btn ghost" data-act="work-reset">Add more work</button>
+      </div></div>`;
+  }
+  if (s.mode === 'notes' && s.updated) {
+    return `<div class="card">
+      <div class="eyebrow">Notes updated · version ${s.version}</div>
+      <h2 style="font-size:17px;margin-top:2px">${esc(s.title)}</h2>
+      <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.pages} page${s.pages === 1 ? '' : 's'}${filed}</div>
+      ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
+      ${s.keyPoints?.length ? `<div class="eyebrow">Added</div><ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="row" style="margin-top:14px">
+        ${logButton(studyToLog(null))}
+        <button class="btn" data-act="open-note" data-id="${esc(s.noteId)}">See all the notes</button>
+        ${s.url ? `<a class="btn ghost" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+        <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
       </div></div>`;
   }
   if (s.mode === 'notes') {
@@ -1567,36 +1692,129 @@ async function downscale(file, maxPx = 1.6e6) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-let pdfjsReady = null;
-function loadPdfJs() {
-  // The worker is loaded as a plain script too: a page here cannot start a
-  // worker from another host, and pdf.js then runs it on the main thread.
-  const add = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); });
-  pdfjsReady ||= add(PDFJS + 'pdf.min.js').then(() => add(PDFJS + 'pdf.worker.min.js')).then(() => {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
-    return window.pdfjsLib;
+/* ------------------------------------------------------------ PDFs
+   PDF pages are drawn with pdf.js. It is tried from a copy published next to
+   this page first, then from two CDNs; whichever answers is used, and if none
+   does the reason is kept and shown instead of a silently greyed-out button.
+   The worker is loaded as a plain script too, so pdf.js runs on the main
+   thread and never needs to start a worker from another host. */
+const PDFJS_SOURCES = ['pdfjs/', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/', 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/'];
+const PDF = { lib: null, from: null, error: null, loading: null };
+const sourceName = (base) => (base.startsWith('http') ? new URL(base).host : 'the copy with this page');
+function addScript(src, ms = 20000) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    const timer = setTimeout(() => { s.remove(); rej(new Error('timed out')); }, ms);
+    s.onload = () => { clearTimeout(timer); res(); };
+    s.onerror = () => { clearTimeout(timer); s.remove(); rej(new Error('blocked or missing')); };
+    s.src = src;
+    document.head.append(s);
   });
-  return pdfjsReady;
 }
-async function pdfToImages(file, maxPages) {
+// A UMD build hands itself to an AMD or CommonJS loader when it sees one and
+// only sets its global otherwise, so any such loader is hidden while it loads.
+async function addUmd(src) {
+  const keys = ['define', 'module', 'exports'];
+  const saved = keys.map((k) => [k, Object.prototype.hasOwnProperty.call(window, k), window[k]]);
+  for (const k of keys) { try { window[k] = undefined; } catch { /* not ours to change */ } }
+  try { await addScript(src); }
+  finally { for (const [k, had, v] of saved) { try { if (had) window[k] = v; else delete window[k]; } catch { /* leave it */ } } }
+}
+function loadPdfJs() {
+  if (PDF.lib) return Promise.resolve(PDF.lib);
+  PDF.loading ||= (async () => {
+    const tried = [];
+    for (const base of PDFJS_SOURCES) {
+      try {
+        if (!window.pdfjsLib?.getDocument) await addUmd(base + 'pdf.min.js');
+        if (!window.pdfjsWorker?.WorkerMessageHandler) await addUmd(base + 'pdf.worker.min.js');
+        if (!window.pdfjsLib?.getDocument || !window.pdfjsWorker?.WorkerMessageHandler) throw new Error('loaded but did not start');
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+        PDF.from = sourceName(base); PDF.error = null;
+        return (PDF.lib = window.pdfjsLib);
+      } catch (e) { tried.push(`${sourceName(base)}: ${e.message}`); }
+    }
+    PDF.error = 'the PDF reader would not load (' + tried.join('; ') + ')';
+    throw new Error(PDF.error);
+  })().finally(() => { PDF.loading = null; });
+  return PDF.loading;
+}
+async function openPdf(file) {
   const lib = await loadPdfJs();
-  const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
-  const out = [];
-  for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) {
-    const page = await doc.getPage(n);
-    const v1 = page.getViewport({ scale: 1 });
-    const scale = Math.min(3, Math.sqrt(1.6e6 / (v1.width * v1.height)));
-    const vp = page.getViewport({ scale });
-    const c = document.createElement('canvas');
-    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
-    out.push({ blob, w: c.width, h: c.height, url: URL.createObjectURL(blob) });
+  try {
+    return await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  } catch (e) {
+    throw new Error(e?.name === 'PasswordException' ? 'it is password-protected'
+      : e?.name === 'InvalidPDFException' ? 'it is not a valid PDF' : (e?.message || 'it would not open'));
   }
+}
+// One page drawn to a canvas of about maxPx pixels, white behind it.
+async function drawPage(doc, n, maxPx) {
+  const page = await doc.getPage(n);
+  const v1 = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: Math.min(3, Math.sqrt(maxPx / (v1.width * v1.height))) });
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(vp.width)); c.height = Math.max(1, Math.round(vp.height));
+  const ctx = c.getContext('2d', { willReadFrequently: maxPx < 1e5 });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  page.cleanup();
+  return c;
+}
+const canvasImage = async (c) => {
+  const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
+  return { blob, w: c.width, h: c.height, url: URL.createObjectURL(blob) };
+};
+async function pdfToImages(file, maxPages) {
+  const doc = await openPdf(file);
+  const out = [];
+  for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) out.push(await canvasImage(await drawPage(doc, n, 1.6e6)));
   return out;
 }
+
+/* A page's signature: how much ink is in each cell of an 8×8 grid, one hex
+   digit a cell. The same page gives the same grid every time; writing more on
+   it darkens cells. That is how a notebook uploaded again is compared, page by
+   page, with the copy saved before. */
+function gridSig(c) {
+  const W = c.width, H = c.height;
+  const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+  const sum = new Float64Array(64), cnt = new Float64Array(64);
+  for (let y = 0; y < H; y++) {
+    const row = Math.min(7, Math.floor(y * 8 / H)) * 8;
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, cell = row + Math.min(7, Math.floor(x * 8 / W));
+      sum[cell] += 1 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+      cnt[cell]++;
+    }
+  }
+  let out = '';
+  for (let k = 0; k < 64; k++) out += Math.min(15, Math.round(Math.sqrt(sum[k] / Math.max(1, cnt[k])) * 40)).toString(16);
+  return out;
+}
+async function imageSig(url) {
+  const im = new Image();
+  im.src = url;
+  await im.decode();
+  const c = document.createElement('canvas');
+  c.width = 96; c.height = Math.max(8, Math.round(96 * im.naturalHeight / im.naturalWidth));
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(im, 0, 0, c.width, c.height);
+  return gridSig(c);
+}
+// Changed: some part of the page gained or lost ink.
+function sigChanged(a, b) {
+  if (!a || !b || a.length !== 64 || b.length !== 64) return true;
+  let total = 0;
+  for (let i = 0; i < 64; i++) {
+    const d = Math.abs(parseInt(a[i], 16) - parseInt(b[i], 16));
+    if (d >= 2) return true;
+    total += d;
+  }
+  return total >= 6;
+}
+const MAX_SIG_PAGES = 300;
 
 async function sha256Hex(buf) {
   if (crypto?.subtle) {
@@ -1613,20 +1831,49 @@ async function hashPages(pages) {
   return parts.length === 1 ? parts[0] : sha256Hex(new TextEncoder().encode(parts.join('|')));
 }
 
+/* Every page of what you added, in order: a photo is one page, a PDF as many
+   as it has. Claude reads from this list; a PDF's pages are drawn only when
+   they are about to be read. */
+function pageUnits(w = APP.work) {
+  return w.pages.flatMap((p) => (p.kind === 'pdf' ? (p.doc ? Array.from({ length: p.numPages }, (_, i) => ({ p, n: i + 1 })) : [])
+    : [{ p, n: 0 }]));
+}
+const unitSigs = (w = APP.work) => pageUnits(w).map((u) => (u.n ? u.p.sigs?.[u.n - 1] : u.p.sigs?.[0]) || null);
+async function imagesFor(units) {
+  const out = [];
+  for (const u of units) {
+    if (!u.n) { out.push(u.p.images[0].blob); continue; }
+    const img = await canvasImage(await drawPage(u.p.doc, u.n, 1.6e6));
+    URL.revokeObjectURL(img.url);
+    out.push(img.blob);
+  }
+  return out;
+}
+const readable = (w) => w.pages.some((p) => p.images.length || p.doc);
+
 async function addFiles(list, extra = {}) {
   const w = APP.work;
   w.error = null; w.already = null;
-  const maxImages = APP.limits?.images?.maxCount || 8;
   for (const f of list) {
     try {
       if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
-        let images = [];
-        try { images = await pdfToImages(f, maxImages); }
-        catch { toast(`${f.name}: could not read the PDF here, so it can be filed but not marked.`); }
-        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null, ...extra });
+        const page = { id: newId('p'), kind: 'pdf', file: f, name: f.name, images: [], thumb: null, doc: null, numPages: 0, sigs: [], ...extra };
+        w.pages.push(page);
+        render();
+        try {
+          page.doc = await openPdf(f);
+          page.numPages = page.doc.numPages;
+          const first = await drawPage(page.doc, 1, 200 * 280);
+          page.thumb = (await canvasImage(first)).url;
+          page.sigs[0] = gridSig(first);
+        } catch (e) {
+          page.error = e?.message || 'it would not open';
+        }
       } else if (f.type.startsWith('image/') || /\.(jpe?g|png|heic|webp)$/i.test(f.name)) {
         const img = await downscale(f);
-        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url, ...extra });
+        const page = { id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url, sigs: [], ...extra };
+        page.sigs[0] = await imageSig(img.url).catch(() => null);
+        w.pages.push(page);
       } else {
         toast(`${f.name} is not a photo or a PDF.`);
       }
@@ -1634,6 +1881,25 @@ async function addFiles(list, extra = {}) {
       toast(`Could not open ${f.name}.`);
     }
   }
+  render();
+  await prepareSigs(w);
+}
+// The rest of each PDF's page signatures, a few at a time so the screen keeps up.
+async function prepareSigs(w) {
+  for (const p of w.pages) {
+    if (p.kind !== 'pdf' || !p.doc) continue;
+    const last = Math.min(p.numPages, MAX_SIG_PAGES);
+    for (let n = 1; n <= last; n++) {
+      if (p.sigs[n - 1]) continue;
+      if (APP.work !== w) return;
+      w.preparing = `Looking through ${p.name}: page ${n} of ${p.numPages}`;
+      if (n % 5 === 1) render();
+      try { p.sigs[n - 1] = gridSig(await drawPage(p.doc, n, 96 * 136)); } catch { p.sigs[n - 1] = null; }
+    }
+  }
+  if (APP.work !== w) return;
+  w.preparing = null;
+  await findNotebook(w);
   render();
 }
 
@@ -1720,10 +1986,16 @@ Reply with only this JSON:
 {"subjectId":"physics","topicIds":["t071"],"title":"…","questions":[{"q":"1a","text":"…","maxMarks":3,"topicId":"t071"}],"summary":"…"}`;
 }
 
-function notesPrompt(hint) {
-  return `A UK Year 12 student photographed their own notes to file them. Read them.
+// Notes are read a batch of pages at a time. The first batch of a new notebook
+// is read as notes; every later batch — and the new pages of a notebook you
+// saved before — is read against what the notes already say.
+function notesPrompt(hint, part = null) {
+  const where = part ? `The images are ${part.label} of the ${part.total} in the notebook, in order.` : '';
+  if (!part?.sofar) {
+    return `A UK Year 12 student photographed their own notes to file them. Read them.
 ${PROMPT_SUBJECTS}
 ${subjectHint(hint)}
+${where}
 
 1. Choose the subject and the topics the notes cover, using ids from TOPICS.
 2. title: a short name, like "Quadratics — completing the square".
@@ -1735,6 +2007,61 @@ ${topicLines(hint.subjectId)}
 
 Reply with only this JSON:
 {"subjectId":"maths","topicIds":["t004"],"title":"…","summary":"…","keyPoints":["…"]}`;
+  }
+  const so = part.sofar;
+  return `A UK Year 12 student is adding to notes they already have. Read the pages in the images.
+${PROMPT_SUBJECTS}
+The notes are ${subjectName(so.subjectId)}: "${so.title}".
+What they cover so far: ${so.summary || '(not written down yet)'}
+Key points so far:
+${so.keyPoints.map((k) => '- ' + k).join('\n') || '(none yet)'}
+
+${where}${part.context ? ` Page ${part.context} is where the saved notes ended; it is sent so you can see where they carry on.` : ''}
+
+1. topicIds: the topics these pages cover, using ids from TOPICS.
+2. summary: what the whole notebook covers now, including these pages, in at most three sentences.
+3. newKeyPoints: up to 6 of the most important facts, formulas or methods on these pages that are not already in the key points above, each under 120 characters, maths inline like x^2. Leave out anything you cannot read.
+
+TOPICS (id · subject · unit · topic)
+${topicLines(so.subjectId)}
+
+Reply with only this JSON:
+{"topicIds":["t004"],"summary":"…","newKeyPoints":["…"]}`;
+}
+async function readNotes(w, hint, opts) {
+  const units = readUnits(w), all = pageUnits(w);
+  const per = APP.limits?.images?.maxCount || 8;
+  const upd = w.update && w.match?.status === 'ready' ? w.match.note : null;
+  let acc = upd ? { title: upd.title, subjectId: upd.subjectId, topicIds: [...(upd.topicIds || [])], summary: upd.summary || '',
+    keyPoints: [...(upd.keyPoints || [])] } : null;
+  const fresh = [];
+  let first = null;
+  for (let i = 0; i < units.length; i += per) {
+    const batch = units.slice(i, i + per);
+    w.progress = units.length > per ? `Reading ${pagesLabel(batch)} of ${all.length}…` : null;
+    render();
+    const images = await imagesFor(batch);
+    const part = { label: pagesLabel(batch), total: all.length,
+      context: upd && i === 0 && w.match.oldCount && unitIndex(all, batch[0]) === w.match.oldCount - 1 ? w.match.oldCount : null };
+    if (!acc) {
+      first = normaliseNotes(await APP.sample.json(notesPrompt(hint, units.length > per || all.length > units.length ? part : null), { ...opts, images }), hint);
+      acc = { title: first.title, subjectId: first.subjectId, topicIds: first.topicIds, summary: first.summary, keyPoints: first.keyPoints };
+      continue;
+    }
+    const r = await APP.sample.json(notesPrompt(hint, { ...part, sofar: acc }), { ...opts, images });
+    acc.topicIds = [...new Set([...acc.topicIds, ...(Array.isArray(r?.topicIds) ? r.topicIds : []).filter((id) => topicOf(id))])].slice(0, 12);
+    if (r?.summary) acc.summary = String(r.summary).slice(0, 800);
+    const have = new Set(acc.keyPoints.map(norm));
+    for (const k of (Array.isArray(r?.newKeyPoints) ? r.newKeyPoints : []).slice(0, 6).map((x) => String(x).slice(0, 200)).filter(Boolean)) {
+      if (have.has(norm(k))) continue;
+      acc.keyPoints.push(k); fresh.push(k); have.add(norm(k));
+    }
+  }
+  w.progress = null;
+  return { mode: 'notes', kind: 'notes', subjectId: acc.subjectId, topicIds: acc.topicIds, homeworkId: '', questions: [],
+    title: acc.title, summary: acc.summary, keyPoints: acc.keyPoints.slice(0, 20), newPoints: upd ? fresh : [],
+    detected: first?.detected || null, updateOf: upd?.id || null,
+    readPages: units.length, pageCount: all.length, readLabel: pagesLabel(units) };
 }
 
 function answersPrompt(ws, full, sheetPages) {
@@ -1836,8 +2163,8 @@ async function analyse(force = false) {
   const hint = w.hint;
   w.error = null;
   const maxImages = APP.limits?.images?.maxCount || 8;
-  const images = w.pages.flatMap((p) => p.images.map((i) => i.blob)).slice(0, maxImages);
-  if (!images.length) { w.error = 'There is nothing Claude can read — add a photo.'; return render(); }
+  const units = readUnits(w);
+  if (!units.length) { w.error = 'There is nothing Claude can read — add a photo or a PDF that opens here.'; return render(); }
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
   if (w.mode === 'answers' && !ws) { w.error = 'Pick the worksheet these answers belong to.'; return render(); }
 
@@ -1850,7 +2177,7 @@ async function analyse(force = false) {
     if (seen) { w.already = seen; return render(); }
   }
   w.already = null;
-  const key = [w.hash, w.mode, w.tier, hint.subjectId, ws?.id || ''].join('|');
+  const key = [w.hash, w.mode, w.tier, hint.subjectId, ws?.id || '', w.mode === 'notes' ? pagesLabel(units) + (w.update && w.match?.note.id || '') : ''].join('|');
   const memo = LS.get('analyses', {});
   if (!force && memo[key]) { w.fromCache = true; w.tierUsed = memo[key].tier; return startReview(memo[key].a); }
 
@@ -1861,8 +2188,9 @@ async function analyse(force = false) {
     const tier = w.mode === 'notes' ? 'quick' : w.tier === 'careful' ? 'default' : 'quick';
     const opts = { modelTier: tier, signal: w.ctl.signal };
     let a;
+    const images = w.mode === 'notes' ? [] : await imagesFor(units);
     if (w.mode === 'worksheet') a = normaliseSheet(await APP.sample.json(worksheetPrompt(hint), { ...opts, images }), hint);
-    else if (w.mode === 'notes') a = normaliseNotes(await APP.sample.json(notesPrompt(hint), { ...opts, images }), hint);
+    else if (w.mode === 'notes') a = await readNotes(w, hint, opts);
     else if (w.mode === 'answers') {
       w.progress = `Getting “${ws.title}”…`; render();
       const full = await loadWorksheet(ws.id);
@@ -1997,10 +2325,15 @@ async function planDestination() {
   const w = APP.work, r = w.review;
   if (!r || !APP.mcp || (allFromDrive(w) && keepsDriveFile(w))) return;
   const token = ++destToken;
-  // answers go into their worksheet's own folder, when it has one
+  // answers go into their worksheet's own folder, and more of a notebook next to it
   const ws = r.mode === 'answers' ? worksheetOf(r.worksheetId) : null;
   if (ws?.folderId) {
     w.dest = { status: 'ready', fixed: true, folderId: ws.folderId, path: ws.folder || ws.title, subjectId: r.subjectId };
+    return render();
+  }
+  const nb = r.updateOf ? notesOf(r.updateOf) : null;
+  if (nb?.folderId) {
+    w.dest = { status: 'ready', fixed: true, folderId: nb.folderId, path: nb.folder || nb.title, subjectId: r.subjectId, notebook: true };
     return render();
   }
   const keep = w.dest?.status === 'ready' && w.dest.subjectId === r.subjectId ? w.dest.userChoice : null;
@@ -2070,8 +2403,12 @@ async function toBase64(blob) {
   for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
   return btoa(s);
 }
+const MB = 1024 * 1024;
 async function uploadBlob(blob, title, mime, ext, parentId) {
   const input = { title, parentId, contentMimeType: mime, disableConversionToGoogleType: true };
+  if (APP.fileArgs && blob.size > 16 * MB) {
+    throw { code: 'too_big', message: `That file is ${(blob.size / MB).toFixed(1)} MB; the most that can go to Drive from here is 16 MB. Export fewer pages, or put it in Drive yourself and pick it with the Drive button.` };
+  }
   if (APP.fileArgs) input.base64Content = { $file: { data: blob, name: 'work.' + ext, type: mime } };
   else {
     if (blob.size > 740000) throw { code: 'too_big', message: 'That file is too big to send from this view. Try fewer pages.' };
@@ -2294,8 +2631,31 @@ async function saveWork(noDrive = false) {
     return render();
   }
   w.hash ||= await hashPages(w.pages);
+  const pages = pageUnits(w).length || w.pages.length;
+  const sigs = unitSigs(w);
+  const ownCopy = Boolean(info?.folderId);            // uploaded by this app, not a file picked from Drive
+  if (r.mode === 'notes' && r.updateOf) {
+    const old = notesOf(r.updateOf);
+    const version = (old?.versions || 1) + 1;
+    // the old copy goes to the bin once the new one is safely in Drive
+    if (info && old?.ownCopy && old.driveId && old.driveId !== info.id) {
+      w.progress = 'Moving the old copy to the Drive bin…'; render();
+      await drive('trash_file', { fileId: old.driveId }).catch(() => toast('The new copy is saved; the old one could not be moved to the bin.'));
+    }
+    w.progress = 'Updating your dashboard…'; render();
+    send({ type: 'notes.update', attachmentId: r.updateOf, pageSigs: sigs,
+      patch: { title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary || '', keyPoints: r.keyPoints || [],
+        pageCount: pages, readPages: Math.max(old?.readPages || 0, r.readPages || 0), firstSig: sigs[0] || undefined,
+        fileName: w.pages[0]?.name || undefined,
+        ...(info ? { driveId: info.id || null, driveUrl: info.url || null, folder: info.folder || '', folderId: info.folderId || old?.folderId || null,
+          mime: info.mime || '', ownCopy } : {}) } });
+    w.saved = { mode: 'notes', updated: true, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary,
+      keyPoints: r.newPoints || [], pages, version, url: info?.url || old?.driveUrl || null,
+      folder: info?.folder || old?.folder || null, noteId: r.updateOf };
+    w.stage = 'saved';
+    return render();
+  }
   w.progress = 'Updating your dashboard…'; render();
-  const pages = w.pages.reduce((a, p) => a + Math.max(1, p.images.length), 0);
 
   if (r.mode === 'worksheet') {
     const id = newId('w');
@@ -2318,8 +2678,9 @@ async function saveWork(noDrive = false) {
     type: 'work.save',
     attachment: { id: newId('f'), title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
       kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
-      correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash },
-    notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [] } : undefined,
+      folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash },
+    notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [], fileName: w.pages[0]?.name || '',
+      pageCount: pages, readPages: r.readPages || (r.detected ? pages : 0), firstSig: sigs[0] || undefined, pageSigs: sigs } : undefined,
     marking: questions.length ? { questions, summary: r.summary, nextSteps: r.nextSteps, tier: w.tierUsed, detected: r.detected } : null,
   });
   const score = questions.reduce((a, q) => a + q.marks, 0), max = questions.reduce((a, q) => a + q.maxMarks, 0);
@@ -2332,7 +2693,10 @@ async function saveWork(noDrive = false) {
 }
 
 function resetWork(preset = {}) {
-  for (const p of APP.work.pages) for (const i of p.images) URL.revokeObjectURL(i.url);
+  for (const p of APP.work.pages) {
+    for (const i of p.images) URL.revokeObjectURL(i.url);
+    try { p.doc?.destroy(); } catch { /* already gone */ }
+  }
   APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier,
     mode: LS.get('workMode', 'worksheet'), worksheetId: '', ...preset };
   render();
@@ -2419,8 +2783,9 @@ function viewHistory() {
   } else if (h.view === 'notes') {
     body = notes.length ? bySubject(notes).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
       ${list.map((n) => `<button class="attempt" data-act="open-note" data-id="${esc(n.id)}">
-        <span><span class="t">${esc(n.title)}</span><span class="task-meta">${topicNames(n.topicIds) || 'no topic'} · ${esc(fmtDay(n.date))}</span></span>
-        <span class="kind k-notes">notes</span></button>`).join('')}</div>`).join('')
+        <span><span class="t">${esc(n.title)}</span><span class="task-meta">${topicNames(n.topicIds) || 'no topic'} · ${n.updated
+          ? `updated ${esc(fmtDay(n.updated))}` : esc(fmtDay(n.date))}${n.pageCount ? ` · ${n.pageCount} pp` : ''}</span></span>
+        <span class="kind k-notes">${n.versions > 1 ? `v${n.versions}` : 'notes'}</span></button>`).join('')}</div>`).join('')
       : '<div class="empty">No notes yet. On the Work tab, add the pages and choose <b>Notes</b>.</div>';
   } else {
     body = atts.length ? `<div>${atts.map((a) => {
@@ -2482,7 +2847,8 @@ function noteSheet(id) {
   SHEET.ctx = { kind: 'note', id };
   openSheet(`<div class="sheet-h"><h2>${esc(n.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(n.subjectId)}"></span>${esc(subjectName(n.subjectId))}
-      ${n.topicIds?.length ? '· ' + n.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · ${esc(fmtDay(n.date))}</div>
+      ${n.topicIds?.length ? '· ' + n.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · ${esc(fmtDay(n.date))}
+      ${n.pageCount ? ` · ${n.pageCount} page${n.pageCount === 1 ? '' : 's'}` : ''}${n.updated ? ` · updated ${esc(fmtDay(n.updated))} (version ${n.versions || 2})` : ''}</div>
     ${n.summary ? `<p style="margin:0 0 10px">${esc(n.summary)}</p>` : ''}
     ${n.keyPoints?.length ? `<div class="eyebrow">Key points</div><ul style="margin:6px 0 12px;padding-left:18px">${n.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     ${n.folder ? `<div class="folder" style="margin-bottom:10px">${esc(n.folder)}</div>` : ''}
@@ -2708,7 +3074,9 @@ function readTestFields() {
 function statusSheet() {
   const inClaude = APP.mode === 'claude' || APP.mode === 'claude-no-mcp';
   openSheet(`<div class="sheet-h"><h2>Connection</h2><button class="btn ghost sm" data-act="close">Close</button></div>
-    <div class="notice ${['error', 'setup'].includes(APP.status.kind) ? 'bad' : ''}">${esc(APP.status.text)}</div>
+    <div class="notice ${['error', 'setup'].includes(APP.status.kind) ? 'bad' : ''}">${esc($('#statusText')?.textContent || APP.status.text || '')}</div>
+    <p style="font-size:14px;margin-bottom:0">PDF reader: ${PDF.lib ? `ready (from ${esc(PDF.from)})` : PDF.error ? esc(PDF.error) : 'not needed yet — it starts when you add a PDF'}.
+      Pictures to Claude: ${APP.limits?.images ? `on, up to ${APP.limits.images.maxCount} a time` : APP.sample ? 'off in this view' : 'Claude is not available here'}.</p>
     <p style="font-size:14px">${APP.syncedAt ? 'Last synced ' + esc(new Date(APP.syncedAt).toLocaleString('en-GB')) + '.' : 'Not synced yet.'}
       ${APP.outbox.length ? ` ${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting — they are kept on this device and sent as soon as the dashboard answers.` : ''}</p>
     ${inClaude ? `<div class="setup"><h3 style="font-size:15px">Connect the dashboard (once)</h3>
@@ -2872,7 +3240,17 @@ document.addEventListener('click', (e) => {
 
     /* work */
     case 'pick': return document.getElementById(t.dataset.input).click();
-    case 'page-remove': APP.work.pages.splice(Number(t.dataset.i), 1); APP.work.already = null; return render();
+    case 'page-remove': {
+      APP.work.pages.splice(Number(t.dataset.i), 1); APP.work.already = null;
+      render();
+      return findNotebook(APP.work).then(render);
+    }
+    case 'nb-separate':
+      if (APP.work.match?.status === 'same') APP.work.match.dismissed = true;
+      APP.work.update = false;
+      return render();
+    case 'nb-update': Object.assign(APP.work, { update: true, mode: 'notes' }); return render();
+    case 'nb-all': APP.work.readAll = true; return render();
     case 'work-analyse': return analyse(t.dataset.force === '1');
     case 'work-file-only': return fileOnly();
     case 'work-stop': APP.work.ctl?.abort(); return;

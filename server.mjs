@@ -322,8 +322,8 @@ function appApply({ ops, date, time } = {}) {
     return { ...out, rev: S.rev || 0 };
   });
 }
-async function appAttempt({ id, hash, worksheetId } = {}) {
-  return getAttempt(await loadState(), { id, hash, worksheetId }, markStore);
+async function appAttempt({ id, hash, worksheetId, noteId } = {}) {
+  return getAttempt(await loadState(), { id, hash, worksheetId, noteId }, markStore);
 }
 
 const mcp = createMcpServer({
@@ -368,7 +368,10 @@ const mcp = createMcpServer({
         + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch}; '
         + 'worksheet.delete {worksheetId}; '
         + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, worksheetId?, kind: answers|notes|worksheet|test, '
-        + 'driveId?, driveUrl?, correctionsUrl?, hash?}, notes?:{summary, keyPoints} (kind notes), '
+        + 'driveId?, driveUrl?, correctionsUrl?, folderId?, ownCopy?, hash?}, notes?:{summary, keyPoints, fileName?, '
+        + 'pageCount?, firstSig?, pageSigs?, readPages?} (kind notes); notes.update {attachmentId, patch:{summary?, '
+        + 'keyPoints?, topicIds?, title?, pageCount?, firstSig?, fileName?, driveId?, driveUrl?, folder?, folderId?}, '
+        + 'pageSigs?} (more of the same notebook); '
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
         + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
         + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
@@ -405,9 +408,10 @@ const mcp = createMcpServer({
       description: 'The full marking of one attempt: every question with marks, error type, why it was '
         + 'wrong and the correct working, plus the summary, next steps and follow-up notes. Pass the '
         + 'attempt id from get_today (detail="full"), or the image hash. Pass worksheetId instead to get '
-        + 'a saved worksheet: its questions as read from the sheet, and the answers marked against it.',
+        + 'a saved worksheet: its questions as read from the sheet, and the answers marked against it. '
+        + 'Pass noteId to get a notes entry and its page signatures.',
       inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' },
-        worksheetId: { type: 'string' } } },
+        worksheetId: { type: 'string' }, noteId: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       handler: (a) => appAttempt(a),
     },
