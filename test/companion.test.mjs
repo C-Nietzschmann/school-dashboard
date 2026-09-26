@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, summarize, getAttempt, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
+import { applyOps, todayPayload, weekPayload, summarize, getAttempt, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -225,4 +225,52 @@ test('the companion key: made once and kept, the environment wins, rotation repl
   assert.equal((await loadAppToken({ env: {}, store })).token, b.token);
   assert.deepEqual(await loadAppToken({ env: { APP_TOKEN: 'mine' }, store }), { token: 'mine', fromEnv: true });
   await assert.rejects(rotateAppToken({ env: { APP_TOKEN: 'mine' }, store }), /APP_TOKEN/);
+});
+
+test('a tutorial next to a study period is not study time, and is not merged into it', () => {
+  const S = fixture();
+  S.timetable.A.mon = [
+    { id: 't', subjectId: 'free', period: '1', start: '08:45', end: '09:05', title: 'KS5 Tutorial' },
+    { id: 's', subjectId: 'free', period: '2', start: '09:05', end: '10:50', title: 'Study period' },
+    { id: 'p', subjectId: 'free', period: '3', start: '11:00', end: '11:45', title: 'PE' },
+  ];
+  const P = at(S);
+  const lessons = P.lessonsOn(MONDAY);
+  assert.equal(lessons.length, 3, 'different titles stay separate slots');
+  assert.deepEqual(lessons.filter(P.isStudySlot).map((l) => l.start), ['09:05']);
+  assert.deepEqual(P.studyOptions(MONDAY).map((s) => s.key), ['09:05']);
+});
+
+test('planning ahead: choose for a later day, then the log shows what was done', async () => {
+  const S = fixture();
+  S.timetable.A.wed = [{ id: 'w', subjectId: 'free', period: '1', start: '10:00', end: '11:00' }];
+  const wk = weekPayload(S, { from: MONDAY, days: 7, date: MONDAY });
+  const wed = wk.days.find((d) => d.date === '2026-09-30');
+  assert.equal(wed.studyPeriods.length, 1);
+  assert.ok(wk.days.find((d) => d.date === '2026-10-03').weekend);
+  const pick = wed.studyPeriods[0].options[0];
+  await applyOps(S, [{ id: 'p1', type: 'study.choose', date: '2026-09-30', key: '10:00', option: pick }], { date: MONDAY });
+  assert.equal(weekPayload(S, { from: MONDAY, days: 7, date: MONDAY }).days[2].studyPeriods[0].chosen.id, pick.id);
+  // Wednesday comes: it gets done, with a rating and a note
+  await applyOps(S, [{ id: 'p2', type: 'study.done', date: '2026-09-30', key: '10:00', minutes: 50, confidence: 4, note: 'q1-8' }],
+    { date: '2026-09-30' });
+  const log = weekPayload(S, { from: '2026-09-28', date: '2026-10-01' }).log;
+  assert.equal(log.length, 1);
+  assert.deepEqual([log[0].done, log[0].minutes, log[0].confidence, log[0].note, log[0].start], [true, 50, 4, 'q1-8', '10:00']);
+  const sessions = S.sessions.length;
+  await applyOps(S, [{ id: 'p3', type: 'study.undo', date: '2026-09-30', key: '10:00' }], { date: '2026-09-30' });
+  assert.equal(S.sessions.length, sessions - (pick.subjectId ? 1 : 0), 'undo removes the logged session');
+  assert.equal(weekPayload(S, { from: '2026-09-28', date: '2026-10-01' }).log[0].done, false);
+});
+
+test('your own plan for a study period is kept as written', async () => {
+  const S = fixture();
+  const sp = at(S).studyOptions(MONDAY)[0];
+  const own = { id: 'custom:x', kind: 'custom', title: 'Physics past paper Jan 2024', why: 'your own plan', subjectId: 'physics', mins: 60 };
+  await applyOps(S, [{ id: 'c1', type: 'study.choose', date: MONDAY, key: sp.key, option: own },
+    { id: 'c2', type: 'study.done', date: MONDAY, key: sp.key }], { date: MONDAY });
+  const log = weekPayload(S, { date: MONDAY }).log;
+  assert.equal(log[0].option.title, 'Physics past paper Jan 2024');
+  assert.equal(log[0].minutes, 60);
+  assert.equal(S.sessions.at(-1).subjectId, 'physics');
 });

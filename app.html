@@ -478,7 +478,7 @@ const PLANNER = createPlanner(() => S);
 const { DAY, isoOf, todayISO, parseD, daysBetween, toMins, hhmm, dayKeyOf, addDays,
   subjectById, topicById, CAL, holidayOn, termOn, priorityOf, revisionQueue, gradeFor,
   workloadPlan, predictedFor, projectedPct, igcseBaselineFor, minutesThisWeek, cardsDue, lostMarks, weakSpots, phaseOf,
-  studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, taskScore, openMistakes, mastery,
+  studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, isStudySlot, taskScore, openMistakes, mastery,
   studyOptions } = PLANNER;
 
 const fmtDay = (iso) => parseD(iso).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
@@ -866,7 +866,7 @@ function renderAlert() {
   if (dismissedId === id) { host.hidden = true; return; }
 
   const free = sl.subjectId === FREE;
-  const study = free ? studyFor(sl) : null;
+  const study = isStudySlot(sl) ? studyFor(sl) : null;
   host.hidden = false;
   host.innerHTML = `
     <span class="dot" style="background:${free ? 'var(--text-muted)' : colorOf(sl.subjectId)}"></span>
@@ -971,7 +971,7 @@ views.today = () => {
       <h2>Today · ${new Date().toLocaleDateString(undefined, { weekday: 'long' })}</h2>
       <div class="hint">${lessons.length ? 'Your lessons' : 'No lessons set for today'}</div>
       ${lessons.length ? lessons.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map((l) => {
-        const study = l.subjectId === FREE ? studyFor(l) : null;
+        const study = isStudySlot(l) ? studyFor(l) : null;
         return `
         <div class="tt-slot" style="border-left-color:${colorOf(l.subjectId)}">
           <div>${esc(slotName(l))}</div>
@@ -1401,7 +1401,7 @@ views.timetable = () => {
               .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
               .map((l) => {
                 const free = l.subjectId === 'free';
-                const study = free ? studyFor(l) : null;
+                const study = isStudySlot(l) ? studyFor(l) : null;
                 return `
                 <div class="tt-slot${free ? ' free' : ''}" style="border-left-color:${free ? 'var(--line-strong)' : colorOf(l.subjectId)}">
                   <div class="row" style="justify-content:space-between">
