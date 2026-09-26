@@ -322,8 +322,8 @@ function appApply({ ops, date, time } = {}) {
     return { ...out, rev: S.rev || 0 };
   });
 }
-async function appAttempt({ id, hash } = {}) {
-  return getAttempt(await loadState(), { id, hash }, markStore);
+async function appAttempt({ id, hash, worksheetId } = {}) {
+  return getAttempt(await loadState(), { id, hash, worksheetId }, markStore);
 }
 
 const mcp = createMcpServer({
@@ -332,7 +332,8 @@ const mcp = createMcpServer({
   instructions: 'One student\'s A Level dashboard (Year 12: Maths, Further Maths, Physics, '
     + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
-    + 'writes: to-dos, study-period choices, tests, and marked work. Every change needs a unique id; '
+    + 'writes: to-dos, study-period choices and study sessions, tests, worksheets, notes and marked work. '
+    + 'Every change needs a unique id; '
     + 'resending the same id is harmless.',
   tools: [
     {
@@ -359,16 +360,22 @@ const mcp = createMcpServer({
         + 'task.update {taskId, patch}; task.done {taskId, done}; task.delete {taskId}; '
         + 'study.choose {date, key, option} (key and option from get_today studyPeriods); '
         + 'study.done {date, key, minutes?, confidence?: 0-5, note?}; study.undo {date, key}; '
+        + 'study.slot.add {date, start: HH:MM, minutes?, title?} (a study session on any day, weekends too; '
+        + 'its key comes back and it gets options like a free period); study.slot.remove {date, key}; '
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
         + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
-        + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, kind, driveId?, driveUrl?, hash?}, '
+        + 'worksheet.add {worksheet:{id?, title, subjectId, topicIds, folderId?, folderUrl?, fileId?, fileUrl?}, '
+        + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch}; '
+        + 'worksheet.delete {worksheetId}; '
+        + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, worksheetId?, kind: answers|notes|worksheet|test, '
+        + 'driveId?, driveUrl?, correctionsUrl?, hash?}, notes?:{summary, keyPoints} (kind notes), '
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
         + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
         + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
-        + 'attempt.delete {attemptId}. Returns one result per op.',
+        + 'attempt.delete {attemptId}; attachment.delete {attachmentId}. Returns one result per op.',
       inputSchema: { type: 'object', required: ['ops'], properties: {
         ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
-          properties: { id: { type: 'string' }, type: { type: 'string', enum: OP_TYPES } } } },
+          properties: { id: { type: 'string' }, type: { type: 'string', description: 'one of: ' + OP_TYPES.join(', ') } } } },
         date: { type: 'string', description: 'YYYY-MM-DD local; the day the changes belong to' },
         time: { type: 'string', description: 'HH:MM local' },
       } },
@@ -394,11 +401,13 @@ const mcp = createMcpServer({
     },
     {
       name: 'get_attempt',
-      title: 'One piece of marked work',
+      title: 'One piece of marked work, or a worksheet',
       description: 'The full marking of one attempt: every question with marks, error type, why it was '
         + 'wrong and the correct working, plus the summary, next steps and follow-up notes. Pass the '
-        + 'attempt id from get_today (detail="full"), or the image hash.',
-      inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' } } },
+        + 'attempt id from get_today (detail="full"), or the image hash. Pass worksheetId instead to get '
+        + 'a saved worksheet: its questions as read from the sheet, and the answers marked against it.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' },
+        worksheetId: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       handler: (a) => appAttempt(a),
     },
