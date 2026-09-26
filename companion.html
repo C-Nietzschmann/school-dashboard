@@ -1290,7 +1290,8 @@ function workForm(w, canMark) {
     const upd = w.match?.status === 'ready' && w.update ? w.match : null;
     body = upd ? `<div class="muted" style="font-size:13px">Claude reads ${esc(pagesLabel(readUnits(w)))} and adds what is new to
         <b>${esc(upd.note.title)}</b>. The new file replaces the old copy in Drive.</div>
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read the new pages</button>${clear}</div>`
+      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read the new pages</button>
+        <button class="btn" data-act="nb-file">File the new version</button>${clear}</div>`
       : `${subj}
       <div class="muted" style="font-size:13px">Claude reads them for the subject, the topic and the key points. They are filed in the topic's folder and kept under Notes in History.
         ${pageUnits(w).length > readLimit() ? ` A long notebook is read ${readLimit()} pages at most.` : ''}</div>
@@ -1308,7 +1309,10 @@ function workForm(w, canMark) {
   }
   // why Claude cannot read this, said where the greyed-out button is
   const broken = w.pages.filter((p) => p.error);
-  const why = !canMark ? (APP.sample ? 'Claude said this view cannot take pictures, so reading and marking are off here. Filing still works. Try the Claude app, or claude.ai on a computer.'
+  const later = { notes: w.update && w.match?.status === 'ready' ? 'Tap File the new version' : 'Tap Just file them', worksheet: 'Tap Save without reading' }[w.mode];
+  const why = !canMark ? (APP.sample ? `Claude said this view cannot take pictures, so it can't read or mark here. ${later
+      ? `${later}: it is filed now, and you get a message to have Claude read it in a chat.`
+      : 'Mark it in a Claude chat instead: tap Mark it in a chat below.'}`
     : 'Claude is not available in this view, so reading and marking are off. Filing still works.')
     : broken.length ? broken.map((p) => `Couldn't open “${p.name}” here: ${p.error}. It can still be filed, but Claude can't read it.`).join(' ')
     : w.preparing ? w.preparing + '…' : '';
@@ -1319,6 +1323,7 @@ function workForm(w, canMark) {
     ${body}
     ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
     ${why ? `<div class="${broken.length || !canMark ? 'notice bad' : 'muted'}" style="font-size:13px">${esc(why)}</div>` : ''}
+    ${!canMark && APP.sample && ['answers', 'other'].includes(w.mode) ? '<div class="row"><button class="btn" data-act="chat-mark">Mark it in a chat</button></div>' : ''}
   </div></div>`;
 }
 
@@ -1362,17 +1367,21 @@ async function findNotebook(w) {
   if (read.length && oldCount && now.length >= oldCount && !read.includes(oldCount - 1)) read.unshift(oldCount - 1);
   read.sort((a, b) => a - b);
   const added = Math.max(0, now.length - oldCount);
-  w.match = { note, status: read.length ? 'ready' : 'same', read, added, changed: read.filter((i) => i < oldCount - 1).length,
+  // a shorter file is an older copy, not more of the notebook
+  const status = now.length < oldCount ? 'older' : read.length ? 'ready' : 'same';
+  w.match = { note, status, read: status === 'ready' ? read : [], added, changed: read.filter((i) => i < oldCount - 1).length,
     oldCount, newCount: now.length, compared: old.length > 0 };
-  if (read.length) { w.update = true; w.mode = 'notes'; }
+  if (status === 'ready') { w.update = true; if (!w.modeChosen) w.mode = 'notes'; }
 }
 function notebookNotice(w) {
   const m = w.match;
   if (!m || m.dismissed) return '';
   const saved = fmtDay(m.note.updated || m.note.date);
   if (m.status === 'loading') return `<div class="notice">Checking whether these are more of your notes “${esc(m.note.title)}”…</div>`;
-  if (m.status === 'same') {
-    return `<div class="notice">Nothing new since you saved “${esc(m.note.title)}” on ${esc(saved)} (${m.oldCount} page${m.oldCount === 1 ? '' : 's'}).
+  if (m.status === 'same' || m.status === 'older') {
+    return `<div class="notice">${m.status === 'older'
+      ? `This looks like an older copy of your notes “${esc(m.note.title)}”: ${m.newCount} page${m.newCount === 1 ? '' : 's'}, and you saved ${m.oldCount} on ${esc(saved)}.`
+      : `Nothing new since you saved “${esc(m.note.title)}” on ${esc(saved)} (${m.oldCount} page${m.oldCount === 1 ? '' : 's'}).`}
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-note" data-id="${esc(m.note.id)}">Open them</button>
       <button class="btn sm ghost" data-act="nb-separate">Save as separate notes</button></div></div>`;
   }
@@ -1385,6 +1394,20 @@ function notebookNotice(w) {
          ${w.readAll ? '' : '<button class="btn sm ghost" data-act="nb-all">Read every page instead</button>'}`
       : '<button class="btn sm" data-act="nb-update">Add to those notes</button>'}</div></div>`;
 }
+// More of a notebook, filed without Claude reading it (yet): the entry keeps what
+// it says, and gets the new file, page count and page signatures.
+function fileUpdate() {
+  const w = APP.work, n = w.match?.note;
+  if (!n) return;
+  w.review = { mode: 'notes', kind: 'notes', updateOf: n.id, title: n.title, subjectId: n.subjectId, topicIds: [...(n.topicIds || [])],
+    homeworkId: '', questions: [], summary: n.summary || '', keyPoints: [...(n.keyPoints || [])], newPoints: [], detected: null,
+    readPages: n.readPages || 0, pageCount: pageUnits(w).length, readLabel: null, unreadLabel: pagesLabel(readUnits(w)) };
+  w.stage = 'review';
+  w.dest = null;
+  render();
+  planDestination();
+}
+
 // The pages Claude will read: the new ones when adding to a notebook, else from the start.
 const readLimit = () => perCall() * 3;
 function readUnits(w) {
@@ -1517,7 +1540,8 @@ function notesReviewView() {
       ${r.readLabel && (into || r.readPages < total) ? `<div class="muted" style="font-size:13px;margin-bottom:10px">Claude read ${esc(r.readLabel)} of ${total}.</div>` : ''}
       ${into && r.newPoints?.length ? `<div class="notice" style="margin-bottom:10px"><b>New from these pages:</b>
         <ul style="margin:6px 0 0;padding-left:18px">${r.newPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
-        : into ? '<div class="notice" style="margin-bottom:10px">Claude found nothing new to add to the key points. Check the summary below.</div>' : ''}
+        : into && r.readLabel ? '<div class="notice" style="margin-bottom:10px">Claude found nothing new to add to the key points. Check the summary below.</div>'
+        : into ? `<div class="notice" style="margin-bottom:10px">Filing only: Claude hasn't read ${esc(r.unreadLabel || 'the new pages')} yet. After saving you get a message to have it read them in a chat.</div>` : ''}
       <div class="fields">
         <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
         <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
@@ -1604,6 +1628,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.questions ? `${s.questions} question${s.questions === 1 ? '' : 's'}` : 'questions not read'}${filed}</div>
       <p style="color:var(--text-2);margin:12px 0 0">When will you do it? Plan it into a study period — a school one, or a session of your own at the weekend.
         When you have done it, add your answers and Claude marks them.</p>
+      ${s.chat ? chatCard(s.chat, 'its questions') : ''}
       <div class="row" style="margin-top:14px">
         <button class="btn primary" data-act="ws-plan" data-id="${esc(s.worksheetId)}">Plan into a study period</button>
         <button class="btn" data-act="ws-answers" data-id="${esc(s.worksheetId)}">Add my answers now</button>
@@ -1618,6 +1643,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.pages} page${s.pages === 1 ? '' : 's'}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<div class="eyebrow">Added</div><ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${s.chat ? chatCard(s.chat, 'the new pages') : ''}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         <button class="btn" data-act="open-note" data-id="${esc(s.noteId)}">See all the notes</button>
@@ -1632,6 +1658,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.topicIds?.length ? ' · ' + s.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${s.chat ? chatCard(s.chat, 'your notes') : ''}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
@@ -1657,6 +1684,49 @@ function savedView(s) {
       <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
     </div>
   </div>`;
+}
+
+/* ------------------------------------------------ reading it in a chat
+   Some views of this page cannot send pictures to Claude. A normal Claude
+   chat can read an attached PDF or photo, and reaches the dashboard through
+   the same connector, so the work is filed here and read there: this is the
+   message to paste into a chat, with the file attached. */
+const chatOpId = () => newId('chat');
+function chatAsk(kind, x) {
+  const conn = `the "${DASH}" connector`;
+  const topics = 'topic ids from get_today, detail full';
+  if (kind === 'notes') {
+    const so = x.keyPoints?.length ? `\nThe saved notes say: ${x.summary || '(no summary yet)'}\nKey points so far:\n${x.keyPoints.map((k) => '- ' + k).join('\n')}` : '';
+    return `I've attached my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}notes "${x.title}" (${x.pages} page${x.pages === 1 ? '' : 's'}).${x.label ? ` Only ${x.label} are new or changed since you last read them — read those.` : ' Please read them.'}${so}
+
+Then save what they cover to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
+{"id": "${chatOpId()}", "type": "notes.update", "attachmentId": "${x.id}", "patch": {"title": "<a short name>", "subjectId": "${x.subjectId || '<maths|fmaths|physics|cs|german>'}", "topicIds": ["<${topics}>"], "summary": "<what the whole notebook covers, up to three sentences>", "keyPoints": [${x.keyPoints?.length ? '<the key points above, then up to 6 new ones from these pages>' : '<up to 8 key facts, formulas or methods>'}]}}
+Then tell me the summary and the key points.`;
+  }
+  if (kind === 'worksheet') {
+    return `I've attached a worksheet, "${x.title}"${x.subjectId ? ` (${subjectName(x.subjectId)})` : ''}. Please read every question on it and save them to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
+{"id": "${chatOpId()}", "type": "worksheet.update", "worksheetId": "${x.id}", "patch": {"title": "<the title on the sheet>", "topicIds": ["<${topics}>"]}, "questions": [{"q": "1a", "text": "<the question, at most 200 characters>", "maxMarks": 3, "topicId": "<topic id>"}]}
+Then list the questions for me.`;
+  }
+  const ws = x.worksheet;
+  return `I've attached ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. Show me the marking, then save it with apply_changes on ${conn} —
+{"id": "${chatOpId()}", "type": "work.save", "attachment": {"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
+}
+function chatCard(text, what = 'it') {
+  return `<div class="card chatcard">
+    <div class="card-h"><h2>Have Claude read ${esc(what)} in a chat</h2></div>
+    <ol style="margin:0 0 10px;padding-left:20px;font-size:14px">
+      <li>Copy this message.</li>
+      <li>Open a new chat on claude.ai and attach the same file (the + or 📎 button, then Files or Photos).</li>
+      <li>Paste the message and send. Claude reads it and saves what it finds to your dashboard; it shows up here after that.</li></ol>
+    <textarea id="chatAsk" readonly rows="6" style="font-family:var(--mono);font-size:12px">${esc(text)}</textarea>
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="chat-copy">Copy message</button>
+      <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Open a new chat</a></div>
+  </div>`;
+}
+function chatSheet(text, what) {
+  SHEET.ctx = { kind: 'chat' };
+  openSheet(`<div class="sheet-h"><h2>Read in a chat</h2><button class="btn ghost sm" data-act="close">Close</button></div>${chatCard(text, what)}`);
 }
 
 // Put a worksheet into a study period: any one in the next fortnight that is not done yet.
@@ -2246,7 +2316,7 @@ async function analyse(force = false) {
     w.stage = 'idle';
     // Claude's own errors read one way; the dashboard or Drive failing on the way reads another
     w.error = !e?.code || SAMPLE_CODES.has(e.code) ? sampleError(e) : connError(e);
-    if (e?.code === 'images_unavailable') APP.imagesOff = true;
+    if (e?.code === 'images_unavailable') { APP.imagesOff = true; w.error = null; }   // said below the button instead
     if (e?.code === 'image_rejected' && perCall() > 1) {
       APP.perCallCap = Math.max(1, Math.floor(perCall() / 2));
       w.error = `Claude took too many pages at once here. Tap Read again — it now sends ${APP.perCallCap} at a time.`;
@@ -2689,7 +2759,9 @@ async function saveWork(noDrive = false) {
           mime: info.mime || '', ownCopy } : {}) } });
     w.saved = { mode: 'notes', updated: true, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary,
       keyPoints: r.newPoints || [], pages, version, url: info?.url || old?.driveUrl || null,
-      folder: info?.folder || old?.folder || null, noteId: r.updateOf };
+      folder: info?.folder || old?.folder || null, noteId: r.updateOf,
+      chat: r.readLabel ? null : chatAsk('notes', { id: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
+        summary: r.summary, keyPoints: r.keyPoints }) };
     w.stage = 'saved';
     return render();
   }
@@ -2703,7 +2775,8 @@ async function saveWork(noDrive = false) {
         folderId: info?.folderId || null, folderUrl: info?.folderUrl || null, fileId: info?.id || null,
         fileUrl: info?.url || null, folder: info?.folder || '' } });
     w.saved = { mode: 'worksheet', worksheetId: id, title: r.title, subjectId: r.subjectId, questions: questions.length,
-      url: info?.folderUrl || info?.url || null, folder: info?.folder || null };
+      url: info?.folderUrl || info?.url || null, folder: info?.folder || null,
+      chat: questions.length ? null : chatAsk('worksheet', { id, title: r.title, subjectId: r.subjectId }) };
     w.stage = 'saved';
     return render();
   }
@@ -2712,9 +2785,10 @@ async function saveWork(noDrive = false) {
     maxMarks: Number(q.maxMarks) || 0, errorType: Number(q.marks) < Number(q.maxMarks) ? q.errorType || 'method' : null,
     explanation: q.explanation, correction: q.correction }));
   const kind = r.mode === 'notes' ? 'notes' : r.mode === 'answers' ? 'answers' : r.kind;
+  const attachmentId = newId('f');
   send({
     type: 'work.save',
-    attachment: { id: newId('f'), title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
+    attachment: { id: attachmentId, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
       kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
       folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash },
     notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [], fileName: w.pages[0]?.name || '',
@@ -2725,7 +2799,8 @@ async function saveWork(noDrive = false) {
   const weakTopics = [...new Set(questions.filter((q) => q.marks < q.maxMarks && q.topicId).map((q) => q.topicId))];
   w.saved = { mode: r.mode, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
     nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
-    url: info?.url || null, folder: info?.folder || null, weakTopics };
+    url: info?.url || null, folder: info?.folder || null, weakTopics, noteId: kind === 'notes' ? attachmentId : null,
+    chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null };
   w.stage = 'saved';
   render();
 }
@@ -2873,7 +2948,8 @@ function worksheetSheet(w, full, loading = false) {
       ${loading ? '<div class="muted" style="font-size:13px;margin-top:6px">Fetching…</div>'
         : qs.length ? `<div class="page" style="margin-top:8px">${qs.map((q) => `<div class="q"><div class="q-label">${esc(q.q)}</div>
             <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}</div></div></div>`).join('')}</div>`
-        : '<div class="muted" style="font-size:13px;margin-top:6px">Its questions were not read when it was saved — Claude looks at the sheet itself when marking.</div>'}
+        : `<div class="muted" style="font-size:13px;margin-top:6px">Its questions were not read when it was saved — Claude looks at the sheet itself when marking.</div>
+          <button class="btn sm" style="margin-top:6px" data-act="chat-ws" data-id="${esc(w.id)}">Have Claude read them in a chat</button>`}
     </details>
     <div class="row" style="margin-top:18px"><span class="spacer"></span><button class="btn danger sm" data-act="ws-delete" data-armed="0">Delete worksheet</button></div>
     <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">Deleting keeps its folder in Drive and your marked answers.</div>`;
@@ -2890,6 +2966,7 @@ function noteSheet(id) {
     ${n.summary ? `<p style="margin:0 0 10px">${esc(n.summary)}</p>` : ''}
     ${n.keyPoints?.length ? `<div class="eyebrow">Key points</div><ul style="margin:6px 0 12px;padding-left:18px">${n.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     ${n.folder ? `<div class="folder" style="margin-bottom:10px">${esc(n.folder)}</div>` : ''}
+    ${n.summary ? '' : `<div class="row" style="margin-bottom:10px"><button class="btn sm" data-act="chat-note" data-id="${esc(n.id)}">Have Claude read these in a chat</button></div>`}
     <div class="row">${n.driveUrl ? `<a class="btn sm" href="${esc(n.driveUrl)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
       <span class="spacer"></span><button class="btn danger sm" data-act="note-delete" data-armed="0">Remove from the app</button></div>
     <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">The file stays in your Drive.</div>`);
@@ -3320,11 +3397,35 @@ document.addEventListener('click', (e) => {
       return findNotebook(APP.work).then(render);
     }
     case 'nb-separate':
-      if (APP.work.match?.status === 'same') APP.work.match.dismissed = true;
+      if (['same', 'older'].includes(APP.work.match?.status)) APP.work.match.dismissed = true;
       APP.work.update = false;
       return render();
     case 'nb-update': Object.assign(APP.work, { update: true, mode: 'notes' }); return render();
     case 'nb-all': APP.work.readAll = true; return render();
+    case 'nb-file': return fileUpdate();
+    case 'chat-copy': {
+      const box = $('#chatAsk');
+      if (!box) return;
+      const fallback = () => { box.focus(); box.select(); toast('Selected — copy it with ⌘C or the Copy menu.'); };
+      try { navigator.clipboard.writeText(box.value).then(() => toast('Copied. Paste it into a new chat with the file attached.'), fallback); }
+      catch { fallback(); }
+      return;
+    }
+    case 'chat-note': {
+      const n = notesOf(t.dataset.id);
+      if (n) chatSheet(chatAsk('notes', { id: n.id, title: n.title, subjectId: n.subjectId, pages: n.pageCount || 1 }), 'your notes');
+      return;
+    }
+    case 'chat-ws': {
+      const ws = worksheetOf(t.dataset.id);
+      if (ws) chatSheet(chatAsk('worksheet', { id: ws.id, title: ws.title, subjectId: ws.subjectId }), 'its questions');
+      return;
+    }
+    case 'chat-mark': {
+      readWorkForm();
+      const w = APP.work, ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
+      return chatSheet(chatAsk('mark', { worksheet: ws, subjectId: w.hint.subjectId }), ws ? 'and mark your answers' : 'and mark it');
+    }
     case 'work-analyse': return analyse(t.dataset.force === '1');
     case 'work-file-only': return fileOnly();
     case 'work-stop': APP.work.ctl?.abort(); return;
@@ -3416,7 +3517,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.tier) { readWorkForm(); APP.work.tier = t.dataset.tier; LS.set('tier', APP.work.tier); return render(); }
   if (t.dataset.mode) {
     readWorkForm();
-    Object.assign(APP.work, { mode: t.dataset.mode, already: null, error: null });
+    Object.assign(APP.work, { mode: t.dataset.mode, modeChosen: true, already: null, error: null });
     LS.set('workMode', t.dataset.mode);
     return render();
   }

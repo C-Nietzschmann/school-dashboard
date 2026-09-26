@@ -387,6 +387,10 @@ test('a worksheet: saved with its questions, offered in study periods, answered,
   assert.deepEqual(full.attempts.map((a) => a.score), [3]);
   assert.equal((await getAttempt(S, { worksheetId: 'nope' }, store)).found, false);
 
+  // questions read later (in a chat, say) replace the saved ones
+  await applyOps(S, [{ id: 'w-q', type: 'worksheet.update', worksheetId: 'w1', questions: [{ q: '1', text: 'a', maxMarks: 4 }, { q: '2', text: 'b', maxMarks: 2 }, { q: '3', text: 'c', maxMarks: 2 }] }], { date: MONDAY, store });
+  assert.deepEqual([S.worksheets[0].questionCount, S.worksheets[0].maxMarks, store.m.get('ws-w1').questions.length], [3, 8, 3]);
+
   // renamed, then deleted: the marked answers stay in the history
   await applyOps(S, [{ id: 'w-up', type: 'worksheet.update', worksheetId: 'w1', patch: { title: 'Forces 2', topicIds: ['t071', 'zzz'] } }], { date: MONDAY, store });
   assert.deepEqual([S.worksheets[0].title, S.worksheets[0].topicIds], ['Forces 2', ['t071']]);
