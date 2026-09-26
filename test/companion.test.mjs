@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, weekPayload, summarize, getAttempt, uploadsList, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
+import { applyOps, todayPayload, weekPayload, summarize, getAttempt, uploadsList, readQueue, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -27,7 +27,7 @@ function fixture() {
   }
   return S;
 }
-const memStore = () => { const m = new Map(); return { m, read: async (id) => m.get(id) ?? null, write: async (id, d) => { m.set(id, structuredClone(d)); } }; };
+const memStore = () => { const m = new Map(); return { m, read: async (id) => m.get(id) ?? null, write: async (id, d) => { m.set(id, structuredClone(d)); }, remove: async (id) => { m.delete(id); } }; };
 const at = (S, time = '08:00') => createPlanner(() => S, () => new Date(2026, 8, 28, ...time.split(':').map(Number)));
 
 test('the rota: 28 Sep 2026 is week A, and a double free merges into one slot', () => {
@@ -263,6 +263,7 @@ test('upgrade adds the new fields only where they are missing', () => {
   assert.deepEqual(S.worksheets, []);
   assert.deepEqual(S.dayPlans, {});
   assert.deepEqual(S.extraSlots, {});
+  assert.deepEqual([S.readQueue, S.readLog], [[], []]);
   assert.equal(S.rev, 0);
   assert.equal(S.homework[0].priority, 'high');
   assert.equal(S.homework[1].priority, 'normal');
@@ -477,4 +478,79 @@ test('a notebook uploaded again longer updates the same notes entry', async () =
   assert.equal((await getAttempt(S, { noteId: 'nb' }, store)).pageSigs.length, 15);
   const bad = await applyOps(S, [{ id: 'nb3', type: 'notes.update', attachmentId: 'missing', patch: {} }], { date: MONDAY, store });
   assert.equal(bad.results[0].ok, false);
+});
+
+test('reading in the background: queued with its pages, shown to Claude as pictures, finished — or failed and tried again', async () => {
+  const S = fixture();
+  const store = memStore();
+  const req = (id, extra = {}) => ({ id, kind: 'notes', title: 'CS chapter 3', subjectId: 'cs', targetId: 'nb', date: MONDAY,
+    files: [{ driveId: 'D1', name: 'CS chapter 3.pdf', mime: 'application/pdf' }], pages: '12–15', ask: 'Read the new pages.', ...extra });
+  const jpeg = Buffer.from('fake jpeg bytes').toString('base64');
+  let out = await applyOps(S, [
+    { id: 'q1', type: 'read.request', request: req('r1') },
+    { id: 'q2', type: 'read.request', request: req('r2', { ask: '' }) },
+    { id: 'q3', type: 'read.request', request: req('r3', { kind: 'photo' }) },
+    { id: 'q4', type: 'read.request', request: { id: 'rc', kind: 'check', title: 'Setup check', ask: 'Say hello.' } },
+  ], { date: MONDAY, store });
+  assert.deepEqual(out.results.map((r) => r.ok), [true, false, false, true], 'instructions and a known kind are needed');
+
+  // pages arrive one per call; a bad one is refused
+  out = await applyOps(S, [
+    ...[0, 1, 2, 3, 4].map((n) => ({ id: 'p' + n, type: 'read.page', requestId: 'r1', n, label: `p. ${11 + n}`, mime: 'image/jpeg', data: jpeg })),
+    { id: 'px', type: 'read.page', requestId: 'r1', n: 5, mime: 'image/gif', data: jpeg },
+    { id: 'py', type: 'read.page', requestId: 'r1', n: 5, mime: 'image/jpeg', data: 'not base64!' },
+    { id: 'pz', type: 'read.page', requestId: 'nope', n: 0, mime: 'image/jpeg', data: jpeg },
+  ], { date: MONDAY, store });
+  assert.deepEqual(out.results.map((r) => r.ok), [true, true, true, true, true, false, false, false]);
+  assert.equal(store.m.get('rp-r1-4').label, 'p. 15');
+  assert.equal(JSON.stringify(S).includes(jpeg), false, 'pictures never go into the state');
+
+  let p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.deepEqual(p.reading.queue.map((r) => [r.id, r.kind, r.pageCount, r.date]), [['r1', 'notes', 5, MONDAY], ['rc', 'check', 0, MONDAY]]);
+  assert.equal(p.reading.queue[0].ask, undefined, 'the app does not need the instructions back');
+  assert.deepEqual(summarize(p).waitingToBeRead.map((r) => [r.id, r.pages]), [['r1', 5], ['rc', 0]]);
+
+  // what Claude sees: the instructions, then the pages as images, four at a time
+  let c = await readQueue(S, {}, store);
+  let head = JSON.parse(c[0].text);
+  assert.deepEqual([head.waiting, head.request.id, head.request.ask, head.next], [2, 'r1', 'Read the new pages.', { requestId: 'r1', from: 4 }]);
+  assert.deepEqual(c.filter((b) => b.type === 'image').map((b) => [b.data, b.mimeType]), Array(4).fill([jpeg, 'image/jpeg']));
+  assert.match(c[1].text, /p\. 11/);
+  c = await readQueue(S, head.next, store);
+  head = JSON.parse(c[0].text);
+  assert.equal(c.filter((b) => b.type === 'image').length, 1);
+  assert.equal(head.next, null);
+  assert.match(head.then, /read\.done/);
+  head = JSON.parse((await readQueue(S, { requestId: 'rc' }, store))[0].text);
+  assert.match(head.pictures, /no pictures/);
+  assert.equal(JSON.parse((await readQueue(S, { requestId: 'gone' }, store))[0].text).request, null);
+
+  // queued again (the app retrying): still one request, its pages kept
+  await applyOps(S, [{ id: 'q5', type: 'read.request', request: req('r1') }], { date: MONDAY, store });
+  assert.deepEqual(S.readQueue.map((r) => [r.id, r.pageCount]), [['rc', 0], ['r1', 5]]);
+
+  out = await applyOps(S, [{ id: 'd1', type: 'read.done', requestId: 'rc', result: 'Both connectors work.' },
+    { id: 'd2', type: 'read.done', requestId: 'r1', error: 'Page 13 is blank.' },
+    { id: 'd3', type: 'read.done', requestId: 'r1' }], { date: MONDAY, store });
+  assert.deepEqual(out.results.map((r) => [r.ok, Boolean(r.already)]), [[true, false], [true, false], [true, true]]);
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.equal(p.reading.queue.length, 0);
+  assert.deepEqual(p.reading.log.map((l) => [l.id, l.ok, l.error, l.result, l.retry]),
+    [['r1', false, 'Page 13 is blank.', null, true], ['rc', true, null, 'Both connectors work.', false]]);
+  assert.equal(store.m.has('rp-r1-0'), true, 'a failed request keeps its pages to try again');
+
+  // try again: back in the queue with its pages; read: the pages are gone
+  await applyOps(S, [{ id: 'q6', type: 'read.retry', requestId: 'r1' }], { date: MONDAY, store });
+  assert.deepEqual([S.readQueue.map((r) => [r.id, r.pageCount]), S.readLog.map((r) => r.id)], [[['r1', 5]], ['rc']]);
+  await applyOps(S, [{ id: 'd4', type: 'read.done', requestId: 'r1', result: 'Saved 3 key points.' }], { date: MONDAY, store });
+  assert.equal([...store.m.keys()].filter((k) => k.startsWith('rp-')).length, 0);
+  const bad = await applyOps(S, [{ id: 'q7', type: 'read.retry', requestId: 'r1' }], { date: MONDAY, store });
+  assert.equal(bad.results[0].ok, false, 'a request that was read cannot be tried again');
+
+  // cancelled: gone, pages too
+  await applyOps(S, [{ id: 'q8', type: 'read.request', request: req('r9') },
+    { id: 'q9', type: 'read.page', requestId: 'r9', n: 0, mime: 'image/png', data: jpeg },
+    { id: 'q10', type: 'read.cancel', requestId: 'r9' }], { date: MONDAY, store });
+  assert.equal(S.readQueue.length, 0);
+  assert.equal(store.m.has('rp-r9-0'), false);
 });
