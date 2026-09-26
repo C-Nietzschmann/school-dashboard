@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, summarize, applyOps, getAttempt, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, summarize, applyOps, getAttempt, uploadsList, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -329,8 +329,9 @@ const mcp = createMcpServer({
   instructions: 'One student\'s A Level dashboard (Year 12: Maths, Further Maths, Physics, '
     + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
-    + 'writes: to-dos, study-period choices, tests, and marked work. Every change needs a unique id; '
-    + 'resending the same id is harmless.',
+    + 'writes: to-dos, study-period choices, tests, marked work and question packs. get_uploads lists '
+    + 'the photos and PDFs the student uploaded (stored in Google Drive; read them by driveId through the '
+    + 'Google Drive connector). Every change needs a unique id; resending the same id is harmless.',
   tools: [
     {
       name: 'get_today',
@@ -362,7 +363,11 @@ const mcp = createMcpServer({
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
         + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
         + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
-        + 'attempt.delete {attemptId}. Returns one result per op.',
+        + 'attempt.delete {attemptId}; '
+        + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
+        + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
+        + 'markScheme}] (1-30 questions)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
+        + 'pack.delete {packId}. Returns one result per op.',
       inputSchema: { type: 'object', required: ['ops'], properties: {
         ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
           properties: { id: { type: 'string' }, type: { type: 'string', enum: OP_TYPES } } } },
@@ -381,6 +386,21 @@ const mcp = createMcpServer({
       inputSchema: { type: 'object', properties: { id: { type: 'string' }, hash: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       handler: (a) => appAttempt(a),
+    },
+    {
+      name: 'get_uploads',
+      title: 'Uploaded notes and work',
+      description: 'The photos and PDFs the student uploaded through the companion app, newest first: '
+        + 'title, kind (answers|notes|worksheet|test), subject, topic ids, date, and the Google Drive '
+        + 'driveId/driveUrl. The files themselves are in Google Drive — read one by its driveId through the '
+        + 'Google Drive connector. Filter by subjectId, topicId (ids from get_today detail="full") or kind.',
+      inputSchema: { type: 'object', properties: {
+        subjectId: { type: 'string' }, topicId: { type: 'string' },
+        kind: { type: 'string', enum: ['answers', 'notes', 'worksheet', 'test'] },
+        limit: { type: 'number', description: '1-100, default 20' },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: async (a) => ({ uploads: uploadsList(await loadState(), a) }),
     },
   ],
 });

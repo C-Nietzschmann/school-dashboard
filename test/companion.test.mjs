@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, summarize, getAttempt, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
+import { applyOps, todayPayload, summarize, getAttempt, uploadsList, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -161,6 +161,67 @@ test('a test result becomes a paper, which moves the grade projection', async ()
   assert.equal(S.papers.at(-1).testId, 'x');
 });
 
+test('a question pack arrives with its own to-do, and goes when either is deleted', async () => {
+  const S = fixture();
+  const pack = { title: 'Quadratics', subjectId: 'maths', difficulty: 'hard', due: '2026-10-02', priority: 'high',
+    questions: [
+      { n: '1', text: 'Solve x² − 5x + 6 = 0.', marks: 3, topicId: 't002', markScheme: 'M1 factorise, A1 x=2, A1 x=3' },
+      { text: 'Complete the square for x² + 4x + 1.', marks: 2, topicId: 'nope', markScheme: 'B2 (x+2)² − 3' },
+    ] };
+  const { results } = await applyOps(S, [{ id: 'p1', type: 'pack.add', pack }], { date: MONDAY });
+  const { packId, taskId } = results[0];
+  assert.ok(results[0].ok && packId && taskId);
+  const task = S.homework.find((h) => h.id === taskId);
+  assert.equal(task.packId, packId);
+  assert.equal(task.priority, 'high');
+  assert.equal(S.packs[0].questions[1].n, '2');
+  assert.equal(S.packs[0].questions[1].topicId, null);          // an invented topic id is dropped
+  assert.deepEqual(S.packs[0].topicIds, ['t002']);
+
+  // resending the same op id does nothing
+  await applyOps(S, [{ id: 'p1', type: 'pack.add', pack }], { date: MONDAY });
+  assert.equal(S.packs.length, 1);
+
+  // open: the app gets the questions; done: only the line
+  let p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.equal(p.packs[0].questions.length, 2);
+  assert.equal(p.packs[0].marks, 5);
+  assert.equal(p.tasks.find((t) => t.id === taskId).packId, packId);
+  await applyOps(S, [{ id: 'd1', type: 'task.done', taskId }], { date: MONDAY });
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.equal(p.packs[0].questions, undefined);
+
+  const bad = await applyOps(S, [
+    { id: 'b1', type: 'pack.add', pack: { ...pack, subjectId: 'latin' } },
+    { id: 'b2', type: 'pack.add', pack: { ...pack, questions: [] } },
+    { id: 'b3', type: 'pack.add', pack: { ...pack, questions: [{ marks: 2 }] } },
+  ], { date: MONDAY });
+  assert.deepEqual(bad.results.map((r) => r.ok), [false, false, false]);
+  assert.equal(S.packs.length, 1);
+  assert.equal(S.homework.filter((h) => h.packId).length, 1);   // a rejected pack leaves no stray to-do
+
+  // pack.delete keeps a finished to-do; task.delete takes an open pack with it
+  await applyOps(S, [{ id: 'x1', type: 'pack.delete', packId }], { date: MONDAY });
+  assert.equal(S.packs.length, 0);
+  assert.ok(S.homework.some((h) => h.id === taskId));
+  const again = await applyOps(S, [{ id: 'p2', type: 'pack.add', pack }], { date: MONDAY });
+  await applyOps(S, [{ id: 'x2', type: 'task.delete', taskId: again.results[0].taskId }], { date: MONDAY });
+  assert.equal(S.packs.length, 0);
+});
+
+test('uploads: newest first, filtered by subject, topic and kind', () => {
+  const S = fixture();
+  S.attachments = [
+    { id: 'f1', created: '2026-09-20T10:00:00Z', title: 'Notes', kind: 'notes', subjectId: 'maths', topicIds: ['t002'], driveId: 'd1' },
+    { id: 'f2', created: '2026-09-25T10:00:00Z', title: 'Answers', kind: 'answers', subjectId: 'maths', topicIds: ['t003'], driveId: 'd2' },
+    { id: 'f3', created: '2026-09-24T10:00:00Z', title: 'Waves', kind: 'notes', subjectId: 'physics', topicIds: [], driveId: 'd3' },
+  ];
+  assert.deepEqual(uploadsList(S).map((u) => u.id), ['f2', 'f3', 'f1']);
+  assert.deepEqual(uploadsList(S, { subjectId: 'maths' }).map((u) => u.id), ['f2', 'f1']);
+  assert.deepEqual(uploadsList(S, { topicId: 't002' }).map((u) => u.driveId), ['d1']);
+  assert.deepEqual(uploadsList(S, { kind: 'notes', limit: 1 }).map((u) => u.id), ['f3']);
+});
+
 test('today payload and its chat summary', () => {
   const S = fixture();
   const p = todayPayload(S, { date: MONDAY, time: '10:00' });
@@ -211,6 +272,12 @@ test('the dashboard page gets the planner pasted in and still parses', () => {
   assert.ok(!html.includes('/* @inline'));
   assert.ok(html.includes('function createPlanner('));
   const js = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
+  assert.doesNotThrow(() => new Function(js));
+});
+
+test('the companion page still parses', () => {
+  const html = inlineModules(readFileSync(ROOT + 'companion.html', 'utf8'), ROOT);
+  const js = html.slice(html.lastIndexOf('<script>') + 8, html.lastIndexOf('</script>'));
   assert.doesNotThrow(() => new Function(js));
 });
 

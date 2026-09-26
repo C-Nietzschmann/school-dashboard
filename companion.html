@@ -163,6 +163,10 @@ section.tab.on{display:block}
 .task.is-done .check{background:var(--tick);border-color:var(--tick);color:#fff}
 .task.is-done .task-title{text-decoration:line-through;color:var(--muted)}
 .task-main{border:0;background:none;padding:0;text-align:left;display:grid;gap:1px;min-width:0}
+.task.has-pack{grid-template-columns:30px minmax(0,1fr) auto;align-items:center}
+.pack-q{white-space:pre-wrap;line-height:1.55;margin:4px 0}
+.pack-ms{margin-top:6px;font-size:13.5px;color:var(--text-2)}
+.pack-ms div{white-space:pre-wrap;margin-top:4px}
 .task-title{overflow-wrap:anywhere}
 .task-meta{font-size:12.5px;color:var(--text-2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .late{color:var(--pen);font-weight:500}
@@ -540,6 +544,11 @@ const LOCAL = {
     if (i >= 0) { const [t] = from.splice(i, 1); t.done = op.done !== false; to.unshift(t); }
   },
   'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
+  'pack.delete': (d, op) => {
+    const k = d.packs?.find((x) => x.id === op.packId);
+    d.packs = (d.packs || []).filter((x) => x.id !== op.packId);
+    if (k) d.tasks = d.tasks.filter((x) => x.id !== k.taskId);
+  },
   'study.choose': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) { s.chosen = op.option; s.done = false; } },
   'study.done': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) s.done = true; },
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
@@ -676,13 +685,15 @@ function taskRow(t) {
   const d = t.due ? daysBetween(nowISO(), t.due) : null;
   const due = t.due ? `<span class="${!t.done && d < 0 ? 'late' : ''}">${d < 0 && !t.done ? relDay(t.due) : 'due ' + relDay(t.due)}</span>` : '';
   const prio = t.priority === 'high' ? '<span class="prio-high">High</span>' : t.priority === 'low' ? '<span class="prio-low">Low</span>' : '';
-  return `<li class="task p-${esc(t.priority || 'normal')}${t.done ? ' is-done' : ''}">
+  const pack = t.packId && !t.done;
+  return `<li class="task p-${esc(t.priority || 'normal')}${t.done ? ' is-done' : ''}${pack ? ' has-pack' : ''}">
     <button class="check" data-act="task-done" data-id="${esc(t.id)}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}">✓</button>
     <button class="task-main" data-act="task-edit" data-id="${esc(t.id)}">
       <span class="task-title">${esc(t.title)}</span>
       <span class="task-meta">${t.subjectId ? `<span class="dot" style="--c:${colourOf(t.subjectId)}"></span>${esc(subjectName(t.subjectId))}` : 'General'}
         ${due ? '· ' + due : ''} ${prio ? '· ' + prio : ''} ${t.attachments ? `· 📎 ${t.attachments}` : ''}</span>
     </button>
+    ${pack ? `<button class="btn sm" data-act="pack-open" data-id="${esc(t.packId)}">Open pack</button>` : ''}
   </li>`;
 }
 
@@ -1154,6 +1165,14 @@ function markPrompt(hint) {
   const tasks = d.tasks.filter((t) => !hint.subjectId || t.subjectId === hint.subjectId)
     .map((t) => `${t.id} · ${t.subjectId || '-'} · ${t.title}${t.due ? ' · due ' + t.due : ''}`).join('\n') || '(none)';
   const hw = hint.homeworkId && d.tasks.find((t) => t.id === hint.homeworkId);
+  const pack = hw?.packId && d.packs?.find((k) => k.id === hw.packId && k.questions);
+  const packBlock = pack ? `
+
+These answers are for a QUESTION PACK. Mark them against it: use its question numbers as "q", its marks as
+maxMarks, its topic ids, and its mark scheme. A question with no working on the pages scores 0 with errorType "timing".
+${pack.questions.map((q) => `Q${q.n} [${q.marks}]${q.topicId ? ' · ' + q.topicId : ''}
+${q.text}
+Mark scheme: ${q.markScheme || '(none — solve it yourself)'}`).join('\n\n')}` : '';
   return `You are marking a UK Year 12 student's work from photos, like a careful teacher with a red pen.
 Subjects: Pearson Edexcel International A Level Maths (P1, P2, S1, M1…), Further Maths (FP1, D1, M2…), Physics (WPH11–16), Cambridge International 9618 Computer Science, and German.
 ${hint.subjectId ? `The student says this is ${subjectName(hint.subjectId)}.` : `Work out the subject from the pages.${recent ? ` (Their most recent lesson was ${subjectName(recent)}, which may or may not be related.)` : ''}`}${hw ? ` It is for the assignment "${hw.title}".` : ''}
@@ -1171,7 +1190,7 @@ The ${APP.work.pages.length === 1 ? 'image is one page' : 'images are the pages,
    explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
    correction: the correct working and final answer, at most five short lines.
 5. If you cannot read something, say so in its explanation instead of guessing.
-If the pages are notes or an unanswered worksheet, set kind to "notes" or "worksheet" and questions to [].
+If the pages are notes or an unanswered worksheet, set kind to "notes" or "worksheet" and questions to [].${packBlock}
 
 TOPICS (id · subject · unit · topic)
 ${topicLines}
@@ -1601,6 +1620,27 @@ async function openAttempt(id, focusQ) {
     if (focusQ != null) document.getElementById('q-' + focusQ)?.scrollIntoView({ block: 'center' });
   }
 }
+// A question pack Claude wrote with you in chat. Mark schemes stay folded until
+// you have had a go; marking the photos of your answers uses them.
+const DIFFICULTY = { 'warm-up': 'Warm-up', exam: 'Exam standard', hard: 'Hard', stretch: 'A* stretch' };
+function packSheet(k) {
+  if (!k?.questions) return '<div class="empty">That pack is finished or gone.</div>';
+  return `<div class="sheet-h"><h2>${esc(k.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="task-meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(k.subjectId)}"></span>${esc(subjectName(k.subjectId))}
+      · ${esc(DIFFICULTY[k.difficulty] || 'Exam standard')} · ${k.count} questions · ${k.marks} marks${k.minutes ? ` · about ${k.minutes} min` : ''}</div>
+    <div class="page">${k.questions.map((q) => `<div class="q">
+      <div class="q-label">${esc(q.n)}</div>
+      <div>
+        <div class="q-head"><span class="mono">[${q.marks}]</span>${q.topicId ? `<span class="slot-meta">${esc(topicOf(q.topicId)?.name || '')}</span>` : ''}</div>
+        <div class="pack-q">${esc(q.text)}</div>
+        ${q.markScheme ? `<details class="pack-ms"><summary>Mark scheme</summary><div>${esc(q.markScheme)}</div></details>` : ''}
+      </div></div>`).join('')}</div>
+    <div class="row" style="gap:8px;margin-top:14px">
+      <button class="btn primary" data-act="pack-mark" data-id="${esc(k.id)}">Mark my answers</button>
+      <button class="btn ghost" data-act="pack-delete" data-id="${esc(k.id)}">Delete pack</button>
+    </div>`;
+}
+
 function attemptSheet(a, full, loading = false) {
   if (!a) return '<div class="empty">That piece of work is gone.</div>';
   const qs = full?.questions || a.questions;
@@ -1880,6 +1920,21 @@ document.addEventListener('click', (e) => {
     case 'task-delete':
       if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
       send({ type: 'task.delete', taskId: SHEET.ctx.id });
+      return closeSheet();
+
+    /* question packs */
+    case 'pack-open': SHEET.ctx = { packId: t.dataset.id }; return openSheet(packSheet(d.packs?.find((k) => k.id === t.dataset.id)));
+    case 'pack-mark': {
+      // straight into Work, with this pack's to-do chosen, so the marker gets the mark scheme
+      const k = d.packs?.find((x) => x.id === t.dataset.id);
+      closeSheet();
+      APP.work.hint = { subjectId: k?.subjectId || '', homeworkId: k?.taskId || '' };
+      APP.tab = 'work'; LS.set('tab', APP.tab); window.scrollTo(0, 0);
+      return render();
+    }
+    case 'pack-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      send({ type: 'pack.delete', packId: t.dataset.id });
       return closeSheet();
 
     /* work */

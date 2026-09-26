@@ -161,6 +161,14 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Question packs.** In a Claude Code session opened in this folder, `/question-pack maths`
+(or `fmaths`, `physics`, `cs`) runs the skill in `.claude/skills/question-pack/`. It asks
+for the topic, difficulty, size and source — your uploaded notes (listed by the
+connector's `get_uploads`, read through the Google Drive connector), the specification,
+or both — and writes an original pack in the board's style, with a mark scheme. Only
+once you accept it does it go into the companion as a to-do with an **Open pack**
+button. **Mark my answers** then marks your photos against that scheme.
+
 `npm test` runs the checks on the planner, the change log and the connector.
 
 ## Connecting things (all optional)
