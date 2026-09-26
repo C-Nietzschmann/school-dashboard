@@ -147,14 +147,17 @@ your board — replace them.
 
 ## The companion app
 
-`companion.html` is the daily side: today's timetable with a choice of what to do
-in each free period, a to-do list that understands `phys wksht 3 fri high`, and
-a Work tab where Claude marks a photographed or scanned page, works out its
-subject and topic, and — once you have checked it — files it in Google Drive and
-feeds the result back here. Mistakes stay listed in History until you fix them,
-and every marked page moves your level per topic, which the free-period
-suggestions and the revision queue both use. Add a test and the suggestions shift
-towards its topics as the date approaches.
+`companion.html` is the daily side: the fortnight's timetable with a choice of
+what to do in each free period (and study sessions of your own, weekends too), a
+to-do list that understands `phys wksht 3 fri high`, and a Work tab for
+worksheets, answers, notes and anything else. A worksheet is read by Claude for
+its questions and topic, filed in a Drive folder of its own inside the topic's
+folder, and planned into a study period; your answers are then marked against it,
+with the corrections saved next to them. Notes are read for their topic and key
+points and filed. Everything is checked by you before it is saved. Mistakes stay
+listed in History until you fix them, and every marked page moves your level per
+topic, which the free-period suggestions and the revision queue both use. Add a
+test and the suggestions shift towards its topics as the date approaches.
 
 It reaches the dashboard two ways: inside Claude through a custom connector
 (the URL to paste is on the Files tab — see [DEPLOY.md](DEPLOY.md)), or from this

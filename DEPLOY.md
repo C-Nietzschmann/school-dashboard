@@ -141,7 +141,31 @@ go before anything is saved.
 
 **5. Open the app.** The companion is published as a claude.ai artifact; open its
 link in the Claude app on each device (or in Safari, then Share → Add to Home
-Screen) and allow the two connectors and Claude when asked.
+Screen) and allow the two connectors and Claude when asked. Claude's own bar
+stays above the page; where the browser allows it (a Mac, an iPad) the ⤢ button
+in the app's header makes it full screen, and on a phone the header slides away
+while you scroll.
+
+**What you can upload.** On the Work tab, add the pages (as many photos as a
+piece of work has — they stay together) and say what it is:
+
+- **Worksheet** — questions to do later. Claude reads the questions, the subject
+  and the topic; you check them; it is saved in a folder of its own inside the
+  topic's folder (`A Levels › Physics › Forces › Forces worksheet 2`). Plan it
+  into any study period, then **Add answers** from that period: Claude marks them
+  against the worksheet's questions, and your answers and a **Corrections** Google
+  Doc go into the worksheet's folder. In History → Worksheets each one lists its
+  answers, and each opens to Claude's corrections.
+- **My answers** — to a worksheet saved earlier.
+- **Notes** — read for their topic and key points, filed in the topic's folder
+  (or your "Class notes"), and kept under History → Notes. Making notes on a
+  topic counts as having studied it.
+- **Other** — marked straight away, or just filed, as before.
+
+**Weekends and evenings.** Every day of the fortnight is on the Today tab.
+**+ Add study session** puts a session on any day — a Saturday morning, a
+holiday, an evening — and it gets suggestions, can hold a worksheet or a to-do,
+and is logged like a study period at school.
 
 Without Claude, `https://<your-service>.onrender.com/companion` serves the same
 app from the dashboard itself — Today, History, Skills and tests all work, and it
@@ -154,7 +178,8 @@ What it costs and where things live:
   quickest model; **Careful** thinks longer, for proofs and long working. A page
   is never marked twice: the dashboard remembers every page it has marked.
 - Photos and PDFs live in your Google Drive, never in the database. The database
-  holds the marks, and each marking's explanations as a separate small row.
+  holds the marks, and each marking's explanations — and each worksheet's
+  questions — as a separate small row.
 - On Render's free plan the dashboard sleeps after 15 minutes; the app shows
   your last synced day at once and waits up to a minute for it to wake.
 - Changes made on the phone while the dashboard is open on your Mac are merged,
