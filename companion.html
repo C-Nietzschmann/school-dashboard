@@ -431,6 +431,20 @@ const APP = {
   selDay: null,                // the day shown in Today; null = today
 };
 
+/* Pictures to Claude. The view's own report (sample.limits) is used when it
+   gives one, but never trusted to say "no" on its own: some views report
+   nothing, or report without an images entry, and still take pictures. So
+   reading is always offered, and switched off only once Claude has actually
+   refused pictures in this view. */
+const picturesOk = () => Boolean(APP.sample) && !APP.imagesOff;
+const perCall = () => Math.min(APP.perCallCap || 20, APP.limits?.images?.maxCount || 5);
+function picturesState() {
+  if (!APP.sample) return 'Claude is not available here';
+  if (APP.imagesOff) return 'off — Claude said this view cannot take pictures';
+  if (APP.limits?.images) return `on, up to ${APP.limits.images.maxCount} a time`;
+  return `not reported by this view (${APP.limits?.error ? 'limits: ' + APP.limits.error : 'no images entry'}) — the app tries anyway, ${perCall()} a time`;
+}
+
 /* ================================================================ lookups */
 const subjects = () => APP.data?.subjects || [];
 const subjectOf = (id) => subjects().find((s) => s.id === id);
@@ -501,7 +515,7 @@ function sampleError(e) {
     not_granted: 'You declined Claude for this page. Reload to be asked again.',
     sampling_disabled: 'Claude is not available on this account.',
     rate_limited: 'Claude is busy or you have hit your usage limit. Try again later.',
-    images_unavailable: 'This Claude view cannot send photos. Open the page on claude.ai in a browser.',
+    images_unavailable: 'Claude said this view cannot take pictures. Try the Claude app, or claude.ai on a computer.',
     image_rejected: 'That file could not be read as a photo. Try another one.',
     refused: 'Claude would not mark that. Try a clearer photo.',
     invalid_json: 'Claude\'s answer came back garbled. Try again — Careful mode helps.',
@@ -1189,7 +1203,7 @@ function answerable() {
 function viewWork() {
   const w = APP.work;
   const canUpload = APP.mode === 'claude' && APP.mcp;
-  const canMark = Boolean(APP.sample && APP.limits?.images);
+  const canMark = picturesOk();
   if (!APP.data) return noData();
   if (!canUpload) {
     return `<div class="card"><h2 style="font-size:16px;margin-bottom:6px">Upload and mark in the Claude app</h2>
@@ -1294,7 +1308,7 @@ function workForm(w, canMark) {
   }
   // why Claude cannot read this, said where the greyed-out button is
   const broken = w.pages.filter((p) => p.error);
-  const why = !canMark ? (APP.sample ? 'This Claude view cannot send pictures to Claude, so reading and marking are off here. Filing still works. Open the page on claude.ai in a browser to read it.'
+  const why = !canMark ? (APP.sample ? 'Claude said this view cannot take pictures, so reading and marking are off here. Filing still works. Try the Claude app, or claude.ai on a computer.'
     : 'Claude is not available in this view, so reading and marking are off. Filing still works.')
     : broken.length ? broken.map((p) => `Couldn't open “${p.name}” here: ${p.error}. It can still be filed, but Claude can't read it.`).join(' ')
     : w.preparing ? w.preparing + '…' : '';
@@ -1372,11 +1386,11 @@ function notebookNotice(w) {
       : '<button class="btn sm" data-act="nb-update">Add to those notes</button>'}</div></div>`;
 }
 // The pages Claude will read: the new ones when adding to a notebook, else from the start.
-const readLimit = () => (APP.limits?.images?.maxCount || 8) * 3;
+const readLimit = () => perCall() * 3;
 function readUnits(w) {
   const units = pageUnits(w);
   if (w.mode === 'notes' && w.update && w.match?.status === 'ready' && !w.readAll) return w.match.read.map((i) => units[i]).filter(Boolean).slice(0, readLimit());
-  return units.slice(0, w.mode === 'notes' ? readLimit() : (APP.limits?.images?.maxCount || 8));
+  return units.slice(0, w.mode === 'notes' ? readLimit() : perCall());
 }
 // A page's number in the whole upload, counting every page of every file.
 const unitIndex = (all, u) => all.findIndex((x) => x.p === u.p && x.n === u.n);
@@ -2049,7 +2063,7 @@ Reply with only this JSON:
 }
 async function readNotes(w, hint, opts) {
   const units = readUnits(w), all = pageUnits(w);
-  const per = APP.limits?.images?.maxCount || 8;
+  const per = perCall();
   const upd = w.update && w.match?.status === 'ready' ? w.match.note : null;
   let acc = upd ? { title: upd.title, subjectId: upd.subjectId, topicIds: [...(upd.topicIds || [])], summary: upd.summary || '',
     keyPoints: [...(upd.keyPoints || [])] } : null;
@@ -2181,7 +2195,7 @@ async function analyse(force = false) {
   readWorkForm();
   const hint = w.hint;
   w.error = null;
-  const maxImages = APP.limits?.images?.maxCount || 8;
+  const maxImages = perCall();
   const units = readUnits(w);
   if (!units.length) { w.error = 'There is nothing Claude can read — add a photo or a PDF that opens here.'; return render(); }
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
@@ -2232,6 +2246,11 @@ async function analyse(force = false) {
     w.stage = 'idle';
     // Claude's own errors read one way; the dashboard or Drive failing on the way reads another
     w.error = !e?.code || SAMPLE_CODES.has(e.code) ? sampleError(e) : connError(e);
+    if (e?.code === 'images_unavailable') APP.imagesOff = true;
+    if (e?.code === 'image_rejected' && perCall() > 1) {
+      APP.perCallCap = Math.max(1, Math.floor(perCall() / 2));
+      w.error = `Claude took too many pages at once here. Tap Read again — it now sends ${APP.perCallCap} at a time.`;
+    }
     render();
   }
 }
@@ -2913,7 +2932,7 @@ function packSheet(k) {
 function attemptSheet(a, full, loading = false) {
   if (!a) return '<div class="empty">That piece of work is gone.</div>';
   const qs = full?.questions || a.questions;
-  const canCheck = Boolean(APP.sample && APP.limits?.images);
+  const canCheck = picturesOk();
   const notes = (full?.notes || []);
   const ws = a.worksheetId ? worksheetOf(a.worksheetId) : null;
   const back = SHEET.ctx?.fromWs && worksheetOf(SHEET.ctx.fromWs);
@@ -3001,7 +3020,7 @@ Check the redo. Is the final answer right and the method sound? Reply with only 
       q.resolved = 'checked';
       setTimeout(() => { if (SHEET.ctx?.id === a.id) $('#sheet').innerHTML = attemptSheet(APP.data.attempts.find((x) => x.id === a.id), APP.details[a.id]); }, 1600);
     }
-  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
+  } catch (e) { if (e?.code === 'images_unavailable') APP.imagesOff = true; out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
 }
 function remarkForm(qKey) {
   const { q } = questionOf(qKey);
@@ -3116,7 +3135,7 @@ function statusSheet() {
   openSheet(`<div class="sheet-h"><h2>Connection</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="notice ${['error', 'setup'].includes(APP.status.kind) ? 'bad' : ''}">${esc($('#statusText')?.textContent || APP.status.text || '')}</div>
     <p style="font-size:14px;margin-bottom:0">PDF reader: ${PDF.lib ? `ready (from ${esc(PDF.from)})` : PDF.error ? esc(PDF.error) : 'not needed yet — it starts when you add a PDF'}.
-      Pictures to Claude: ${APP.limits?.images ? `on, up to ${APP.limits.images.maxCount} a time` : APP.sample ? 'off in this view' : 'Claude is not available here'}.</p>
+      Pictures to Claude: ${esc(picturesState())}.</p>
     <p style="font-size:14px">${APP.syncedAt ? 'Last synced ' + esc(new Date(APP.syncedAt).toLocaleString('en-GB')) + '.' : 'Not synced yet.'}
       ${APP.outbox.length ? ` ${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting — they are kept on this device and sent as soon as the dashboard answers.` : ''}</p>
     ${inClaude ? `<div class="setup"><h3 style="font-size:15px">Connect the dashboard (once)</h3>
@@ -3453,7 +3472,8 @@ async function boot() {
   if (window.claude?.use) {
     const [mcp, sample] = await Promise.all([claude.use('mcp'), claude.use('sample')].map((p) => p.catch(() => null)));
     APP.mcp = mcp; APP.sample = sample;
-    if (sample) APP.limits = await sample.limits().catch(() => null);
+    if (sample) APP.limits = await (typeof sample.limits === 'function' ? sample.limits() : Promise.reject({ code: 'missing' }))
+      .catch((e) => ({ error: e?.code || e?.message || 'failed' }));
     if (mcp) {
       try {
         const l = await mcp.listTools();
