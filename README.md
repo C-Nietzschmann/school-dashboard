@@ -43,6 +43,7 @@ $SCHOOL_DASHBOARD_DATA     # if set
 | `config.json` | API tokens. Never served to the browser |
 | `whiteboards/*.json` | One file per board |
 | `.cache/` | Cached Claude answers, 24-hour TTL |
+| `marks/*.json` | Explanations and corrections for each piece of marked work |
 
 To back it up, copy that directory. To start over, delete it and restart. To keep
 several students' data side by side, point `SCHOOL_DASHBOARD_DATA` somewhere else.
@@ -143,6 +144,24 @@ your board — replace them.
 | Files | Import, export, and integration status |
 
 ---
+
+## The companion app
+
+`companion.html` is the daily side: today's timetable with a choice of what to do
+in each free period, a to-do list that understands `phys wksht 3 fri high`, and
+a Work tab where Claude marks a photographed or scanned page, works out its
+subject and topic, and — once you have checked it — files it in Google Drive and
+feeds the result back here. Mistakes stay listed in History until you fix them,
+and every marked page moves your level per topic, which the free-period
+suggestions and the revision queue both use. Add a test and the suggestions shift
+towards its topics as the date approaches.
+
+It reaches the dashboard two ways: inside Claude through a custom connector
+(the URL to paste is on the Files tab — see [DEPLOY.md](DEPLOY.md)), or from this
+server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
+rules live in `lib/plan.mjs`, which the dashboard page shares.
+
+`npm test` runs the checks on the planner, the change log and the connector.
 
 ## Connecting things (all optional)
 

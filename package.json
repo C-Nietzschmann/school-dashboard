@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "build:artifact": "node build-artifact.mjs"
+    "build:artifact": "node build-artifact.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "pg": "^8.13.1",
