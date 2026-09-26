@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, summarize, applyOps, getAttempt, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -312,6 +312,9 @@ async function appToday({ date, time, detail = 'full' } = {}) {
   const payload = todayPayload(await loadState(), { date, time });
   return detail === 'summary' ? summarize(payload) : payload;
 }
+async function appWeek(args = {}) {
+  return weekPayload(await loadState(), args);
+}
 function appApply({ ops, date, time } = {}) {
   return withState(async (S) => {
     const out = await applyOps(S, ops, { date, time, store: markStore });
@@ -355,7 +358,7 @@ const mcp = createMcpServer({
         + 'task.add {task:{title, subjectId?, due?: YYYY-MM-DD, priority?: high|normal|low, notes?}}; '
         + 'task.update {taskId, patch}; task.done {taskId, done}; task.delete {taskId}; '
         + 'study.choose {date, key, option} (key and option from get_today studyPeriods); '
-        + 'study.done {date, key, minutes?, confidence?: 0-5}; '
+        + 'study.done {date, key, minutes?, confidence?: 0-5, note?}; study.undo {date, key}; '
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
         + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
         + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, kind, driveId?, driveUrl?, hash?}, '
@@ -371,6 +374,23 @@ const mcp = createMcpServer({
       } },
       annotations: { readOnlyHint: false },
       handler: (a) => appApply(a),
+    },
+    {
+      name: 'get_week',
+      title: 'Study periods ahead, and the study log',
+      description: 'The study (free) periods of the next days — each with up to three suggested options and whatever '
+        + 'the student already chose — for planning ahead, plus the study log: what was chosen for each past study '
+        + 'period, whether it was done, for how long and how it went. Choose ahead with apply_changes study.choose '
+        + 'using the date and key given here.',
+      inputSchema: { type: 'object', properties: {
+        from: { type: 'string', description: 'YYYY-MM-DD first day; default today' },
+        days: { type: 'number', description: 'how many days ahead, 1–28; default 14' },
+        date: { type: 'string', description: 'YYYY-MM-DD local today' },
+        time: { type: 'string', description: 'HH:MM local' },
+        logDays: { type: 'number', description: 'how far back the study log goes, in days; default 60' },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: (a) => appWeek(a),
     },
     {
       name: 'get_attempt',
@@ -499,6 +519,9 @@ const server = createServer(async (req, res) => {
     /* ---- the companion app (REST; the MCP connector below is the same) ---- */
     if (path === '/api/app/today' && req.method === 'GET') {
       return send(res, 200, await appToday(Object.fromEntries(url.searchParams)));
+    }
+    if (path === '/api/app/week' && req.method === 'GET') {
+      return send(res, 200, await appWeek(Object.fromEntries(url.searchParams)));
     }
     if (path === '/api/app/ops' && req.method === 'POST') {
       return send(res, 200, await appApply(await readBody(req)));

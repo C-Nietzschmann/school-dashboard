@@ -174,7 +174,27 @@ section.tab.on{display:block}
 .days-left.close{color:var(--pen);font-weight:500}
 
 /* ---------- work: upload, read, review ---------- */
-.pickers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pickers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:430px){.pickers{grid-template-columns:repeat(2,1fr)}}
+/* the week strip: pick a day to plan or look back at */
+.strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px}
+.daychip{flex:none;display:grid;justify-items:center;gap:0;min-width:56px;border:1px solid var(--line-strong);background:var(--surface);border-radius:12px;padding:6px 8px}
+.daychip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.daychip.off{opacity:.5}
+.dc-wd{font-size:11.5px}
+.dc-d{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1.3}
+.dc-n{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.daychip.on .dc-n{color:var(--accent)}
+.logrow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.logrow:first-child{border-top:0}
+.logrow .when{font-family:var(--mono);font-size:12px;color:var(--text-2);line-height:1.3}
+.logrow .res{font-size:12.5px;text-align:right;white-space:nowrap}
+.kind.k-custom{background:var(--surface-2);color:var(--text)}
+.drive-list{border:1px solid var(--line);border-radius:10px;max-height:52vh;overflow:auto;background:var(--surface)}
+.drive-list button{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:9px 11px;font-size:14px}
+.drive-list button:first-child{border-top:0}
+.drive-list small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.crumbs{font-family:var(--mono);font-size:12.5px;color:var(--text-2);margin:0 0 8px;overflow-wrap:anywhere}
 .picker{border:1px dashed var(--line-strong);background:var(--surface);border-radius:12px;padding:16px 8px;display:grid;justify-items:center;gap:6px;
   font-weight:500;font-size:14px;text-align:center}
 .picker svg{width:26px;height:26px;color:var(--accent)}
@@ -362,6 +382,8 @@ const APP = {
   history: { view: 'mistakes', subject: '' },
   details: {},            // attempt id -> full marking, fetched on demand
   skillsOpen: null,
+  week: LS.get('week', null),  // study periods ahead, and the study log
+  selDay: null,                // the day shown in Today; null = today
 };
 
 /* ================================================================ lookups */
@@ -391,14 +413,18 @@ async function dash(tool, input) {
   const p = r?.payload;
   return p && typeof p === 'object' ? p : r?.structuredContent;
 }
+// Plans cover this week from Monday, and next week.
+const weekFrom = () => { const d = parseD(nowISO()); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoOf(d); };
 const TRANSPORT = {
   rest: {
     today: () => rest(`/api/app/today?date=${nowISO()}&time=${nowHM()}`),
+    week: () => rest(`/api/app/week?from=${weekFrom()}&days=14&date=${nowISO()}&time=${nowHM()}`),
     apply: (ops) => rest('/api/app/ops', { method: 'POST', body: JSON.stringify({ ops, date: nowISO(), time: nowHM() }) }),
     attempt: (id) => rest('/api/app/attempt?id=' + encodeURIComponent(id)),
   },
   mcp: {
     today: () => dash('get_today', { date: nowISO(), time: nowHM(), detail: 'full' }),
+    week: () => dash('get_week', { from: weekFrom(), days: 14, date: nowISO(), time: nowHM() }),
     apply: (ops) => dash('apply_changes', { ops, date: nowISO(), time: nowHM() }),
     attempt: (id) => dash('get_attempt', { id }),
   },
@@ -475,6 +501,11 @@ function refresh() {
       const d = await APP.transport.today();
       if (!d || !Array.isArray(d.lessons)) throw { code: 'bad', message: 'The dashboard sent something unexpected. Is it up to date?' };
       APP.data = d;
+      // the week view is a bonus: a dashboard too old to have it still works
+      try {
+        const wk = await APP.transport.week();
+        if (wk && Array.isArray(wk.days)) { APP.week = wk; LS.set('week', wk); }
+      } catch { /* keep the last copy */ }
       APP.syncedAt = new Date().toISOString();
       LS.set('data', d); LS.set('syncedAt', APP.syncedAt);
       for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
@@ -541,8 +572,21 @@ const LOCAL = {
     if (i >= 0) { const [t] = from.splice(i, 1); t.done = op.done !== false; to.unshift(t); }
   },
   'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
-  'study.choose': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) { s.chosen = op.option; s.done = false; } },
-  'study.done': (d, op) => { const s = d.studyPeriods.find((x) => x.key === op.key); if (s) s.done = true; },
+  'study.choose': (d, op) => { for (const s of studySlots(op.date)) if (s.key === op.key) { s.chosen = op.option; s.done = false; } },
+  'study.done': (d, op) => {
+    for (const s of studySlots(op.date)) if (s.key === op.key) {
+      s.done = true;
+      const log = APP.week?.log;
+      if (log && s.chosen && !log.some((e) => e.date === op.date && e.key === op.key)) {
+        log.unshift({ date: op.date, key: op.key, start: s.start, end: s.end, option: s.chosen, done: true,
+          minutes: op.minutes ?? s.mins, confidence: op.confidence ?? null, note: op.note || '' });
+      }
+    }
+  },
+  'study.undo': (d, op) => {
+    for (const s of studySlots(op.date)) if (s.key === op.key) s.done = false;
+    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key));
+  },
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
   'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
   'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
@@ -553,6 +597,14 @@ const LOCAL = {
     if (q) q.resolved = op.how;
   },
 };
+// A study period can appear twice on screen — in today's copy and in the week's.
+function studySlots(date) {
+  const out = [];
+  if (APP.data?.date === date) out.push(...(APP.data.studyPeriods || []));
+  const day = APP.week?.days?.find((x) => x.date === date);
+  if (day) out.push(...day.studyPeriods);
+  return out;
+}
 function applyLocal(op) { try { if (APP.data) LOCAL[op.type]?.(APP.data, op); } catch { /* the refresh will correct it */ } }
 
 /* ================================================================= render */
@@ -612,7 +664,7 @@ function noData() {
 }
 
 /* ================================================================== today */
-const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards' };
+const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards', custom: 'Own plan' };
 function optTitle(o) {
   // "Test prep: Quadratics" -> the chip already says "Test prep"
   return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes):\s*/, '');
@@ -621,56 +673,137 @@ function optTitle(o) {
 function viewToday() {
   const d = APP.data;
   if (!d) return noData();
-  return `<div class="grid2">
-    <div class="stack">${dayCard(d)}</div>
+  // on a weekend or a day off, open on the next school day so there is something to plan
+  const days = (APP.week?.days || []).filter((x) => !x.weekend);
+  if (!APP.selDay && !d.lessons.length) APP.selDay = days.find((x) => x.date > d.date && x.lessons.length)?.date || null;
+  const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
+  return `${weekStrip(days)}<div class="grid2">
+    <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
     <div class="stack">${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
   </div>`;
 }
 
-function dayCard(d) {
-  if (d.holiday) return `<div class="card"><div class="holiday">${esc(d.holiday)} — no lessons today.</div></div>`;
-  if (!d.lessons.length) return `<div class="card"><div class="holiday">No lessons today.</div></div>`;
-  const now = toMins(nowHM());
-  const rows = d.lessons.map((l) => {
-    const state = d.date !== nowISO() ? l.state : now >= toMins(l.end) ? 'past' : now >= toMins(l.start) ? 'now' : 'later';
+function weekStrip(days) {
+  if (!days.length) return '';
+  const sel = APP.selDay || APP.data.date;
+  return `<div class="strip" aria-label="Days">${days.map((x) => {
+    const d = parseD(x.date);
+    const n = x.studyPeriods.length, planned = x.studyPeriods.filter((s) => s.chosen).length;
+    const label = x.date === nowISO() ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short' });
+    return `<button class="daychip${x.date === sel ? ' on' : ''}${x.holiday ? ' off' : ''}" data-act="day" data-date="${x.date}"
+      title="${esc(x.holiday || `${n} study period${n === 1 ? '' : 's'}, ${planned} planned`)}">
+      <span class="dc-wd">${label}</span><span class="dc-d">${d.getDate()}</span>
+      <span class="dc-n">${x.holiday ? 'off' : n ? `${planned}/${n}` : '–'}</span></button>`;
+  }).join('')}</div>`;
+}
+
+// One day's timetable with its study periods. Today's copy knows what is on
+// now; another day's is all past or all ahead.
+function timetable(date, week, lessons, studyPeriods, title) {
+  const today = nowISO(), now = toMins(nowHM());
+  const rows = lessons.map((l) => {
+    const state = date < today ? 'past' : date > today ? 'later'
+      : now >= toMins(l.end) ? 'past' : now >= toMins(l.start) ? 'now' : 'later';
     const pct = state === 'now' ? Math.round((now - toMins(l.start)) / Math.max(1, toMins(l.end) - toMins(l.start)) * 100) : 0;
-    const sp = l.free ? d.studyPeriods.find((s) => s.key === l.key) : null;
-    return `<li class="slot ${state}${l.free ? ' free' : ''}" style="--c:${l.colour || 'var(--line-strong)'}">
+    const sp = studyPeriods.find((s) => s.key === l.key);
+    const study = Boolean(sp) || l.study;
+    return `<li class="slot ${state}${study || l.free ? ' free' : ''}" style="--c:${l.colour || 'var(--line-strong)'}">
       <div class="slot-time">${esc(l.start)}<span>${esc(l.end)}</span></div>
       <div class="slot-body">
         <div class="row"><span class="slot-name">${esc(l.name)}</span>
           <span class="slot-meta">${[l.room, l.double ? 'double' : '', state === 'now' ? 'now' : ''].filter(Boolean).map(esc).join(' · ')}</span></div>
         ${state === 'now' ? `<div class="progress"><span style="width:${pct}%"></span></div>` : ''}
-        ${sp ? studyBlock(sp, state) : ''}
+        ${sp ? studyBlock(sp, state, date) : ''}
       </div>
     </li>`;
   }).join('');
-  return `<div class="card"><div class="card-h"><h2>Timetable</h2><span class="count">week ${esc(d.week)}</span></div>
+  return `<div class="card"><div class="card-h"><h2>${esc(title)}</h2><span class="count">week ${esc(week)}</span></div>
     <ol class="day">${rows}</ol></div>`;
 }
 
-function studyBlock(sp, state) {
+function dayCard(d) {
+  if (d.holiday) return `<div class="card"><div class="holiday">${esc(d.holiday)} — no lessons today.</div></div>`;
+  if (!d.lessons.length) return `<div class="card"><div class="holiday">No lessons today. Pick a day above to plan ahead.</div></div>`;
+  return timetable(d.date, d.week, d.lessons, d.studyPeriods, 'Today');
+}
+
+function otherDay(x) {
+  const title = parseD(x.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+  if (x.holiday) return `<div class="card"><div class="card-h"><h2>${esc(title)}</h2></div><div class="holiday">${esc(x.holiday)} — no lessons.</div></div>`;
+  if (!x.lessons.length) return `<div class="card"><div class="card-h"><h2>${esc(title)}</h2></div><div class="holiday">No lessons.</div></div>`;
+  const lessons = x.lessons.map((l) => ({ ...l,
+    name: l.title || (l.subjectId === 'free' ? 'Free period' : subjectName(l.subjectId)),
+    colour: l.subjectId === 'free' ? null : colourOf(l.subjectId), free: l.subjectId === 'free' }));
+  return timetable(x.date, x.week, lessons, x.studyPeriods, title);
+}
+
+function studyBlock(sp, state, date) {
+  const at = `data-date="${esc(date)}" data-key="${esc(sp.key)}"`;
   if (sp.chosen) {
     const o = sp.chosen;
+    const logged = (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key);
+    const doneText = sp.done ? `Done${logged?.minutes ? ` · ${logged.minutes} min` : ''}${logged?.confidence != null ? ` · felt ${logged.confidence}/5` : ''}` : '';
     return `<div class="opts"><div class="opt chosen${sp.done ? ' done' : ''}">
         <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
-        ${sp.done ? '<div class="resolved">Done — logged in your study time</div>' : `<div class="opt-why">${esc(o.why)}</div>`}
+        ${sp.done ? `<div class="resolved">${esc(doneText)}</div>` : `<div class="opt-why">${state === 'later' ? 'Planned' : esc(o.why)}</div>`}
       </div></div>
-      ${sp.done ? '' : `<div class="opt-actions">
-        <button class="btn primary sm" data-act="study-done" data-key="${esc(sp.key)}">Done</button>
-        <button class="btn ghost sm" data-act="study-change" data-key="${esc(sp.key)}">Change</button></div>`}`;
+      <div class="opt-actions">${sp.done
+        ? `<button class="btn ghost sm" data-act="study-undo" ${at}>Undo</button>`
+        : `${state !== 'later' ? `<button class="btn primary sm" data-act="study-done" ${at}>Done</button>` : ''}
+           <button class="btn ghost sm" data-act="study-change" ${at}>Change</button>`}</div>`;
   }
-  if (!sp.options.length) return '<div class="opt-why" style="margin-top:6px">Nothing to suggest yet — mark topics as started on the dashboard.</div>';
-  return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'You could have done:' : 'Pick one for this period:'}</div>
+  const own = `<button class="btn ghost sm" data-act="study-custom" ${at} style="justify-self:start">Something else…</button>`;
+  if (!sp.options.length) return `<div class="opts">${own}</div>`;
+  return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'What did you do?' : state === 'later' ? 'Plan this period:' : 'Pick one for this period:'}</div>
     <div class="opts">${sp.options.map((o, i) => `
-      <button class="opt" data-act="choose" data-key="${esc(sp.key)}" data-i="${i}">
+      <button class="opt" data-act="choose" ${at} data-i="${i}">
         <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
         <div class="opt-why">${esc(o.why)}</div>
-      </button>`).join('')}</div>`;
+      </button>`).join('')}${own}</div>`;
+}
+
+// What you did in your study periods, newest first.
+function logRow(e) {
+  const d = parseD(e.date);
+  return `<div class="logrow">
+    <div class="when">${esc(d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }))}<br>${esc(e.start)}</div>
+    <div><div style="font-weight:500">${esc(optTitle(e.option))}</div>
+      <div class="task-meta"><span class="row" style="gap:6px;flex-wrap:nowrap">${e.option.subjectId ? `<span class="dot" style="--c:${colourOf(e.option.subjectId)}"></span>${esc(subjectName(e.option.subjectId))}` : 'General'}</span>
+        ${e.note ? `<span>· ${esc(e.note)}</span>` : ''}</div></div>
+    <div class="res">${e.done ? `<span class="resolved">✓</span> ${e.minutes ? `${e.minutes} min` : ''}${e.confidence != null ? `<br><span class="muted">felt ${e.confidence}/5</span>` : ''}`
+      : e.date < nowISO() ? '<span class="late">not done</span>' : '<span class="muted">planned</span>'}</div>
+  </div>`;
+}
+function logCard() {
+  const log = (APP.week?.log || []).filter((e) => e.date <= nowISO());
+  if (!APP.week) return '';
+  const done = log.filter((e) => e.done);
+  const mins = done.reduce((a, e) => a + (Number(e.minutes) || 0), 0);
+  return `<div class="card"><div class="card-h"><h2>Study log</h2>
+      ${log.length > 6 ? '<button class="btn ghost sm" data-act="log-all">See all</button>' : ''}</div>
+    ${log.length ? `<div class="muted" style="font-size:12.5px;margin:-4px 0 6px">${done.length} of ${log.length} study periods done · ${(mins / 60).toFixed(1)} h</div>
+      ${log.slice(0, 6).map(logRow).join('')}`
+      : '<div class="empty">Nothing yet. What you pick and finish in your study periods is kept here.</div>'}
+  </div>`;
+}
+function logSheet() {
+  const log = (APP.week?.log || []).filter((e) => e.date <= nowISO());
+  const weeks = {};
+  for (const e of log) {
+    const d = parseD(e.date); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    (weeks[isoOf(d)] ||= []).push(e);
+  }
+  openSheet(`<div class="sheet-h"><h2>Study log</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    ${Object.entries(weeks).map(([mon, list]) => {
+      const done = list.filter((e) => e.done);
+      return `<div style="margin-bottom:14px"><div class="eyebrow" style="margin-bottom:4px">Week of ${esc(fmtDay(mon))} ·
+        ${done.length}/${list.length} done · ${(done.reduce((a, e) => a + (Number(e.minutes) || 0), 0) / 60).toFixed(1)} h</div>
+        ${list.map(logRow).join('')}</div>`;
+    }).join('') || '<div class="empty">Nothing logged yet.</div>'}`);
 }
 
 function taskRow(t) {
@@ -861,19 +994,33 @@ function taskSheet(id) {
     </div>`);
 }
 
-function doneSheet(key) {
-  const sp = APP.data.studyPeriods.find((s) => s.key === key);
+function doneSheet(date, key) {
+  const sp = studySlots(date).find((s) => s.key === key);
   if (!sp?.chosen) return;
   const o = sp.chosen;
-  SHEET.ctx = { kind: 'done', key, conf: null };
+  SHEET.ctx = { kind: 'done', date, key, conf: null };
   openSheet(`<div class="sheet-h"><h2>How did it go?</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <p style="margin:0 0 12px">${esc(optTitle(o))}</p>
     <div class="fields">
-      ${o.topicId ? `<div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
-        <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>` : ''}
+      <div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
+        <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>
       <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${sp.mins || 45}" min="1" max="600" inputmode="numeric"></label>
+      <label class="field"><span>Note (optional)</span><input id="dNote" placeholder="e.g. did q1–8, stuck on 6"></label>
       ${o.taskId ? `<label class="row" style="font-size:14px"><input type="checkbox" id="dTask" style="width:auto" checked> Tick off “${esc(o.title)}”</label>` : ''}
       <button class="btn primary" data-act="done-save">Log it</button>
+    </div>`);
+}
+
+// Planning (or logging) something that is not on the list of suggestions.
+function customSheet(date, key) {
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!sp) return;
+  SHEET.ctx = { kind: 'custom', date, key, past: date < nowISO() || (date === nowISO() && toMins(nowHM()) >= toMins(sp.end)) };
+  openSheet(`<div class="sheet-h"><h2>${SHEET.ctx.past ? 'What did you do?' : 'Plan something else'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>What</span><input id="cTitle" placeholder="e.g. Physics past paper Jan 2024 P1"></label>
+      <label class="field"><span>Subject</span><select id="cSubj">${subjectOptions('', 'None')}</select></label>
+      <button class="btn primary" data-act="custom-save">${SHEET.ctx.past ? 'Next' : 'Plan it'}</button>
     </div>`);
 }
 
@@ -916,6 +1063,8 @@ function viewWork() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 16l5-5 4 4 3-3 5 5"/></svg>Photos<small>several pages</small></button>
         <button class="picker" data-act="pick" data-input="fileAny">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M7 12h10"/></svg>File or scan<small>PDF, or ⋯ → Scan</small></button>
+        <button class="picker" data-act="drive-pick">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5l6 10.5h7M2.5 14h12l-3.5 6"/></svg>Drive<small>a file you already have</small></button>
       </div>
       ${w.pages.length ? `<div style="margin-top:14px" class="thumbs">${w.pages.map((p, i) => `
         <figure class="thumb" style="margin:0">${p.thumb ? `<img src="${p.thumb}" alt="Page ${i + 1}">` : '<div class="pdf">PDF</div>'}
@@ -954,9 +1103,11 @@ function destLabel(d) {
   const o = d.options.find((x) => x.key === d.choice);
   return [d.root.title, d.subjectTitle, o && !o.isSubject ? o.title : null].filter(Boolean).join(' › ');
 }
+const allFromDrive = (w) => w.pages.length > 0 && w.pages.every((p) => p.drive);
 function destView(w) {
   const d = w.dest;
   if (!APP.mcp) return '<div class="muted" style="font-size:13px">Drive is not available in this view.</div>';
+  if (allFromDrive(w)) return `<div class="folder">Already in your Drive — “${esc(w.pages[0].drive.title)}” stays where it is.</div>`;
   if (!d || d.status === 'loading') return '<div class="muted" style="font-size:13px">Finding the right folder in your Drive…</div>';
   if (d.status === 'error') return `<div class="notice bad">${esc(d.error)}</div>`;
   return `<div class="folder">${esc(d.root.title)}${d.root.id ? '' : ' (new)'} › ${esc(d.subjectTitle)}${d.subjectDir ? '' : ' (new)'} ›</div>
@@ -1110,7 +1261,7 @@ async function hashPages(pages) {
   return parts.length === 1 ? parts[0] : sha256Hex(new TextEncoder().encode(parts.join('|')));
 }
 
-async function addFiles(list) {
+async function addFiles(list, extra = {}) {
   const w = APP.work;
   w.error = null; w.already = null;
   const maxImages = APP.limits?.images?.maxCount || 8;
@@ -1120,10 +1271,10 @@ async function addFiles(list) {
         let images = [];
         try { images = await pdfToImages(f, maxImages); }
         catch { toast(`${f.name}: could not read the PDF here, so it can be filed but not marked.`); }
-        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null });
+        w.pages.push({ id: newId('p'), kind: 'pdf', file: f, name: f.name, images, thumb: images[0]?.url || null, ...extra });
       } else if (f.type.startsWith('image/') || /\.(jpe?g|png|heic|webp)$/i.test(f.name)) {
         const img = await downscale(f);
-        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url });
+        w.pages.push({ id: newId('p'), kind: 'image', file: f, name: f.name || 'photo.jpg', images: [img], thumb: img.url, ...extra });
       } else {
         toast(`${f.name} is not a photo or a PDF.`);
       }
@@ -1349,7 +1500,7 @@ function suggestFolder(folders, r) {
 let destToken = 0;
 async function planDestination() {
   const w = APP.work, r = w.review;
-  if (!r || !APP.mcp) return;
+  if (!r || !APP.mcp || allFromDrive(w)) return;
   const token = ++destToken;
   const keep = w.dest?.status === 'ready' && w.dest.subjectId === r.subjectId ? w.dest.userChoice : null;
   w.dest = { status: 'loading' };
@@ -1429,6 +1580,97 @@ async function uploadBlob(blob, title, mime, ext, parentId) {
   return { id: res.id, url: res.viewUrl || `https://drive.google.com/file/d/${res.id}/view` };
 }
 
+/* ------------------------------------------------------ pick from Drive
+   A small window onto your Drive: it opens in your A Levels folder, you can
+   walk into folders or search, and a tap brings the file in like a photo. */
+const PICKABLE = (m) => /^image\//.test(m) || m === 'application/pdf'
+  || m === 'application/vnd.google-apps.document' || m === 'application/vnd.google-apps.presentation';
+async function driveItems(query) {
+  const res = await drive('search_files', { query, pageSize: 100, excludeContentSnippets: true });
+  return (res.files || []).filter((f) => f.mimeType === FOLDER_MIME || PICKABLE(f.mimeType))
+    .sort((a, b) => (b.mimeType === FOLDER_MIME) - (a.mimeType === FOLDER_MIME)
+      || (a.mimeType === FOLDER_MIME ? String(a.title).localeCompare(String(b.title)) : String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || ''))));
+}
+async function openDrivePicker() {
+  SHEET.ctx = { kind: 'drive', stack: [], items: null, busy: 'Opening your Drive…' };
+  renderDrivePicker();
+  try {
+    const root = await driveRoot();
+    SHEET.ctx.stack = [root.id ? { id: root.id, title: root.title } : { id: 'root', title: 'My Drive' }];
+    await driveGo();
+  } catch (e) { SHEET.ctx.busy = null; SHEET.ctx.error = connError(e, DRIVE); renderDrivePicker(); }
+}
+async function driveGo(search) {
+  const c = SHEET.ctx;
+  c.busy = search ? 'Searching…' : 'Loading…'; c.error = null; c.search = search || null;
+  renderDrivePicker();
+  try {
+    c.items = await driveItems(search
+      ? `title contains '${qq(search)}' and (mimeType = '${FOLDER_MIME}' or mimeType contains 'image/' or mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document')`
+      : `parentId = '${qq(c.stack.at(-1).id)}'`);
+  } catch (e) { c.error = connError(e, DRIVE); c.items = []; }
+  if (SHEET.ctx !== c) return;
+  c.busy = null;
+  renderDrivePicker();
+}
+function renderDrivePicker() {
+  const c = SHEET.ctx;
+  const icon = (m) => (m === FOLDER_MIME ? '📁' : /^image\//.test(m) ? '🖼' : '📄');
+  openSheet(`<div class="sheet-h"><h2>Google Drive</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <form class="quickadd" id="dvForm" style="margin-bottom:10px"><input id="dvSearch" placeholder="Search your Drive" value="${esc(c.search || '')}" autocomplete="off">
+      <button class="btn" type="submit">Search</button></form>
+    <div class="row" style="margin-bottom:6px">
+      ${c.stack.length > 1 || c.search ? '<button class="btn ghost sm" data-act="dv-back">‹ Back</button>' : ''}
+      <div class="crumbs" style="margin:0">${c.search ? `Results for “${esc(c.search)}”` : c.stack.map((x) => esc(x.title)).join(' › ')}</div></div>
+    ${c.error ? `<div class="notice bad">${esc(c.error)}</div>` : ''}
+    ${c.busy ? `<div class="muted" style="padding:14px 4px">${esc(c.busy)}</div>`
+      : `<div class="drive-list">${(c.items || []).map((f, i) => `<button data-act="dv-open" data-i="${i}">
+          <span>${icon(f.mimeType)}</span><span style="overflow-wrap:anywhere">${esc(f.title)}</span>
+          <small>${f.mimeType === FOLDER_MIME ? '' : esc(fmtDay(String(f.modifiedTime || '').slice(0, 10) || nowISO()))}</small></button>`).join('')
+          || '<div class="empty" style="padding:12px">Nothing here you can add — photos, PDFs and Google Docs show up.</div>'}</div>`}`);
+}
+// The connector hands the file back as base64; where it puts it is not
+// documented, so look in the likely places.
+function driveBytes(r) {
+  const p = r?.payload ?? r?.structuredContent;
+  const pick = (o) => o && typeof o === 'object'
+    && ['content', 'data', 'base64Content', 'contents', 'bytes', 'blob', 'fileContent'].map((k) => o[k]).find((v) => typeof v === 'string' && v.length > 16);
+  let b64 = typeof p === 'string' ? p : pick(p) || pick(p?.file);
+  if (!b64) for (const b of r?.content || []) {
+    if (b.type === 'image' && b.data) { b64 = b.data; break; }
+    if (b.type === 'resource' && b.resource?.blob) { b64 = b.resource.blob; break; }
+    if (b.type === 'text' && /^[A-Za-z0-9+/=\s]{40,}$/.test(b.text || '')) { b64 = b.text; break; }
+  }
+  if (!b64) return null;
+  b64 = b64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+async function driveTake(f) {
+  const c = SHEET.ctx;
+  c.busy = `Getting “${f.title}”…`;
+  renderDrivePicker();
+  try {
+    const native = f.mimeType.startsWith('application/vnd.google-apps.');
+    const r = await APP.mcp.callTool(DRIVE, 'download_file_content',
+      { fileId: f.id, ...(native ? { exportMimeType: 'application/pdf' } : {}) }, { cache: false });
+    const bytes = driveBytes(r);
+    if (!bytes?.length) throw { code: 'tool_error', message: 'Google Drive sent the file back in a form this page cannot read.' };
+    const type = native ? 'application/pdf' : f.mimeType;
+    const name = native ? `${f.title}.pdf` : f.title;
+    const file = new File([bytes], name, { type });
+    closeSheet();
+    APP.tab = 'work';
+    await addFiles([file], { drive: { id: f.id, title: f.title, url: f.viewUrl || `https://drive.google.com/file/d/${f.id}/view`, mime: type } });
+  } catch (e) {
+    if (SHEET.ctx !== c) return;
+    c.busy = null; c.error = 'Could not get that file: ' + connError(e, DRIVE);
+    renderDrivePicker();
+  }
+}
+
 /* A tiny PDF writer: several photos become one file, one page per photo, the
    JPEG bytes embedded as they are. Keeps each piece of work to one Drive file. */
 async function jpegsToPdf(images) {
@@ -1480,11 +1722,14 @@ async function saveWork(noDrive = false) {
   w.stage = 'saving';
   let driveInfo = null;
   try {
-    if (!noDrive) {
+    if (!noDrive && allFromDrive(w)) {
+      const f = w.pages[0].drive;
+      driveInfo = { id: f.id, url: f.url, folder: 'your Drive', mime: f.mime };
+    } else if (!noDrive) {
       w.progress = 'Finding your Drive folder…'; render();
       const { id: folderId, path: parts } = await resolveDestination();
       w.progress = 'Uploading to Google Drive…'; render();
-      const files = await uploadsFor(w.pages);
+      const files = await uploadsFor(w.pages.filter((p) => !p.drive));
       const stamp = `${nowISO()} ${nowHM().replace(':', '.')}`;
       const results = [];
       for (const [i, f] of files.entries()) {
@@ -1848,20 +2093,52 @@ document.addEventListener('click', (e) => {
     case 'close': return closeSheet();
 
     /* today */
+    case 'day': APP.selDay = t.dataset.date === d.date ? null : t.dataset.date; return render();
     case 'choose': {
-      const sp = d.studyPeriods.find((s) => s.key === t.dataset.key);
+      const { date, key } = t.dataset;
+      const sp = studySlots(date).find((s) => s.key === key);
       const o = sp?.options[Number(t.dataset.i)];
-      if (o) send({ type: 'study.choose', date: d.date, key: sp.key, option: o });
+      if (!o) return;
+      // choosing for a period that is already over is logging it: ask how it went
+      const over = Boolean(t.closest('.slot')?.classList.contains('past'));
+      send({ type: 'study.choose', date, key, option: o });
+      if (over) doneSheet(date, key);
       return;
     }
-    case 'study-change': return send({ type: 'study.choose', date: d.date, key: t.dataset.key, option: null });
-    case 'study-done': return doneSheet(t.dataset.key);
+    case 'study-change': return send({ type: 'study.choose', date: t.dataset.date, key: t.dataset.key, option: null });
+    case 'study-done': return doneSheet(t.dataset.date, t.dataset.key);
+    case 'study-undo': return send({ type: 'study.undo', date: t.dataset.date, key: t.dataset.key });
+    case 'study-custom': return customSheet(t.dataset.date, t.dataset.key);
+    case 'custom-save': {
+      const c = SHEET.ctx, title = $('#cTitle')?.value.trim();
+      if (!title) return $('#cTitle')?.focus();
+      const sp = studySlots(c.date).find((s) => s.key === c.key);
+      const option = { id: newId('custom:'), kind: 'custom', title, why: 'your own plan', subjectId: $('#cSubj')?.value || null,
+        topicId: null, taskId: null, testId: null, mins: sp?.mins || 45 };
+      send({ type: 'study.choose', date: c.date, key: c.key, option });
+      if (c.past) return doneSheet(c.date, c.key);
+      return closeSheet();
+    }
+    case 'log-all': return logSheet();
+    case 'drive-pick': return openDrivePicker();
+    case 'dv-back': {
+      const c = SHEET.ctx;
+      if (c.search) return driveGo();
+      c.stack.pop();
+      return driveGo();
+    }
+    case 'dv-open': {
+      const c = SHEET.ctx, f = c.items?.[Number(t.dataset.i)];
+      if (!f) return;
+      if (f.mimeType === FOLDER_MIME) { c.stack.push({ id: f.id, title: f.title }); return driveGo(); }
+      return driveTake(f);
+    }
     case 'done-save': {
       const c = SHEET.ctx;
-      send({ type: 'study.done', date: d.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
-        confidence: c.conf ?? undefined, taskDone: Boolean($('#dTask')?.checked) });
+      send({ type: 'study.done', date: c.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
+        confidence: c.conf ?? undefined, note: $('#dNote')?.value.trim() || undefined, taskDone: Boolean($('#dTask')?.checked) });
       if ($('#dTask')?.checked) {
-        const o = d.studyPeriods.find((s) => s.key === c.key)?.chosen;
+        const o = studySlots(c.date).find((s) => s.key === c.key)?.chosen;
         if (o?.taskId) applyLocal({ type: 'task.done', taskId: o.taskId, done: true });
       }
       closeSheet(); return render();
@@ -1969,6 +2246,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   if (e.target.id === 'qaForm') quickAdd();
+  if (e.target.id === 'dvForm') { const q = $('#dvSearch')?.value.trim(); if (q) driveGo(q); else driveGo(); }
 });
 
 document.addEventListener('input', (e) => {
