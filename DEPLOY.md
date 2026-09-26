@@ -166,6 +166,26 @@ piece of work has — they stay together) and say what it is:
   goes to the Drive bin). Long PDFs are read in batches.
 - **Other** — marked straight away, or just filed, as before.
 
+**When this view can't show Claude pictures** (a claude.ai artifact in Safari on
+an iPad refuses them), saving is still all you do. The buttons become **Save —
+Claude reads it / reads them / marks it**: the work is filed in Drive as usual,
+its pages go to the dashboard as pictures (kept only until they are read), and
+the app starts a Claude Code session in the cloud — on your own Claude plan,
+with your connectors, in your Claude Code environment named like "School" (or
+your first cloud one). That session calls the dashboard's `read_queue` tool,
+looks at the pages, saves the notes' summary and key points, the worksheet's
+questions or the marking, and stops; the result appears in the app a minute or
+two later, and finished reader sessions are archived. It may use only the
+dashboard's own tools (`read_queue`, `get_today`, `get_attempt`,
+`apply_changes`); if Claude Code still asks for your OK, the app shows **Open the
+reader** so you can allow it. The app needs the built-in **Claude Code Remote**
+connector for this (allow it when Claude asks). Anything waiting shows under
+**With Claude** on the Work tab and in History, with **Try again** and ✕. Any
+Claude chat can read the same queue too: say "Read my notes". Work marked this
+way has its marks and corrections in History; there is no Corrections Doc in
+Drive for it. The view's refusal is remembered on that device; the Connection
+sheet has **Try pictures here again**.
+
 PDF pages are drawn in the page by pdf.js. The published artifact carries its
 own copy (`pdfjs/pdf.min.js` and `pdfjs/pdf.worker.min.js` from the
 `pdfjs-dist` 3.11.174 package, published beside the page); cdnjs and jsdelivr
@@ -189,7 +209,8 @@ What it costs and where things live:
   is never marked twice: the dashboard remembers every page it has marked.
 - Photos and PDFs live in your Google Drive, never in the database. The database
   holds the marks, and each marking's explanations — and each worksheet's
-  questions — as a separate small row.
+  questions — as a separate small row. Pages waiting for the background reader
+  are the exception: a picture per page, deleted once Claude has read them.
 - On Render's free plan the dashboard sleeps after 15 minutes; the app shows
   your last synced day at once and waits up to a minute for it to wake.
 - Changes made on the phone while the dashboard is open on your Mac are merged,

@@ -325,6 +325,9 @@ section.tab.on{display:block}
 .setup ol{padding-left:20px;margin:8px 0}
 .setup li{margin-bottom:6px}
 .setup code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+.readrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.readrow:first-of-type{border-top:0}
+.readnote details summary{cursor:pointer;font-size:13px;color:var(--text-2)}
 </style>
 
 <header class="top">
@@ -421,6 +424,9 @@ const APP = {
   tab: LS.get('tab', 'today'),
   transport: null, mode: 'connecting', status: { kind: 'busy', text: 'Connecting…' },
   mcp: null, sample: null, limits: null, fileArgs: false,
+  imagesOff: LS.get('imagesOff', false),   // this view refused pictures before: remembered on this device
+  reading: {},            // request id -> pages being sent for Claude, this visit
+  reader: LS.get('reader', null), readerError: null,  // the Claude Code session reading them
   work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick'),
     mode: LS.get('workMode', 'worksheet'), worksheetId: '' },
   history: { view: 'mistakes', subject: '' },
@@ -491,6 +497,12 @@ const TRANSPORT = {
 
 /* Connector failures each have their own fix, so each gets its own words. */
 function connError(e, server = DASH) {
+  if (server === REMOTE) {
+    if (['server_not_connected', 'server_not_found', 'not_in_manifest', 'blocked_by_policy', 'approval_required'].includes(e?.code)) {
+      return 'Claude Code is not available to this page. Allow it when Claude asks, or check that Claude Code is on for your account.';
+    }
+    if (e?.code === 'tool_error') return (e.message || 'Claude Code reported an error.').replace(/^Error:\s*/, '');
+  }
   const s = server === DASH ? 'the A Level Dashboard connector' : 'your Google Drive connector';
   switch (e?.code) {
     case 'signin': return e.message;
@@ -571,6 +583,7 @@ function refresh() {
       LS.set('data', d); LS.set('syncedAt', APP.syncedAt);
       for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
       setStatus('ok');
+      watchReader().catch(() => {});
     } catch (e) {
       const setup = await dashboardMissing(e);
       if (setup) setStatus('setup', setup);
@@ -631,6 +644,12 @@ const LOCAL = {
     const from = op.done === false ? d.done : d.tasks, to = op.done === false ? d.tasks : d.done;
     const i = from.findIndex((x) => x.id === op.taskId);
     if (i >= 0) { const [t] = from.splice(i, 1); t.done = op.done !== false; to.unshift(t); }
+  },
+  'read.cancel': (d, op) => {
+    if (d.reading) {
+      d.reading.queue = (d.reading.queue || []).filter((x) => x.id !== op.requestId);
+      d.reading.log = (d.reading.log || []).filter((x) => x.id !== op.requestId);
+    }
   },
   'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
   'pack.delete': (d, op) => {
@@ -1234,6 +1253,7 @@ function viewWork() {
 
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
   return `<div class="stack">
+    ${w.pages.length ? '' : readingPanel()}
     ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. Photograph your answer pages —
       as many as you need — then tap <b>Mark my answers</b>.</div>` : ''}
     <div class="card">
@@ -1269,14 +1289,17 @@ function workForm(w, canMark) {
     <div class="seg" id="wTier"><button type="button" data-tier="quick" aria-pressed="${w.tier !== 'careful'}">Fast</button><button type="button" data-tier="careful" aria-pressed="${w.tier === 'careful'}">Careful</button></div>
     <span class="muted" style="font-size:12.5px">${w.tier === 'careful' ? 'Uses more of your Claude plan; better on long proofs and diagrams.' : 'Cheapest; fine for most work.'}</span></div>`;
   const clear = '<span class="spacer"></span><button class="btn ghost sm" data-act="work-reset">Clear</button>';
+  // no pictures to Claude in this view: save, and Claude reads it from the pages on the dashboard
+  const later = !canMark && readable(w) && !w.preparing;
   let body;
   if (w.mode === 'worksheet') {
     body = `${subj}${tier}
       <div class="muted" style="font-size:13px">Claude reads the questions and finds the subject and topic. You check it all before it is saved,
         in its own folder inside the topic's folder in Drive.</div>
       ${alreadyNotice(w)}
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read worksheet</button>
-        <button class="btn" data-act="work-file-only">Save without reading</button>${clear}</div>`;
+      <div class="row">${later ? '<button class="btn primary" data-act="work-file-only">Save — Claude reads it</button>'
+        : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read worksheet</button>
+        <button class="btn" data-act="work-file-only">Save without reading</button>`}${clear}</div>`;
   } else if (w.mode === 'answers') {
     const list = answerable();
     if (list.length && !worksheetOf(w.worksheetId)) w.worksheetId = list[0].id;
@@ -1284,19 +1307,22 @@ function workForm(w, canMark) {
       ${tier}
       <div class="muted" style="font-size:13px">Claude marks each answer against the worksheet's questions. The answers and the corrections are saved in the worksheet's folder.</div>
       ${alreadyNotice(w)}
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark my answers</button>${clear}</div>`
+      <div class="row">${later ? '<button class="btn primary" data-act="work-mark-later">Save — Claude marks it</button>'
+        : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark my answers</button>`}${clear}</div>`
       : `<div class="notice">No saved worksheets yet. Save the worksheet first — choose <b>Worksheet</b> above — or choose <b>Other</b> to mark this straight away.</div>`;
   } else if (w.mode === 'notes') {
     const upd = w.match?.status === 'ready' && w.update ? w.match : null;
     body = upd ? `<div class="muted" style="font-size:13px">Claude reads ${esc(pagesLabel(readUnits(w)))} and adds what is new to
         <b>${esc(upd.note.title)}</b>. The new file replaces the old copy in Drive.</div>
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read the new pages</button>
-        <button class="btn" data-act="nb-file">File the new version</button>${clear}</div>`
+      <div class="row">${later ? '<button class="btn primary" data-act="nb-file">Save — Claude reads the new pages</button>'
+        : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read the new pages</button>
+        <button class="btn" data-act="nb-file">File the new version</button>`}${clear}</div>`
       : `${subj}
       <div class="muted" style="font-size:13px">Claude reads them for the subject, the topic and the key points. They are filed in the topic's folder and kept under Notes in History.
         ${pageUnits(w).length > readLimit() ? ` A long notebook is read ${readLimit()} pages at most.` : ''}</div>
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read notes</button>
-        <button class="btn" data-act="work-file-only">Just file them</button>${clear}</div>`;
+      <div class="row">${later ? '<button class="btn primary" data-act="work-file-only">Save — Claude reads them</button>'
+        : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read notes</button>
+        <button class="btn" data-act="work-file-only">Just file them</button>`}${clear}</div>`;
   } else {
     const openTasks = (APP.data?.tasks || []).filter((t) => !w.hint.subjectId || t.subjectId === w.hint.subjectId);
     body = `<div class="fields two">${subj}
@@ -1304,16 +1330,14 @@ function workForm(w, canMark) {
           ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === w.hint.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
       </div>${tier}
       ${alreadyNotice(w)}
-      <div class="row"><button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark it and file it</button>
+      <div class="row">${later ? '<button class="btn primary" data-act="work-mark-later">Save — Claude marks it</button>'
+        : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Mark it and file it</button>`}
         <button class="btn" data-act="work-file-only">Just file it</button>${clear}</div>`;
   }
   // why Claude cannot read this, said where the greyed-out button is
   const broken = w.pages.filter((p) => p.error);
-  const later = { notes: w.update && w.match?.status === 'ready' ? 'Tap File the new version' : 'Tap Just file them', worksheet: 'Tap Save without reading' }[w.mode];
-  const why = !canMark ? (APP.sample ? `Claude said this view cannot take pictures, so it can't read or mark here. ${later
-      ? `${later}: it is filed now, and you get a message to have Claude read it in a chat.`
-      : 'Mark it in a Claude chat instead: tap Mark it in a chat below.'}`
-    : 'Claude is not available in this view, so reading and marking are off. Filing still works.')
+  const why = !canMark ? (readable(w) ? 'This view can\'t show Claude pictures, so Claude reads it after you save: it is filed in Drive, and its pages wait on your dashboard for Claude.'
+    : 'Claude can\'t see these pages here. They can still be filed.')
     : broken.length ? broken.map((p) => `Couldn't open “${p.name}” here: ${p.error}. It can still be filed, but Claude can't read it.`).join(' ')
     : w.preparing ? w.preparing + '…' : '';
   return `<div class="card"><div class="fields">
@@ -1323,7 +1347,6 @@ function workForm(w, canMark) {
     ${body}
     ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
     ${why ? `<div class="${broken.length || !canMark ? 'notice bad' : 'muted'}" style="font-size:13px">${esc(why)}</div>` : ''}
-    ${!canMark && APP.sample && ['answers', 'other'].includes(w.mode) ? '<div class="row"><button class="btn" data-act="chat-mark">Mark it in a chat</button></div>' : ''}
   </div></div>`;
 }
 
@@ -1523,7 +1546,7 @@ function sheetReviewView() {
           <div class="q-edit"><input type="number" min="0" step="0.5" value="${esc(q.maxMarks)}" data-qf="maxMarks" data-i="${i}" aria-label="Marks">
             <span class="muted">marks</span>${topicSelect(q, i, r.subjectId)}</div></div></div>`).join('')}</div>
       ${r.summary ? `<p style="margin:12px 0 0;color:var(--text-2)">${esc(r.summary)}</p>` : ''}
-    </div>` : `<div class="notice">No questions were read, so it is saved as it is. When you add your answers, Claude looks at the sheet itself.</div>`}
+    </div>` : `<div class="notice">No questions were read yet. After saving, its pages wait on your dashboard for Claude to read the questions.</div>`}
     ${errorBlock(w)}
     ${reviewButtons('Save worksheet')}
   </div>`;
@@ -1541,7 +1564,7 @@ function notesReviewView() {
       ${into && r.newPoints?.length ? `<div class="notice" style="margin-bottom:10px"><b>New from these pages:</b>
         <ul style="margin:6px 0 0;padding-left:18px">${r.newPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
         : into && r.readLabel ? '<div class="notice" style="margin-bottom:10px">Claude found nothing new to add to the key points. Check the summary below.</div>'
-        : into ? `<div class="notice" style="margin-bottom:10px">Filing only: Claude hasn't read ${esc(r.unreadLabel || 'the new pages')} yet. After saving you get a message to have it read them in a chat.</div>` : ''}
+        : into ? `<div class="notice" style="margin-bottom:10px">Claude hasn't read ${esc(r.unreadLabel || 'the new pages')} yet. After saving, those pages wait on your dashboard for Claude to read.</div>` : ''}
       <div class="fields">
         <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
         <label class="field"><span>Subject</span><select id="rSubj">${subjectOptions(r.subjectId)}</select></label>
@@ -1602,7 +1625,7 @@ function markReviewView() {
       ${r.summary ? `<p style="margin:12px 0 0;color:var(--text-2)">${esc(r.summary)}</p>` : ''}
     </div>` : ''}
     ${errorBlock(w)}
-    ${reviewButtons(ws ? 'Save answers' : 'Save')}
+    ${reviewButtons(r.markLater ? 'Save — Claude marks it' : ws ? 'Save answers' : 'Save')}
   </div>`;
 }
 const fmtN = (n) => (Number.isInteger(Number(n)) ? String(Number(n)) : Number(n).toFixed(1));
@@ -1628,7 +1651,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.questions ? `${s.questions} question${s.questions === 1 ? '' : 's'}` : 'questions not read'}${filed}</div>
       <p style="color:var(--text-2);margin:12px 0 0">When will you do it? Plan it into a study period — a school one, or a session of your own at the weekend.
         When you have done it, add your answers and Claude marks them.</p>
-      ${s.chat ? chatCard(s.chat, 'its questions') : ''}
+      ${readingCard(s, 'its questions')}
       <div class="row" style="margin-top:14px">
         <button class="btn primary" data-act="ws-plan" data-id="${esc(s.worksheetId)}">Plan into a study period</button>
         <button class="btn" data-act="ws-answers" data-id="${esc(s.worksheetId)}">Add my answers now</button>
@@ -1643,7 +1666,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.pages} page${s.pages === 1 ? '' : 's'}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<div class="eyebrow">Added</div><ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${s.chat ? chatCard(s.chat, 'the new pages') : ''}
+      ${readingCard(s, 'the new pages')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         <button class="btn" data-act="open-note" data-id="${esc(s.noteId)}">See all the notes</button>
@@ -1658,10 +1681,23 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.topicIds?.length ? ' · ' + s.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${s.chat ? chatCard(s.chat, 'your notes') : ''}
+      ${readingCard(s, 'your notes')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+        <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
+      </div></div>`;
+  }
+  if (s.mode === 'marklater') {
+    return `<div class="card">
+      <div class="eyebrow">Saved · for Claude to mark</div>
+      <h2 style="font-size:17px;margin-top:2px">${esc(s.title)}</h2>
+      <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${filed}</div>
+      <p style="color:var(--text-2);margin:12px 0 0">Claude marks it from the pages; the marks, your mistakes and the corrections then show up in History${s.worksheetId ? ', under the worksheet' : ''}.</p>
+      ${readingCard(s, 'and mark it')}
+      <div class="row" style="margin-top:14px">
+        ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
+        ${s.worksheetId ? `<button class="btn ghost" data-act="open-ws" data-id="${esc(s.worksheetId)}">The worksheet</button>` : ''}
         <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
       </div></div>`;
   }
@@ -1692,25 +1728,29 @@ function savedView(s) {
    the same connector, so the work is filed here and read there: this is the
    message to paste into a chat, with the file attached. */
 const chatOpId = () => newId('chat');
+// x.via === 'queue': for the reader — the pages are pictures from read_queue, not an attachment
 function chatAsk(kind, x) {
   const conn = `the "${DASH}" connector`;
   const topics = 'topic ids from get_today, detail full';
+  const q = x.via === 'queue';
   if (kind === 'notes') {
     const so = x.keyPoints?.length ? `\nThe saved notes say: ${x.summary || '(no summary yet)'}\nKey points so far:\n${x.keyPoints.map((k) => '- ' + k).join('\n')}` : '';
-    return `I've attached my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}notes "${x.title}" (${x.pages} page${x.pages === 1 ? '' : 's'}).${x.label ? ` Only ${x.label} are new or changed since you last read them — read those.` : ' Please read them.'}${so}
+    const what = `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}notes "${x.title}"`;
+    return `${q ? `These pictures are pages of ${what}` : `I've attached ${what} (${x.pages} page${x.pages === 1 ? '' : 's'})`}.${x.label ? ` Only ${x.label} are new or changed since you last read them — read those.` : ' Please read them.'}${so}
 
 Then save what they cover to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
-{"id": "${chatOpId()}", "type": "notes.update", "attachmentId": "${x.id}", "patch": {"title": "<a short name>", "subjectId": "${x.subjectId || '<maths|fmaths|physics|cs|german>'}", "topicIds": ["<${topics}>"], "summary": "<what the whole notebook covers, up to three sentences>", "keyPoints": [${x.keyPoints?.length ? '<the key points above, then up to 6 new ones from these pages>' : '<up to 8 key facts, formulas or methods>'}]}}
-Then tell me the summary and the key points.`;
+{"id": "${chatOpId()}", "type": "notes.update", "attachmentId": "${x.id}", "patch": {"title": "<a short name>", "subjectId": "${x.subjectId || '<maths|fmaths|physics|cs|german>'}", "topicIds": ["<${topics}>"], "summary": "<what the whole notebook covers, up to three sentences>", "keyPoints": [${x.keyPoints?.length ? '<the key points above, then up to 6 new ones from these pages>' : '<up to 8 key facts, formulas or methods>'}]}}${q ? '' : '\nThen tell me the summary and the key points.'}`;
   }
   if (kind === 'worksheet') {
-    return `I've attached a worksheet, "${x.title}"${x.subjectId ? ` (${subjectName(x.subjectId)})` : ''}. Please read every question on it and save them to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
-{"id": "${chatOpId()}", "type": "worksheet.update", "worksheetId": "${x.id}", "patch": {"title": "<the title on the sheet>", "topicIds": ["<${topics}>"]}, "questions": [{"q": "1a", "text": "<the question, at most 200 characters>", "maxMarks": 3, "topicId": "<topic id>"}]}
-Then list the questions for me.`;
+    return `${q ? 'These pictures are' : "I've attached"} a worksheet, "${x.title}"${x.subjectId ? ` (${subjectName(x.subjectId)})` : ''}. Please read every question on it and save them to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
+{"id": "${chatOpId()}", "type": "worksheet.update", "worksheetId": "${x.id}", "patch": {"title": "<the title on the sheet>", "topicIds": ["<${topics}>"]}, "questions": [{"q": "1a", "text": "<the question, at most 200 characters>", "maxMarks": 3, "topicId": "<topic id>"}]}${q ? '' : '\nThen list the questions for me.'}`;
   }
   const ws = x.worksheet;
-  return `I've attached ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. Show me the marking, then save it with apply_changes on ${conn} —
-{"id": "${chatOpId()}", "type": "work.save", "attachment": {"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
+  const a = x.attachment;
+  const attachment = a ? JSON.stringify({ ...a, topicIds: [`<${topics}>`] })
+    : `{"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}`;
+  return `${q ? 'These pictures are' : "I've attached"} ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. ${q ? 'Then save' : 'Show me the marking, then save'} it with apply_changes on ${conn} —
+{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
 }
 function chatCard(text, what = 'it') {
   return `<div class="card chatcard">
@@ -1727,6 +1767,261 @@ function chatCard(text, what = 'it') {
 function chatSheet(text, what) {
   SHEET.ctx = { kind: 'chat' };
   openSheet(`<div class="sheet-h"><h2>Read in a chat</h2><button class="btn ghost sm" data-act="close">Close</button></div>${chatCard(text, what)}`);
+}
+
+/* ------------------------------------------------ pages for Claude
+   Where this view cannot show Claude pictures (Safari on an iPad), the work is
+   filed in Drive as usual and its pages go to the dashboard as pictures,
+   waiting for Claude: any Claude chat with the dashboard connector sees them
+   through read_queue ("Read my notes") and saves what it finds, and it shows
+   up here by itself. */
+const QUEUE_PAGES = { notes: 40, worksheet: 20, mark: 20 };
+const REMOTE = 'Claude Code Remote';
+const READ_PHRASE = 'Read my notes and work waiting in the A Level Companion';
+const readingNow = () => Object.values(APP.reading).some((x) => x.state === 'sending');
+const waitingList = () => APP.data?.reading?.queue || [];
+const readingActive = () => waitingList().length > 0 || readingNow();
+
+// A page as a picture small enough for one call (about 1 MB, or 16 MB as a file).
+async function queuePicture(u) {
+  let blob = (await imagesFor([u]))[0];
+  const cap = APP.fileArgs ? 3e6 : 6e5;
+  for (let px = 1.2e6; blob.size > cap && px >= 2e5; px /= 2) {
+    const d = await downscale(blob, px);
+    URL.revokeObjectURL(d.url);
+    blob = d.blob;
+  }
+  return blob;
+}
+async function dashOp(op) {
+  const res = await dash('apply_changes', { ops: [{ id: newId('op'), ...op }], date: nowISO(), time: nowHM() });
+  const r0 = res?.results?.[0];
+  if (!r0?.ok) throw { code: 'tool_error', message: r0?.error || 'The dashboard did not take it.' };
+  return r0;
+}
+// Saved: now hand it to Claude. `saved.queue` says what it is and which pages.
+function startQueue(saved) {
+  if (!saved.queue || !APP.mcp || APP.mode !== 'claude') return;
+  saved.readId ||= newId('r');
+  queueReading(saved.readId, saved.queue);
+}
+async function queueReading(id, { kind, x, units }) {
+  const local = APP.reading[id] = { id, kind, title: x.title, sent: 0, total: units.length, state: 'sending' };
+  render();
+  const held = [...new Set(units.map((u) => u.p))];
+  held.forEach((p) => { p.busy = (p.busy || 0) + 1; });
+  try {
+    // the pictures first: the PDF is closed once you move on
+    const pics = [];
+    try {
+      for (const [i, u] of units.entries()) pics.push({ blob: await queuePicture(u), label: u.n ? `p. ${u.n}` : `photo ${i + 1}` });
+    } finally {
+      held.forEach((p) => { if (!--p.busy && p.dropped) { try { p.doc?.destroy(); } catch { /* gone */ } } });
+    }
+    if (!pics.length) throw { code: 'tool_error', message: 'No pages could be drawn from this file, so Claude has nothing to look at.' };
+    local.total = pics.length;
+    await dashOp({ type: 'read.request', request: { id, kind, title: x.title, subjectId: x.subjectId || null, targetId: x.targetId || null,
+      date: nowISO(), files: x.files || [], pages: x.label || '', ask: chatAsk(kind, { ...x, via: 'queue' }) } });
+    let asFile = APP.fileArgs;
+    for (const [n, pic] of pics.entries()) {
+      const op = { type: 'read.page', requestId: id, n, label: pic.label, mime: 'image/jpeg' };
+      try {
+        await dashOp({ ...op, data: asFile ? { $file: { data: pic.blob, name: `page-${n + 1}.jpg`, type: 'image/jpeg' } } : await toBase64(pic.blob) });
+      } catch (e) {
+        if (!asFile || pic.blob.size > 7e5) throw e;
+        asFile = false;                          // this view's file route failed: send it inline
+        await dashOp({ ...op, data: await toBase64(pic.blob) });
+      }
+      local.sent = n + 1;
+      render();
+    }
+    local.state = 'queued';
+    render();
+    await startReader(x.title).catch((e) => { APP.readerError = e?.code === 'tool_error' ? e.message : connError(e, REMOTE); });
+    refresh();
+  } catch (e) {
+    local.state = 'failed';
+    local.error = e?.code === 'tool_error' ? e.message : connError(e);
+    render();
+  }
+}
+
+
+/* Reading it without you: once the pages are on the dashboard, the app starts
+   a Claude Code session in the cloud — on your own Claude plan, with your
+   connectors — which reads them through read_queue and saves what it finds.
+   It may use only the dashboard's own tools; anything else it would have to
+   ask you for, and then the app shows a button to open it and say yes. */
+const toolName = (server, tool) => `mcp__${server.replace(/[^A-Za-z0-9_-]+/g, '_')}__${tool}`;
+async function remote(tool, input) {
+  const r = await APP.mcp.callTool(REMOTE, tool, input, { cache: false });
+  const p = r?.payload ?? r?.structuredContent;
+  return p?.ccr || p || {};
+}
+function readerPrompt() {
+  return `You are the A Level Companion's reader, started by the student's app just now. Work the student filed is waiting on their "${DASH}" connector, with its pages as pictures. Nobody is watching this session: don't ask questions, don't plan, and don't touch files or run commands.
+
+1. Call read_queue on the ${DASH} connector (find it with ToolSearch if its tools are deferred). It gives the oldest waiting request: its instructions (ask) and its pages as pictures, a few at a time — call it again with "next" until you have seen every page. If nothing is waiting, stop. If an answer is too big, ask for fewer pages with "limit": 1.
+2. Read the pages carefully — handwriting, maths, diagrams — and do what ask says. It ends with the apply_changes op to send: fill it in and keep its id. For topic ids, call get_today with detail "full" once. Send that op together with {"id": "<requestId>-done", "type": "read.done", "requestId": "<requestId>", "result": "<one short sentence on what you saved>"} in ONE apply_changes call, with "date" from the request. If an op comes back not ok, correct it from the error and send it once more.
+3. If you can't read it, send only {"id": "<requestId>-failed", "type": "read.done", "requestId": "<requestId>", "error": "<one sentence for the student on what went wrong>"}.
+4. Call read_queue again and repeat until nothing is waiting, then stop with one short line.
+
+Only send the ops the requests give you and read.done. Never delete or change anything else.`;
+}
+const readerTools = () => ['read_queue', 'get_today', 'get_attempt', 'apply_changes'].map((t) => toolName(DASH, t));
+// Which of your Claude Code cloud environments it runs in: one named for school if there is one.
+async function readerEnv() {
+  const saved = LS.get('readerEnv', null);
+  if (saved?.id) return saved.id;
+  const p = await remote('list_environments', { limit: 100 });
+  const envs = (p.environments || []).filter((e) => e.kind === 'anthropic_cloud' && e.state !== 'deleted');
+  const pick = envs.find((e) => /school|a.?level|study|revision/i.test(e.name || '')) || envs[0];
+  if (!pick) throw { code: 'tool_error', message: 'You have no Claude Code cloud environment yet. Open claude.ai/code once to make one, then try again.' };
+  LS.set('readerEnv', { id: pick.environment_id, name: pick.name || '' });
+  return pick.environment_id;
+}
+function sessionState(s) {
+  const b = `${s?.status_bucket || ''} ${s?.session_status || ''}`;
+  if (/BLOCKED/.test(b)) return 'blocked';
+  if (/FAILED/.test(b)) return 'failed';
+  if (/ARCHIVED/.test(b)) return 'done';
+  if (/WORKING|PENDING|RUNNING/.test(b)) return 'working';
+  return 'done';
+}
+// One reader at a time: a running one also reads what arrives while it works.
+async function startReader(why) {
+  const cur = APP.reader;
+  if (cur?.id && Date.now() - (cur.at || 0) < 20 * 60e3) {
+    const s = await remote('get_session', { session_id: cur.id }).catch(() => null);
+    if (s && ['working', 'blocked'].includes(sessionState(s))) return cur;
+  }
+  let s;
+  try {
+    s = await remote('create_session', { environment_id: await readerEnv(), title: ('A Level reader · ' + why).slice(0, 120),
+      prompt: readerPrompt(), extra_allowed_tools: readerTools(), tags: ['a-level-reader'] });
+  } catch (e) {
+    throw { ...e, server: REMOTE };
+  }
+  if (!s?.id) throw { code: 'tool_error', message: 'Claude Code did not start the reader. Try again in a minute.' };
+  APP.reader = { id: s.id, at: Date.now(), status: 'working' };
+  APP.readerError = null;
+  LS.set('reader', APP.reader);
+  LS.set('readers', [...LS.get('readers', []).filter((x) => x !== s.id), s.id].slice(-20));
+  render();
+  return APP.reader;
+}
+// After every sync while anything is waiting: follow the reader; start one when
+// work waits and nothing is reading it (the app was closed, or the reader
+// finished just before it arrived) — twice at most per piece of work — and
+// archive finished readers so your Claude Code list stays yours.
+let watchedAt = 0;
+async function watchReader() {
+  if (!APP.mcp || APP.mode !== 'claude' || Date.now() - watchedAt < 20e3) return;
+  const q = waitingList(), r = APP.reader;
+  if (!q.length && r?.status !== 'working' && !LS.get('readers', []).length) return;
+  watchedAt = Date.now();
+  try {
+    if (r?.id && (q.length || r.status !== 'done')) {
+      const s = await remote('get_session', { session_id: r.id }).catch(() => null);
+      if (s) { r.status = sessionState(s); LS.set('reader', r); }
+    }
+    const busy = ['working', 'blocked'].includes(APP.reader?.status);
+    if (q.length && !busy && !readingNow()) {
+      const tries = LS.get('readTries', {});
+      const due = q.filter((x) => x.pageCount > 0 && (tries[x.id] || 0) < 2);
+      if (due.length) {
+        for (const x of due) tries[x.id] = (tries[x.id] || 0) + 1;
+        LS.set('readTries', tries);
+        await startReader(due[0].title).catch((e) => { APP.readerError = connError(e, REMOTE); });
+      }
+    }
+    if (!q.length && !busy) {
+      for (const id of LS.get('readers', []).slice(0, 4)) {
+        const s = await remote('get_session', { session_id: id }).catch(() => null);
+        if (s && sessionState(s) !== 'done') continue;
+        await remote('archive_session', { session_id: id }).catch(() => null);
+        LS.set('readers', LS.get('readers', []).filter((x) => x !== id));
+      }
+    }
+  } finally {
+    render();
+  }
+}
+const readerLink = () => (APP.reader?.id ? `<a class="btn sm" href="https://claude.ai/code/${esc(APP.reader.id)}" target="_blank" rel="noopener">Open the reader</a>` : '');
+
+// Where one piece of work is with Claude.
+function readState(id) {
+  const local = APP.reading[id];
+  const l = (APP.data?.reading?.log || []).find((x) => x.id === id);
+  if (l) return l.ok ? { k: 'done', text: l.result || 'Claude has read it.' } : { k: 'failed', text: l.error || 'Claude could not read it.', retry: l.retry };
+  if (local?.state === 'failed') return { k: 'failed', text: local.error, again: true };
+  if (local?.state === 'sending') return { k: 'sending', text: `Getting the pages ready for Claude… ${local.sent} of ${local.total}` };
+  if (waitingList().some((x) => x.id === id) || local?.state === 'queued') {
+    if (APP.reader?.status === 'blocked') return { k: 'blocked', text: 'Claude needs your OK to carry on. Open the reader and allow it — once is enough.' };
+    if (APP.readerError) return { k: 'waiting', text: `Claude couldn't be started to read it (${APP.readerError}).` };
+    if (APP.reader?.status === 'working') return { k: 'reading', text: 'Claude is reading it now. It usually takes a minute or two; you can close the app — it saves by itself.' };
+    return { k: 'waiting', text: 'Ready for Claude.' };
+  }
+  return { k: 'none' };
+}
+const askClaudeRow = () => `<div class="row" style="margin-top:8px">
+  <a class="btn sm primary" href="https://claude.ai/new?q=${encodeURIComponent(READ_PHRASE)}" target="_blank" rel="noopener">Ask Claude to read it</a>
+  <span class="muted" style="font-size:12.5px">or say “Read my notes” in any Claude chat</span></div>`;
+function readingCard(s, what = 'it') {
+  if (!s.readId) return s.chat ? chatCard(s.chat, what) : '';
+  const st = readState(s.readId);
+  if (st.k === 'none') return '';
+  const icon = { sending: '⏳', reading: '👀', waiting: '⏸', blocked: '✋', done: '✓', failed: '!' }[st.k];
+  return `<div class="notice ${st.k === 'failed' ? 'bad' : ''} readnote" style="margin-top:12px"><b>${icon}</b> ${esc(st.text)}
+    ${st.k === 'blocked' ? `<div class="row" style="margin-top:8px">${readerLink()}</div>` : ''}
+    ${st.k === 'waiting' ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>${askClaudeRow()}` : ''}
+    ${st.k === 'done' && s.noteId ? '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-note" data-id="' + esc(s.noteId) + '">See what Claude saved</button></div>' : ''}
+    ${st.k === 'done' && s.worksheetId && s.mode === 'worksheet' ? '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="open-ws" data-id="' + esc(s.worksheetId) + '">See the questions</button></div>' : ''}
+    ${st.k === 'failed' ? `<div class="row" style="margin-top:8px">
+      ${st.retry ? `<button class="btn sm" data-act="read-retry" data-id="${esc(s.readId)}">Try again</button>` : ''}
+      ${st.again ? '<button class="btn sm" data-act="read-again">Try again</button>' : ''}</div>
+      ${s.chat ? `<details style="margin-top:8px"><summary>Or read it in a chat with the file attached</summary>${chatCard(s.chat, what)}</details>` : ''}` : ''}
+  </div>`;
+}
+// Everything waiting for Claude, on the Work tab and in History.
+function readingPanel() {
+  const q = waitingList();
+  const failed = (APP.data?.reading?.log || []).filter((l) => !l.ok && l.retry);
+  const sending = Object.values(APP.reading).filter((x) => x.state === 'sending' || (x.state === 'failed' && !q.some((r) => r.id === x.id)));
+  if (!q.length && !failed.length && !sending.length) return '';
+  const KIND = { notes: 'notes', worksheet: 'worksheet', mark: 'to mark', check: 'check' };
+  const row = (title, kind, right) => `<div class="readrow"><span><b>${esc(title)}</b> <span class="muted">· ${esc(KIND[kind] || kind)}</span></span>${right}</div>`;
+  const st = APP.reader?.status === 'blocked' ? `<div class="notice" style="margin:8px 0">✋ Claude needs your OK to carry on. ${readerLink()}</div>`
+    : APP.readerError ? `<div class="notice bad" style="margin:8px 0">Claude couldn't be started: ${esc(APP.readerError)}
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="read-start">Try again</button></div></div>`
+    : APP.reader?.status === 'working' && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">👀 Claude is reading these now.</div>' : '';
+  return `<div class="card"><div class="card-h"><h2>With Claude</h2><span class="count">${q.length + sending.length}</span></div>${st}
+    ${sending.map((x) => row(x.title, x.kind, x.state === 'failed' ? `<span class="late" style="font-size:12.5px">${esc(x.error || 'not sent')}</span>` : `<span class="muted" style="font-size:12.5px">sending ${x.sent}/${x.total}</span>`)).join('')}
+    ${q.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="muted" style="font-size:12.5px">${x.pageCount} p.</span>
+      <button class="btn ghost sm" data-act="read-cancel" data-id="${esc(x.id)}" aria-label="Remove">✕</button></span>`)).join('')}
+    ${failed.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="late" style="font-size:12.5px">${esc(x.error || 'not read')}</span>
+      <button class="btn sm" data-act="read-retry" data-id="${esc(x.id)}">Try again</button>
+      <button class="btn ghost sm" data-act="read-cancel" data-id="${esc(x.id)}" aria-label="Remove">✕</button></span>`)).join('')}
+    ${q.length && !['working', 'blocked'].includes(APP.reader?.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>` : ''}
+  </div>`;
+}
+async function retryReading(id) {
+  try {
+    await dashOp({ type: 'read.retry', requestId: id });
+    const tries = LS.get('readTries', {});
+    delete tries[id];
+    LS.set('readTries', tries);
+    await startReader('again');
+    toast('Claude is reading it again.');
+    refresh();
+  } catch (e) {
+    toast(e?.code === 'tool_error' ? e.message : connError(e, e?.server || DASH));
+  }
+}
+async function startReaderNow() {
+  APP.readerError = null;
+  try { await startReader('waiting work'); toast('Claude is reading it now.'); } catch (e) { APP.readerError = e?.code === 'tool_error' ? e.message : connError(e, REMOTE); }
+  render();
 }
 
 // Put a worksheet into a study period: any one in the next fortnight that is not done yet.
@@ -2316,7 +2611,7 @@ async function analyse(force = false) {
     w.stage = 'idle';
     // Claude's own errors read one way; the dashboard or Drive failing on the way reads another
     w.error = !e?.code || SAMPLE_CODES.has(e.code) ? sampleError(e) : connError(e);
-    if (e?.code === 'images_unavailable') { APP.imagesOff = true; w.error = null; }   // said below the button instead
+    if (e?.code === 'images_unavailable') { APP.imagesOff = true; LS.set('imagesOff', true); w.error = null; }   // said below the button instead
     if (e?.code === 'image_rejected' && perCall() > 1) {
       APP.perCallCap = Math.max(1, Math.floor(perCall() / 2));
       w.error = `Claude took too many pages at once here. Tap Read again — it now sends ${APP.perCallCap} at a time.`;
@@ -2332,12 +2627,16 @@ function startReview(a) {
   planDestination();
 }
 // Save it without Claude reading it: you fill in what it is.
-function fileOnly() {
+// markLater: filed now, and Claude marks it from the pages afterwards.
+function fileOnly(markLater = false) {
   readWorkForm();
   const w = APP.work;
-  const mode = w.mode === 'answers' ? 'other' : w.mode;
-  w.review = { mode, subjectId: w.hint.subjectId, topicIds: [], homeworkId: mode === 'other' ? w.hint.homeworkId : '',
-    kind: mode === 'worksheet' ? 'worksheet' : 'notes', title: defaultTitle(), questions: [], summary: '', keyPoints: [], nextSteps: [], detected: null };
+  const ws = markLater && w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
+  const mode = ws ? 'answers' : w.mode === 'answers' ? 'other' : w.mode;
+  w.review = { mode, markLater, worksheetId: ws?.id || '', subjectId: w.hint.subjectId || ws?.subjectId || '', topicIds: [...(ws?.topicIds || [])],
+    homeworkId: mode === 'other' ? w.hint.homeworkId : '',
+    kind: mode === 'worksheet' ? 'worksheet' : markLater ? 'answers' : 'notes', title: ws ? 'Answers — ' + ws.title : defaultTitle(),
+    questions: [], summary: '', keyPoints: [], nextSteps: [], detected: null };
   w.stage = 'review';
   w.dest = null;
   render();
@@ -2742,6 +3041,21 @@ async function saveWork(noDrive = false) {
   const pages = pageUnits(w).length || w.pages.length;
   const sigs = unitSigs(w);
   const ownCopy = Boolean(info?.folderId);            // uploaded by this app, not a file picked from Drive
+  if (r.markLater) {
+    // filed now, marked by Claude from the pages: it saves the attempt itself
+    const subjectId = r.subjectId || ws?.subjectId || null;
+    const attachment = { id: newId('f'), title: r.title, subjectId, homeworkId: r.homeworkId || null,
+      kind: ws ? 'answers' : ['answers', 'test'].includes(r.kind) ? r.kind : 'answers', worksheetId: ws?.id || null,
+      driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '', folderId: info?.folderId || null, ownCopy,
+      mime: info?.mime || '', pages, hash: w.hash };
+    w.saved = { mode: 'marklater', title: r.title, subjectId, worksheetId: ws?.id || null, url: info?.url || null, folder: info?.folder || null,
+      chat: chatAsk('mark', { worksheet: ws, subjectId }),
+      queue: { kind: 'mark', units: pageUnits(w).slice(0, QUEUE_PAGES.mark),
+        x: { title: r.title, subjectId, targetId: attachment.id, worksheet: ws, attachment, stamp, files: driveFiles(w, info) } } };
+    w.stage = 'saved';
+    render();
+    return startQueue(w.saved);
+  }
   if (r.mode === 'notes' && r.updateOf) {
     const old = notesOf(r.updateOf);
     const version = (old?.versions || 1) + 1;
@@ -2761,9 +3075,13 @@ async function saveWork(noDrive = false) {
       keyPoints: r.newPoints || [], pages, version, url: info?.url || old?.driveUrl || null,
       folder: info?.folder || old?.folder || null, noteId: r.updateOf,
       chat: r.readLabel ? null : chatAsk('notes', { id: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
-        summary: r.summary, keyPoints: r.keyPoints }) };
+        summary: r.summary, keyPoints: r.keyPoints }),
+      queue: r.readLabel ? null : { kind: 'notes', units: notebookUnits(w, r),
+        x: { id: r.updateOf, targetId: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
+          summary: r.summary, keyPoints: r.keyPoints, files: driveFiles(w, info) } } };
     w.stage = 'saved';
-    return render();
+    render();
+    return startQueue(w.saved);
   }
   w.progress = 'Updating your dashboard…'; render();
 
@@ -2776,9 +3094,12 @@ async function saveWork(noDrive = false) {
         fileUrl: info?.url || null, folder: info?.folder || '' } });
     w.saved = { mode: 'worksheet', worksheetId: id, title: r.title, subjectId: r.subjectId, questions: questions.length,
       url: info?.folderUrl || info?.url || null, folder: info?.folder || null,
-      chat: questions.length ? null : chatAsk('worksheet', { id, title: r.title, subjectId: r.subjectId }) };
+      chat: questions.length ? null : chatAsk('worksheet', { id, title: r.title, subjectId: r.subjectId }),
+      queue: questions.length ? null : { kind: 'worksheet', units: pageUnits(w).slice(0, QUEUE_PAGES.worksheet),
+        x: { id, targetId: id, title: r.title, subjectId: r.subjectId, files: driveFiles(w, info) } } };
     w.stage = 'saved';
-    return render();
+    render();
+    return startQueue(w.saved);
   }
 
   const questions = r.questions.map((q) => ({ q: q.q, topicId: q.topicId || r.topicIds[0] || null, marks: Number(q.marks) || 0,
@@ -2800,15 +3121,28 @@ async function saveWork(noDrive = false) {
   w.saved = { mode: r.mode, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
     nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
     url: info?.url || null, folder: info?.folder || null, weakTopics, noteId: kind === 'notes' ? attachmentId : null,
-    chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null };
+    chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null,
+    queue: kind === 'notes' && !r.readLabel && !r.detected ? { kind: 'notes', units: pageUnits(w).slice(0, QUEUE_PAGES.notes),
+      x: { id: attachmentId, targetId: attachmentId, title: r.title, subjectId: r.subjectId, pages, files: driveFiles(w, info) } } : null };
   w.stage = 'saved';
   render();
+  startQueue(w.saved);
+}
+// The file just filed, for Claude to fall back on.
+const driveFiles = (w, info) => (info?.id ? [{ driveId: info.id, name: w.pages[0]?.name || '', mime: info.mime || '' }] : []);
+// More of a notebook: only its new and changed pages go to Claude.
+function notebookUnits(w, r) {
+  const units = pageUnits(w);
+  const pick = r.updateOf && w.match?.status === 'ready' && w.match.note?.id === r.updateOf && !w.readAll
+    ? w.match.read.map((i) => units[i]).filter(Boolean) : units;
+  return pick.slice(0, QUEUE_PAGES.notes);
 }
 
 function resetWork(preset = {}) {
   for (const p of APP.work.pages) {
     for (const i of p.images) URL.revokeObjectURL(i.url);
-    try { p.doc?.destroy(); } catch { /* already gone */ }
+    if (p.busy) p.dropped = true;           // its pages are still being sent to Claude
+    else try { p.doc?.destroy(); } catch { /* already gone */ }
   }
   APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier,
     mode: LS.get('workMode', 'worksheet'), worksheetId: '', ...preset };
@@ -2910,7 +3244,7 @@ function viewHistory() {
         <span class="score">${fmtN(a.score)}/${fmtN(a.max)}</span></button>`;
     }).join('')}</div>` : '<div class="empty">Nothing marked yet. Add your work on the Work tab.</div>';
   }
-  return `<div class="card"><div class="row" style="margin-bottom:12px">${seg}<span class="spacer"></span>${filter}</div>${body}</div>`;
+  return `<div class="stack">${readingPanel()}<div class="card"><div class="row" style="margin-bottom:12px">${seg}<span class="spacer"></span>${filter}</div>${body}</div></div>`;
 }
 
 /* One worksheet: the sheet, when it is planned, and every set of answers
@@ -3097,7 +3431,7 @@ Check the redo. Is the final answer right and the method sound? Reply with only 
       q.resolved = 'checked';
       setTimeout(() => { if (SHEET.ctx?.id === a.id) $('#sheet').innerHTML = attemptSheet(APP.data.attempts.find((x) => x.id === a.id), APP.details[a.id]); }, 1600);
     }
-  } catch (e) { if (e?.code === 'images_unavailable') APP.imagesOff = true; out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
+  } catch (e) { if (e?.code === 'images_unavailable') { APP.imagesOff = true; LS.set('imagesOff', true); } out.innerHTML = `<div class="notice bad">${esc(sampleError(e))}</div>`; }
 }
 function remarkForm(qKey) {
   const { q } = questionOf(qKey);
@@ -3207,12 +3541,21 @@ function readTestFields() {
 }
 
 /* ================================================================= setup */
+function readerState() {
+  const env = LS.get('readerEnv', null);
+  const where = env?.name ? ` in your “${env.name}” Claude Code environment` : '';
+  if (APP.readerError) return 'could not start — ' + APP.readerError;
+  const st = { working: 'Claude is reading now', blocked: 'waiting for your OK', failed: 'the last reader stopped with an error', done: 'ready' }[APP.reader?.status];
+  return (st || 'starts when this view can\'t show Claude pictures and you save work') + where;
+}
 function statusSheet() {
   const inClaude = APP.mode === 'claude' || APP.mode === 'claude-no-mcp';
   openSheet(`<div class="sheet-h"><h2>Connection</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="notice ${['error', 'setup'].includes(APP.status.kind) ? 'bad' : ''}">${esc($('#statusText')?.textContent || APP.status.text || '')}</div>
     <p style="font-size:14px;margin-bottom:0">PDF reader: ${PDF.lib ? `ready (from ${esc(PDF.from)})` : PDF.error ? esc(PDF.error) : 'not needed yet — it starts when you add a PDF'}.
-      Pictures to Claude: ${esc(picturesState())}.</p>
+      Pictures to Claude: ${esc(picturesState())}.
+      Reading in the background: ${esc(readerState())}.
+      ${APP.imagesOff ? '<button class="btn sm ghost" data-act="pics-retry">Try pictures here again</button>' : ''}</p>
     <p style="font-size:14px">${APP.syncedAt ? 'Last synced ' + esc(new Date(APP.syncedAt).toLocaleString('en-GB')) + '.' : 'Not synced yet.'}
       ${APP.outbox.length ? ` ${APP.outbox.length} change${APP.outbox.length === 1 ? '' : 's'} waiting — they are kept on this device and sent as soon as the dashboard answers.` : ''}</p>
     ${inClaude ? `<div class="setup"><h3 style="font-size:15px">Connect the dashboard (once)</h3>
@@ -3428,6 +3771,12 @@ document.addEventListener('click', (e) => {
     }
     case 'work-analyse': return analyse(t.dataset.force === '1');
     case 'work-file-only': return fileOnly();
+    case 'work-mark-later': return fileOnly(true);
+    case 'read-retry': return retryReading(t.dataset.id);
+    case 'read-start': return startReaderNow();
+    case 'pics-retry': APP.imagesOff = false; LS.set('imagesOff', false); closeSheet(); toast('Next time you read or mark, pictures are tried again.'); return render();
+    case 'read-again': if (APP.work.saved?.queue) { delete APP.reading[APP.work.saved.readId]; APP.work.saved.readId = null; startQueue(APP.work.saved); } return;
+    case 'read-cancel': return send({ type: 'read.cancel', requestId: t.dataset.id });
     case 'work-stop': APP.work.ctl?.abort(); return;
     case 'work-back': APP.work.stage = 'idle'; APP.work.error = null; return render();
     case 'work-reset': return resetWork();
@@ -3600,7 +3949,7 @@ async function boot() {
   let ticks = 0;
   setInterval(() => {
     if (document.hidden) return;
-    if (++ticks % 10 === 0) refresh(); else if (APP.tab === 'today' && $('#sheet').hidden && !document.activeElement?.matches('input, textarea, select')) render();
+    if (++ticks % (readingActive() ? 2 : 10) === 0) refresh(); else if (APP.tab === 'today' && $('#sheet').hidden && !document.activeElement?.matches('input, textarea, select')) render();
   }, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); flush(); } });
 }

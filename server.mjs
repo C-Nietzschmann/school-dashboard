@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { readFile, writeFile, rename, mkdir, chmod } from 'node:fs/promises';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
-import { readDoc, writeDoc, backend } from './lib/store.mjs';
+import { readDoc, writeDoc, deleteDoc, backend } from './lib/store.mjs';
 import { ask, claudeConfigured, claudeModel } from './lib/claude.mjs';
 import { assignmentsFromICS } from './lib/integrations.mjs';
 import { classroomMail, gmailConfigured } from './lib/gmail.mjs';
@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -72,6 +72,7 @@ const markFile = (id) => join(paths.marks, id.replace(/[^\w-]/g, '') + '.json');
 const markStore = {
   read: (id) => readDoc(id, markFile(id)),
   write: (id, doc) => writeDoc(id, markFile(id), doc),
+  remove: (id) => deleteDoc(id, markFile(id)),
 };
 
 /* ------------------------------------------------------------------- auth
@@ -334,8 +335,10 @@ const mcp = createMcpServer({
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
     + 'writes: to-dos, study-period choices and study sessions, tests, worksheets, notes, marked work '
     + 'and question packs. get_uploads lists the photos and PDFs the student uploaded (stored in Google '
-    + 'Drive; read them by driveId through the Google Drive connector). Every change needs a unique id; '
-    + 'resending the same id is harmless.',
+    + 'Drive; read them by driveId through the Google Drive connector). When the student asks you to read '
+    + 'their notes, worksheet or work ("read my notes", "what is waiting"), call read_queue: it shows the '
+    + 'pages the companion app could not show Claude, as pictures, and says exactly what to save. Every change '
+    + 'needs a unique id; resending the same id is harmless.',
   tools: [
     {
       name: 'get_today',
@@ -344,7 +347,8 @@ const mcp = createMcpServer({
         + 'suggested study options and why, to-dos ranked by priority and due date, upcoming tests, '
         + 'unfixed mistakes from marked work, weak topics and skill level per subject. detail="summary" '
         + '(the default) is short and readable; detail="full" adds every topic id, the recent marked '
-        + 'work and per-topic mastery, which is what you need before calling apply_changes.',
+        + 'work and per-topic mastery, which is what you need before calling apply_changes. waitingToBeRead '
+        + '(summary) and reading.queue (full) list work waiting for Claude — see read_queue.',
       inputSchema: { type: 'object', properties: {
         date: { type: 'string', description: 'YYYY-MM-DD in the student\'s local time; default today' },
         time: { type: 'string', description: 'HH:MM local time, to mark which lesson is on now' },
@@ -381,7 +385,12 @@ const mcp = createMcpServer({
         + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
         + 'markScheme}] (1-30 questions)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
-        + 'pack.delete {packId}. Returns one result per op.',
+        + 'pack.delete {packId}; '
+        + 'read.request {request:{id, kind: notes|worksheet|mark|check, title, subjectId?, targetId?, date?, '
+        + 'files?:[{driveId, name?, mime?}], pages?, ask}} and read.page {requestId, n, label?, mime, data: base64} '
+        + '(the app queuing work for Claude to read — see read_queue); read.done {requestId, error?, result?} '
+        + '(send with the ops a request asks for, or alone with error when it cannot be read); read.retry '
+        + '{requestId}; read.cancel {requestId}. Returns one result per op.',
       inputSchema: { type: 'object', required: ['ops'], properties: {
         ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
           properties: { id: { type: 'string' }, type: { type: 'string', description: 'one of: ' + OP_TYPES.join(', ') } } } },
@@ -420,6 +429,23 @@ const mcp = createMcpServer({
         worksheetId: { type: 'string' }, noteId: { type: 'string' } } },
       annotations: { readOnlyHint: true },
       handler: (a) => appAttempt(a),
+    },
+    {
+      name: 'read_queue',
+      title: 'Work waiting for Claude to read',
+      description: 'Notes, worksheets and answers the student filed in the companion app where Claude could not '
+        + 'see pictures. Call it when they ask you to read their notes, worksheet or work. With no arguments: '
+        + 'the oldest waiting request — its instructions (ask, which ends with the apply_changes op to send) and '
+        + 'its first pages as images; next says how to get the rest ({requestId, from}). Read every page, do '
+        + 'what ask says, and send its op together with read.done {requestId} in one apply_changes call; '
+        + 'then call read_queue again until nothing is waiting. Tell the student briefly what you saved.',
+      inputSchema: { type: 'object', properties: {
+        requestId: { type: 'string', description: 'a request from waitingToBeRead; default the oldest' },
+        from: { type: 'number', description: 'first page to show (0-based), from next' },
+        limit: { type: 'number', description: 'pages to show, 1-6, default 4' },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: async (a) => ({ $content: await readQueue(await loadState(), a, markStore) }),
     },
     {
       name: 'get_uploads',
