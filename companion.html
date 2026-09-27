@@ -498,10 +498,17 @@ const TRANSPORT = {
 /* Connector failures each have their own fix, so each gets its own words. */
 function connError(e, server = DASH) {
   if (server === REMOTE) {
-    if (['server_not_connected', 'server_not_found', 'not_in_manifest', 'blocked_by_policy', 'approval_required'].includes(e?.code)) {
-      return 'Claude Code is not available to this page. Allow it when Claude asks, or check that Claude Code is on for your account.';
-    }
+    const hint = {
+      server_not_connected: 'This Claude view has no Claude Code for pages — open the same link in Safari on claude.ai',
+      server_not_found: 'This Claude view has no Claude Code for pages — open the same link in Safari on claude.ai',
+      not_in_manifest: 'Allow Claude Code Remote in this page\'s connector settings (the ⋯ or share menu), then reload',
+      not_granted: 'Allow Claude Code Remote when Claude asks — tap Start Claude',
+      blocked_by_policy: 'Your organisation blocks Claude Code here',
+      approval_required: 'Your organisation needs to approve Claude Code here',
+    }[e?.code];
+    if (hint) return `${hint} (${e.code}).`;
     if (e?.code === 'tool_error') return (e.message || 'Claude Code reported an error.').replace(/^Error:\s*/, '');
+    if (e?.code) return `${e.message || 'Claude Code did not answer'} (${e.code}).`;
   }
   const s = server === DASH ? 'the A Level Dashboard connector' : 'your Google Drive connector';
   switch (e?.code) {
@@ -2020,6 +2027,11 @@ async function retryReading(id) {
 }
 async function startReaderNow() {
   APP.readerError = null;
+  // from a tap: let the view ask for Claude Code if it needs your consent
+  try {
+    const perms = await claude.use('permissions');
+    if (perms) await perms.request(['mcp', 'mcp:' + REMOTE]);
+  } catch { /* nothing to ask here */ }
   try { await startReader('waiting work'); toast('Claude is reading it now.'); } catch (e) { APP.readerError = e?.code === 'tool_error' ? e.message : connError(e, REMOTE); }
   render();
 }
