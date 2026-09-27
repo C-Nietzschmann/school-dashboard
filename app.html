@@ -177,6 +177,7 @@ th{font-size:10.5px}
 .cal-e.term{background:color-mix(in srgb,var(--s1) 16%,transparent);font-weight:550}
 .cal-e.paper{background:color-mix(in srgb,var(--good) 15%,transparent)}
 .cal-e.holiday{background:transparent;color:var(--text-muted);font-style:italic}
+.cal-e.route{background:color-mix(in srgb,var(--s5) 18%,transparent);font-weight:550}
 .cal-more{font-size:9.5px;color:var(--text-muted);padding-left:4px}
 .key{width:11px;height:11px;border-radius:3px;flex:none;background:var(--surface-2);border:1px solid var(--line)}
 .key.hol{background:color-mix(in srgb,var(--s4) 40%,transparent)}
@@ -184,6 +185,7 @@ th{font-size:10.5px}
 .key.milestone{background:var(--serious)}
 .key.term{background:var(--s1)}
 .key.paper{background:var(--good)}
+.key.route{background:var(--s5)}
 @media (max-width:560px){.cal-d{min-height:58px;padding:3px 4px}.cal-e{font-size:9px}}
 .spare{margin-top:11px;padding:9px 11px;border-radius:7px;background:var(--surface-2);
   border:1px dashed var(--line-strong);font-size:12px;line-height:1.55;color:var(--text-muted)}
@@ -253,26 +255,19 @@ th{font-size:10.5px}
 .block-min span{font-size:9.5px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
 .block-why{color:var(--text-muted);font-size:12.5px;margin-top:2px;line-height:1.5}
 .issue{display:flex;gap:10px;align-items:flex-start;padding:9px 0}
-.odds-box{border:1px solid var(--line);border-radius:10px;padding:15px 16px;background:var(--surface-1)}
-.odds-box.good{border-color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
-.odds-num{font-family:var(--mono);font-size:38px;font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:2px 0 6px}
-.odds-f{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);
-  font-size:13px;line-height:1.5;color:var(--text-secondary)}
-.odds-f:last-child{border-bottom:0}
-.odds-mult{font-family:var(--mono);font-size:12.5px;font-weight:600;min-width:48px;color:var(--text-muted)}
-.odds-mult.up{color:var(--good)} .odds-mult.down{color:var(--critical)}
 .unifold summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
 .unifold summary::-webkit-details-marker{display:none}
 .unifold summary::before{content:'▸';color:var(--text-muted);font-size:12px}
 .unifold[open] summary::before{content:'▾'}
 .unifold summary h2{display:inline}
-/* --- the route: application campaign as a line with stations --- */
-.rline{overflow-x:auto;padding:4px 0 2px;margin:16px 0 4px}
-.rline-in{position:relative;min-width:660px;height:78px}
-.rtrack{position:absolute;left:10px;right:10px;top:11px;height:4px;background:var(--line);border-radius:2px}
-.rtrack-fill{position:absolute;left:10px;top:11px;height:4px;background:var(--s1);border-radius:2px}
-.rstop{position:absolute;top:0;transform:translateX(-50%);width:112px;background:none;border:0;padding:0;
-  cursor:pointer;color:inherit;font:inherit;text-align:center}
+/* --- the route: your university plan as a line with stations --- */
+.rline{overflow-x:auto;padding:4px 0 2px;margin:16px 0 6px}
+.rline-in{position:relative;height:84px}
+.rtrack,.rtrack-fill{position:absolute;left:0;top:11px;height:4px;border-radius:2px}
+.rtrack{right:0;background:var(--line)}
+.rtrack-fill{background:var(--s1)}
+.rstop{position:absolute;top:0;transform:translateX(-50%);background:none;border:0;padding:0 4px;
+  color:inherit;font:inherit;text-align:center}
 .rstop .rdot{width:14px;height:14px;border-radius:50%;background:var(--surface-1);
   border:4px solid var(--line-strong);margin:4px auto 8px;box-sizing:border-box}
 .rstop.past .rdot{border-color:var(--s1);background:var(--s1)}
@@ -281,58 +276,67 @@ th{font-size:10.5px}
 .rstop.now .rname{color:var(--s1)}
 .rstop .rwhen{display:block;font-size:10.5px;color:var(--text-muted);margin-top:1px}
 .rtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.rtab{font-size:13px;font-weight:550;padding:6px 13px;border-radius:7px;cursor:pointer;
+.rtab{font-size:13px;font-weight:550;padding:6px 13px;border-radius:7px;
   border:1px solid var(--line);background:var(--surface-1);color:var(--text-secondary)}
 .rtab[aria-pressed="true"]{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg)}
-.rfilter{font-size:11.5px;padding:3px 9px;border-radius:20px;cursor:pointer;
+.rfilter{font-size:11.5px;padding:3px 9px;border-radius:20px;
   border:1px solid var(--line);background:var(--surface-1);color:var(--text-secondary)}
 .rfilter[aria-pressed="true"]{background:var(--surface-2);border-color:var(--line-strong);color:var(--text-primary)}
-.rphase{display:grid;grid-template-columns:158px 1fr;gap:20px;padding:20px 0;border-top:1px solid var(--line)}
-.rphase:first-of-type{border-top:0;padding-top:6px}
+.rphase{display:grid;grid-template-columns:158px 1fr;gap:20px;padding:20px 0;border-top:1px solid var(--line);
+  scroll-margin-top:130px}
+.rphase:first-child{border-top:0;padding-top:6px}
 .rphase.now .rstation{color:var(--s1)}
 .rstation{font-size:17px;font-weight:600;line-height:1.2}
 .rwhenbig{font-size:12.5px;color:var(--text-muted);margin-top:3px}
 .rhere{display:inline-block;font-size:10.5px;font-weight:600;color:var(--bg);background:var(--s1);
   border-radius:4px;padding:2px 7px;margin-top:7px}
-.rtask{display:grid;grid-template-columns:19px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--surface-2)}
-.rtask:first-of-type{border-top:0}
-.rtask input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--s1);cursor:pointer}
-.rtask label{cursor:pointer;font-size:13.5px;line-height:1.5}
-.rtask.done .rt{color:var(--text-muted);text-decoration:line-through;text-decoration-color:var(--line-strong)}
+.rtask{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--surface-2);
+  font-size:13.5px;line-height:1.5;min-width:0}
+.rtask:first-child{border-top:0}
+.rtask > div{min-width:0}
+.rtick{width:18px;height:18px;margin-top:2px;padding:0;border-radius:5px;border:1.5px solid var(--line-strong);
+  background:var(--surface-1);color:#fff;font-size:11px;line-height:15px;text-align:center}
+.rtick:hover{border-color:var(--s1)}
+.rtick:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.rtick[aria-pressed="true"]{background:var(--s1);border-color:var(--s1)}
+.rtick[aria-pressed="true"]::after{content:'✓'}
+.rt{overflow-wrap:anywhere}
+.rtask.ticked .rt{color:var(--text-muted);text-decoration:line-through;text-decoration-color:var(--line-strong)}
 .rtask.crit .rt::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;
   background:var(--critical);margin-right:7px;vertical-align:2px}
-.rnote{display:block;font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.55}
+.rtask.next .rt{font-weight:600}
+.rnote{display:block;font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.55;overflow-wrap:anywhere}
 .rtags{display:inline-flex;gap:4px;margin-left:6px;flex-wrap:wrap;vertical-align:1px}
 .rtag{font-size:10px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line);
   border-radius:4px;padding:1px 5px;color:var(--text-muted)}
 .rtag.cost{border-color:var(--s4);color:var(--s4)}
-.rdep{display:grid;grid-template-columns:76px 1fr auto;gap:10px;padding:8px 0;
+.rtag.bad{border-color:var(--critical);color:var(--critical)}
+.rtag.next{border-color:var(--s1);color:var(--s1)}
+.rdep{display:grid;grid-template-columns:62px 1fr auto;gap:10px;padding:8px 0;
   border-top:1px solid var(--surface-2);align-items:baseline;font-size:13px}
 .rdep:first-of-type{border-top:0}
 .rdep .rd{font-family:var(--mono);font-size:12px;font-weight:600}
 .rdep .ryr{display:block;font-size:10.5px;color:var(--text-muted);font-weight:400}
-.rdep .rleft{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--s4)}
-.rverdict{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;margin-top:6px}
-.rv-good{background:color-mix(in srgb,var(--good) 13%,transparent);color:var(--good)}
-.rv-mid{background:color-mix(in srgb,var(--s4) 16%,transparent);color:var(--s4)}
-.rv-reach{background:color-mix(in srgb,var(--critical) 12%,transparent);color:var(--critical)}
+.rdep .rleft{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--s4);white-space:nowrap}
 .rmoney{font-size:12.5px;color:var(--text-secondary);line-height:1.6;background:var(--surface-2);
   border-radius:8px;padding:10px 12px;margin-top:12px}
 .rproj{border:1px solid var(--line);border-radius:10px;padding:17px 18px;margin-bottom:14px;background:var(--surface-1)}
 .rproj.flag{border-color:var(--s1);box-shadow:inset 3px 0 0 var(--s1)}
 .rkind{font-size:11px;font-weight:600;color:var(--s1);letter-spacing:.02em}
 .rmeta{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 11px}
-.rladder{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--surface-2)}
-.rladder:first-of-type{border-top:0}
-.rlevel{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text-muted)}
-.rladder.top .rlevel{color:var(--s1)}
 .rboost{border:1px solid var(--line);border-radius:9px;padding:14px 15px;background:var(--surface-1)}
 .rboost h4{font-size:14px;margin:0 0 3px;font-weight:600}
 .rboost p{font-size:12.5px;line-height:1.6;color:var(--text-secondary);margin:7px 0 0}
 .rboost .why{color:var(--text-muted)}
+.rdim{opacity:.55}
 @media(max-width:720px){
   .rphase{grid-template-columns:1fr;gap:6px}
-  .rphase:first-of-type{padding-top:0}
+  .rphase:first-child{padding-top:0}
+}
+@media(max-width:560px){
+  .rtask{grid-template-columns:26px 1fr}
+  .rtick{width:24px;height:24px;line-height:21px;font-size:13px;margin-top:0}
+  .rproj{padding:14px}
 }
 .cardface{border:1px solid var(--line-strong);border-radius:12px;padding:30px 26px;text-align:center;
   background:var(--surface-2);min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:14px}
@@ -426,9 +430,7 @@ body.no-coach [data-coach]{display:none}
       <button role="tab" data-view="cards" aria-selected="false">Cards</button>
       <button role="tab" data-view="track" aria-selected="false">On track</button>
       <button role="tab" data-view="uni" aria-selected="false">Uni</button>
-      <!-- Route tab: the plan data and styles exist (ROUTE in lib/seed.mjs, .r* rules
-           in the stylesheet) but views.route is not written yet. Restore this button
-           and the #view-route section below once it is. -->
+      <button role="tab" data-view="route" aria-selected="false">Route</button>
       <button role="tab" data-view="homework" aria-selected="false">Homework</button>
       <button role="tab" data-view="study" aria-selected="false">Study log</button>
       <button role="tab" data-view="papers" aria-selected="false">Papers</button>
@@ -455,6 +457,7 @@ body.no-coach [data-coach]{display:none}
   <section class="view" id="view-timetable"></section>
   <section class="view" id="view-whiteboard"></section>
   <section class="view" id="view-uni"></section>
+  <section class="view" id="view-route"></section>
   <section class="view" id="view-files"></section>
 </div>
 
@@ -480,6 +483,11 @@ const { DAY, isoOf, todayISO, parseD, daysBetween, toMins, hhmm, dayKeyOf, addDa
   workloadPlan, predictedFor, projectedPct, igcseBaselineFor, minutesThisWeek, cardsDue, lostMarks, weakSpots, phaseOf,
   studyPlan, weekOf, dayPlan, mergedDay, lessonsOn, isStudySlot, taskScore, openMistakes, mastery,
   studyOptions } = PLANNER;
+
+/* The university route engine, shared with the companion the same way — see
+   lib/route.mjs. It only reads S.route, S.routeDone and S.routeOpts. */
+/* @inline lib/route.mjs */
+const R = createRoute(() => S);
 
 const fmtDay = (iso) => parseD(iso).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
 // Milestones span two academic years, so they carry the year too.
@@ -643,31 +651,17 @@ function igcseSummary() {
     + `${st.lang?.toFixed(2)} across languages.`;
 }
 
-/* --------------------------------------------------- ETH entrance-exam odds
-   Starts from the published ~30% pass rate and adjusts by the things that
-   actually differ for you. Every factor is shown on the page — it is a model
-   with its assumptions on display, not a number to take literally. */
-function ethOdds(ideal = false) {
-  const eth = (S.unis || []).find((u) => u.id === 'eth');
-  const base = eth?.exam?.passRate ?? 0.30;
-  const m = predictedFor('maths'), f = predictedFor('fmaths'), ph = predictedFor('physics');
-  const mathsAvg = ideal ? 80 : (m + f) / 2;
-  const doingChem = S.subjects.some((x) => /chem/i.test(x.name) && x.active);
-  const chemReady = ideal || doingChem;
-
-  const factors = [
-    { label: 'Native German — the exam is sat in German, unlike most candidates', mult: 1.30 },
-    { label: ideal ? 'Maths + Further Maths lifted to A*/A'
-        : `Maths + Further Maths predicted ${gradeFor(m)} / ${gradeFor(f)}`,
-      mult: mathsAvg >= 75 ? 1.35 : mathsAvg >= 68 ? 1.15 : 0.95 },
-    { label: `Physics predicted ${gradeFor(ideal ? 80 : ph)}`, mult: (ideal ? 80 : ph) >= 75 ? 1.15 : 1.0 },
-    { label: chemReady ? 'Chemistry prepared for the exam'
-        : 'Chemistry is examined but you dropped it after IGCSE — your weakest result',
-      mult: chemReady ? 1.0 : 0.70 },
-  ];
-  const p = Math.max(0.05, Math.min(0.85, factors.reduce((a, x) => a * x.mult, base)));
-  return { base, factors, p };
+/* A live prediction against a grade a university asks for: how many grades
+   short, or null when there is nothing to predict from yet. */
+function gradeGap(subjectId, want) {
+  const p = subjectById(subjectId) ? predictedFor(subjectId) : null;
+  const g = p == null ? null : gradeFor(p);
+  return { g, gap: g == null ? null : Math.max(0, gradeRank(want) - gradeRank(g)) };
 }
+const gradeGapHtml = ({ g, gap }) => g == null
+  ? '<span class="status" style="color:var(--text-muted)">no prediction yet</span>'
+  : !gap ? `<span class="status good">✓ predicted ${esc(g)}</span>`
+  : `<span class="status ${gap === 1 ? 'warn' : 'bad'}">predicted ${esc(g)} · ${gap} grade${gap === 1 ? '' : 's'} short</span>`;
 
 function trackStatus(subjectId) {
   const pct = predictedFor(subjectId);
@@ -994,6 +988,8 @@ views.today = () => {
       }).join('') : '<div class="empty">Nothing due. Enjoy it while it lasts.</div>'}
     </div>
   </div>
+
+  ${routeTodayCard()}
 
   <div class="card" style="margin-top:16px">
     <h2>The year ahead</h2>
@@ -1520,6 +1516,11 @@ function eventsOn(iso) {
   for (const t of (S.tests || [])) {
     if (t.date === iso && t.result == null) out.push({ kind: 'milestone', subjectId: t.subjectId, label: t.title, note: 'test' });
   }
+  // your route's deadlines, minus the UK/MIT ones once you drop those
+  for (const d of R.deadlines(iso, 99)) {
+    if (d.date === iso) out.push({ kind: 'route', label: (d.approx ? '≈ ' : '') + d.label,
+      note: d.approx ? 'route deadline, approximate date' : 'route deadline' });
+  }
   return out;
 }
 
@@ -1554,7 +1555,7 @@ views.calendar = () => {
         <button class="btn sm" data-cal="1">→</button>
       </div>
     </div>
-    <div class="hint">Holidays shaded, term boundaries and ETH dates marked, homework on its due date,
+    <div class="hint">Holidays shaded, term boundaries, ETH dates and route deadlines marked, homework on its due date,
       papers on the day you sat them.</div>
 
     <div class="cal">
@@ -1582,6 +1583,7 @@ views.calendar = () => {
       <span class="row" style="gap:6px"><span class="key milestone"></span>ETH milestone</span>
       <span class="row" style="gap:6px"><span class="key term"></span>term boundary</span>
       <span class="row" style="gap:6px"><span class="key paper"></span>paper sat</span>
+      ${R.plan() ? '<span class="row" style="gap:6px"><span class="key route"></span>route deadline</span>' : ''}
     </div>
   </div>
 
@@ -1858,40 +1860,43 @@ views.uni = () => {
 
   return `
   ${(() => {
+    /* ETH admission requirements 2025/26, "Great Britain": three A Levels at A
+       admit directly; the reduced entrance exam is only the fallback. */
     const eth = (S.unis || []).find((u) => u.id === 'eth');
-    if (!eth || !eth.acceptance) return '';
-    const now = ethOdds(), ideal = ethOdds(true);
-    const pc = (x) => (x * 100).toFixed(0) + '%';
-    const mGap = Math.round(80 - (predictedFor('maths') + predictedFor('fmaths')) / 2);
+    if (!eth) return '';
+    const rows = [['maths', 'Mathematics', ''], ['physics', 'Physics', 'or chemistry, or biology'],
+      ['german', 'German', 'the language of instruction, or a foreign language']]
+      .map(([id, label, note]) => ({ label, note, ...gradeGap(id, 'A') }));
+    const short = rows.filter((r) => r.gap > 0), unknown = rows.filter((r) => r.g == null);
+    const names = (xs) => xs.map((r) => r.label).join(', ').replace(/,([^,]*)$/, ' or$1');
+    // The four extra subjects: IGCSEs outside the three A Level subjects above.
+    const extra = (S.igcse || []).filter((r) => /physics|chemistry|biology|computer|geograph|history|econom|english|spanish|french|italian|latin|chinese|russian/i.test(r.subject)
+      && !(r.maps || []).some((m) => ['maths', 'fmaths', 'physics', 'german'].includes(m))).map((r) => r.subject);
     return `<div class="card" style="margin-bottom:16px">
-      <h2>Your odds at ETH</h2>
-      <div class="hint">The headline acceptance rate (${esc(eth.acceptance.bachelor)}) is not your number —
-        ${esc(eth.acceptance.international)} Your gate is the entrance exam, where about ${pc(now.base)}
-        of candidates pass. What follows is a model with its assumptions on show, not a prediction:
-        trust the direction, ignore the decimals.</div>
-      <div class="grid g2" style="margin-top:16px">
-        <div class="odds-box">
-          <div class="uni-label">As you stand today</div>
-          <div class="odds-num">${pc(now.p)}</div>
-          <div class="block-why">From the ${pc(now.base)} base pass rate, adjusted for:</div>
-          ${now.factors.map((f) => `
-            <div class="odds-f">
-              <span class="odds-mult ${f.mult >= 1.1 ? 'up' : f.mult < 1 ? 'down' : ''}">×${f.mult.toFixed(2)}</span>
-              <span>${esc(f.label)}</span>
-            </div>`).join('')}
-        </div>
-        <div class="odds-box good">
-          <div class="uni-label">If you close both gaps</div>
-          <div class="odds-num">${pc(ideal.p)}</div>
-          <div class="block-why">Maths and Further Maths lifted to A*/A, and chemistry actually
-            prepared for the exam instead of left behind at IGCSE.</div>
-          <div class="exam-box" style="margin-top:12px"><p class="uni-p">Your chances roughly
-            <b>double</b> across two decisions, neither of which is about talent: the
-            <b>${mGap}-point</b> maths gap the Plan tab is already built around, and a subject you
-            dropped that the exam still tests.</p></div>
-        </div>
+      <h2>Your route into ETH</h2>
+      <div class="hint">ETH admits on A Levels directly (admission requirements 2025/26, Great Britain):
+        three A Levels at grade A, and Pearson International A Levels with IGCSEs are accepted.
+        Here is each one against your live prediction.</div>
+      <div class="grid g3" style="margin-top:14px">
+        ${rows.map((r) => `<div class="stat">
+          <div class="label">${esc(r.label)} · needs A</div>
+          <div class="value">${esc(r.g ?? '—')}</div>
+          <div class="foot">${gradeGapHtml(r)}${r.note ? `<br>${esc(r.note)}` : ''}</div>
+        </div>`).join('')}
       </div>
-      <div class="hint" style="margin-top:14px">${esc(eth.acceptance.note)} ${esc(eth.exam.passNote)}</div>
+      <p class="uni-p" style="margin-top:14px">Plus four more subjects at IGCSE or AS level from physics, chemistry,
+        biology, computer science, another language, geography, history and economics —
+        ${extra.length >= 4 ? `your IGCSEs cover that (${esc(extra.join(', '))}).`
+          : extra.length ? `your IGCSEs cover that; the record here lists ${esc(extra.join(', '))}, so add the rest to check.`
+          : 'your IGCSEs cover that.'}</p>
+      <div class="${short.length ? 'exam-box' : 'spare'}" style="margin-top:12px">
+        <p class="uni-p"><b>Fallback: the reduced entrance examination.</b>
+          ${short.length ? `You need it only if ${esc(names(short))} stays below A — that is the gap to close.`
+            : unknown.length ? `You need it only if a prediction stays below A; ${esc(names(unknown))} has no prediction yet.`
+            : 'Not needed while all three are predicted A or better.'}
+          ${eth.exam ? esc([eth.exam.when, eth.exam.register && 'Register ' + eth.exam.register, eth.exam.fee].filter(Boolean).join(' ')) : ''}</p>
+      </div>
+      ${/^https:\/\//.test(eth.link || '') ? `<a class="linkish" style="font-size:12.5px;display:inline-block;margin-top:12px" href="${esc(eth.link)}" target="_blank" rel="noopener">ETH admission requirements →</a>` : ''}
     </div>`;
   })()}
 
@@ -2019,8 +2024,8 @@ views.uni = () => {
 
   ${ms.length ? `<div class="card" style="margin-bottom:16px">
     <h2>Fixed dates</h2>
-    <div class="hint">These do not move for you. The entrance exam is the one that reshapes Year 13 —
-      it sits four months before your A Levels, on a different syllabus.</div>
+    <div class="hint">These do not move for you. The entrance-exam dates matter only if you need the
+      fallback — it sits four months before your A Levels, on a different syllabus.</div>
     <div class="timeline">
       ${ms.map((m) => `
         <div class="ms${m.away < 0 ? ' past' : ''}">
@@ -2067,6 +2072,367 @@ views.uni = () => {
   </details>`;
 
 };
+
+/* ================================================================== route
+   Your university plan (S.route — imported in Files, never part of this code)
+   through lib/route.mjs: where you are, whether you are on track, and what to
+   do today. Every string from the plan goes through esc(); links only if https. */
+let routeTab = 'timeline', routeTag = '', routePending = null;
+const TAG_NAMES = { eth: 'ETH', de: 'Germany', uk: 'UK', mit: 'MIT', grades: 'grades', port: 'portfolio',
+  skill: 'skills', earn: 'earning', uni: 'uni' };
+const rLink = (url, html) => (/^https:\/\//i.test(url || '')
+  ? `<a class="linkish" href="${esc(url)}" target="_blank" rel="noopener">${html}</a>` : '');
+const rTags = (tags) => tags.map((t) => `<span class="rtag">${esc(TAG_NAMES[t] || t)}</span>`).join('');
+
+function routeTick(id) {
+  mutate(() => { S.routeDone ||= {}; if (S.routeDone[id]) delete S.routeDone[id]; else S.routeDone[id] = todayISO(); });
+}
+
+// One tickable line. `html` and `meta` are markup the caller built with esc().
+function routeRow(id, html, meta = '', { crit = false, cls = '' } = {}) {
+  const done = R.isDone(id);
+  return `<div class="rtask${done ? ' ticked' : ''}${crit ? ' crit' : ''}${cls}">
+    ${id ? `<button class="rtick" data-rtick="${esc(id)}" aria-pressed="${done}"
+      title="${done ? 'Done — tap to untick' : 'Tick when done'}"></button>` : '<span></span>'}
+    <div><span class="rt">${html}</span>${meta}</div>
+  </div>`;
+}
+
+// A line of today's checklist (lib/route.mjs checklist().items).
+function routeTodayRow(x) {
+  const who = x.projectName || x.trackName, link = rLink(x.url, 'open ↗');
+  return routeRow(x.id, esc(x.text), `<span class="rtags"><span class="rtag">${x.minutes} min</span>
+      <span class="rtag${x.overdue ? ' bad' : ''}">${esc(x.reason)}</span></span>
+    ${who || link ? `<span class="rnote">${esc(who || '')}${who && link ? ' · ' : ''}${link}</span>` : ''}`,
+    { crit: x.critical });
+}
+
+function routeVerdict(st) {
+  if (!st.total) return ['', 'Nothing to tick in this stage'];
+  const tail = `${st.done} of ${st.total} done, ${st.timePct}% of the stage gone`;
+  return {
+    ahead: ['good', `Ahead: ${tail}`],
+    'on-track': ['good', `On track: ${tail}`],
+    behind: ['bad', `Behind by ${st.behindBy} item${st.behindBy === 1 ? '' : 's'}: ${tail}`],
+  }[st.verdict] || ['', "Tick what you've done to see if you're on track"];
+}
+
+const routeMode = (c) => (c.mode === 'exam' ? `Exam week (${c.examLabel}): grades only`
+  : `${{ school: 'School day', weekend: 'Weekend', holiday: 'Holiday' }[c.mode]} · up to ${c.budget} min`);
+
+// The Today tab's short version.
+function routeTodayCard() {
+  if (!R.plan()) return '';
+  const today = todayISO(), c = R.checklist(today), st = R.progress(today).stage;
+  const [cls, text] = routeVerdict(st);
+  return `<div class="card" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <h2>Route today · ${esc(st.station)}</h2>
+      <button class="btn sm" data-view="route">Open the route →</button>
+    </div>
+    <div class="hint"><span class="status ${cls}">${esc(text)}</span> · ${esc(routeMode(c))}</div>
+    ${c.items.slice(0, 3).map(routeTodayRow).join('') || '<div class="empty" style="padding:10px 4px">Nothing open for today.</div>'}
+    ${c.items.length > 3 ? `<div class="rnote">+${c.items.length - 3} more on the Route tab</div>` : ''}
+  </div>`;
+}
+
+views.route = () => {
+  const P = R.plan();
+  if (!P) return `<div class="card">
+    <h2>Your route</h2>
+    <p class="uni-p" style="margin:10px 0 14px">No university plan yet. Once you import one, this tab turns it into
+      today's short list and an honest answer to "am I on track?" — stages, tasks, courses, portfolio projects,
+      earning and every university's requirements, each with a box to tick. Your plan lives in your data, never in the app.</p>
+    <button class="btn primary" data-view="files">Import your plan in Files</button>
+  </div>`;
+
+  const today = todayISO(), pr = R.progress(today), c = R.checklist(today), o = R.opts();
+  const st = pr.stage, si = st.index, n = P.phases.length;
+  const [vcls, vtext] = routeVerdict(st);
+  const dl = R.deadlines(today, 3);
+  const doneToday = R.items().filter((it) => S.routeDone?.[it.id] === today && !c.items.some((x) => x.id === it.id));
+  const TABS = [['timeline', 'Timeline'], ['reqs', 'Requirements'], ['portfolio', 'Portfolio'], ['courses', 'Courses'], ['earn', 'Earning']];
+  const body = { timeline: routeTimeline, reqs: routeReqs, portfolio: routePortfolio, courses: routeCourses, earn: routeEarn };
+
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <h2>${esc(P.name || 'Your route')}</h2>
+        <div class="hint" style="margin:0">${esc(P.story || 'Your university plan, stage by stage.')}</div>
+      </div>
+      <div class="row" style="gap:14px;font-size:13px;color:var(--text-secondary)">
+        <label class="row" style="gap:6px"><input type="checkbox" data-ropt="uk" ${o.uk ? 'checked' : ''}>Keep UK applications</label>
+        <label class="row" style="gap:6px"><input type="checkbox" data-ropt="mit" ${o.mit ? 'checked' : ''}>Keep MIT</label>
+      </div>
+    </div>
+    ${P._example ? `<div class="exam-box" style="margin-top:12px"><p class="uni-p"><b>This is an example plan</b> —
+      import yours in <button class="btn ghost sm" data-view="files" style="padding:0 4px;color:var(--s1)">Files</button></p></div>` : ''}
+    <div class="rline"><div class="rline-in" style="min-width:${n * 96}px">
+      <div class="rtrack"></div>
+      <div class="rtrack-fill" style="width:${((si + st.timePct / 100) / n * 100).toFixed(1)}%"></div>
+      ${P.phases.map((ph, i) => `<button class="rstop ${i < si ? 'past' : i === si ? 'now' : ''}" data-rstop="${esc(ph.id)}"
+          style="left:${((i + 0.5) / n * 100).toFixed(2)}%;width:${(100 / n).toFixed(2)}%" title="Show this stage">
+        <span class="rdot"></span><span class="rname">${esc(ph.station)}</span><span class="rwhen">${esc(ph.when || '')}</span>
+      </button>`).join('')}
+    </div></div>
+    <div class="grid g2">
+      <div>
+        <div class="uni-label" style="margin-top:0">Now · ${esc(st.station)}${st.when ? ' · ' + esc(st.when) : ''}</div>
+        ${st.why ? `<p class="uni-p">${esc(st.why)}</p>` : ''}
+        <div class="status ${vcls}" style="margin-top:8px">${esc(vtext)}</div>
+        <div class="uni-label">Whole plan · ${pr.plan.pct}%</div>
+        <div class="hbar"><span style="width:${pr.plan.pct}%;background:var(--s1)"></span></div>
+        <div class="rnote">${pr.plan.done} of ${pr.plan.total} done</div>
+      </div>
+      <div>
+        <div class="uni-label" style="margin-top:0">Next deadlines</div>
+        ${dl.map((d) => `<div class="rdep">
+          <span class="rd">${esc(parseD(d.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }))}<span class="ryr">${esc(d.date.slice(0, 4))}</span></span>
+          <span>${esc(d.label)}</span>
+          <span class="rleft" title="${d.approx ? 'approximate date' : ''}">${d.approx ? '≈ ' : ''}${d.daysLeft === 0 ? 'today' : d.daysLeft + ' d'}</span>
+        </div>`).join('') || '<div class="rnote">No dated deadlines ahead.</div>'}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <h2>Today on your route</h2>
+      <span class="pill">${c.totalMinutes} min</span>
+    </div>
+    <div class="hint">${esc(routeMode(c))}. Tick what you finish; the list refills from your plan.</div>
+    ${c.items.map(routeTodayRow).join('') || '<div class="empty">Nothing open for today — everything due by this stage is ticked.</div>'}
+    ${doneToday.length ? `<div class="uni-label">Done today</div>
+      ${doneToday.map((it) => routeRow(it.id, esc(it.kind === 'course' ? `Work on: ${it.text}` : it.text))).join('')}` : ''}
+  </div>
+
+  <div class="rtabs" role="group" aria-label="Route sections">
+    ${TABS.map(([k, l]) => `<button class="rtab" data-rtab="${k}" aria-pressed="${routeTab === k}">${l}</button>`).join('')}
+  </div>
+  <div class="card">${(body[routeTab] || routeTimeline)(P, pr)}</div>`;
+};
+
+function routeTimeline(P, pr) {
+  const si = pr.stage.index;
+  const active = (ph) => (ph.tasks || []).filter((t) => R.isActive(t.tags || []));
+  const tags = [...new Set(P.phases.flatMap((ph) => active(ph).flatMap((t) => t.tags || [])))];
+  const tag = tags.includes(routeTag) ? routeTag : '';
+  return `<div class="row" style="gap:6px;margin-bottom:10px">
+      ${['', ...tags].map((t) => `<button class="rfilter" data-rtag="${esc(t)}" aria-pressed="${tag === t}">${t ? esc(TAG_NAMES[t] || t) : 'All'}</button>`).join('')}
+    </div>
+    <div>${P.phases.map((ph, i) => {
+      const tasks = active(ph), shown = tag ? tasks.filter((t) => (t.tags || []).includes(tag)) : tasks;
+      if (tag && !shown.length) return '';
+      return `<div class="rphase${i === si ? ' now' : ''}" id="rphase-${esc(ph.id)}">
+        <div>
+          <div class="rstation">${esc(ph.station)}</div>
+          <div class="rwhenbig">${esc(ph.when || '')}</div>
+          <div class="rwhenbig">${tasks.filter((t) => R.isDone(t.id)).length} of ${tasks.length} done</div>
+          ${i === si ? '<span class="rhere">you are here</span>' : ''}
+        </div>
+        <div>
+          ${ph.why ? `<p class="uni-p" style="margin-bottom:6px">${esc(ph.why)}</p>` : ''}
+          ${shown.map((t) => routeRow(t.id, esc(t.text), `<span class="rtags">${rTags(t.tags || [])}${
+            t.cost ? `<span class="rtag cost">${esc(t.cost)}</span>` : ''}${t.critical ? '<span class="rtag bad">critical</span>' : ''}</span>${
+            t.note ? `<span class="rnote">${esc(t.note)}</span>` : ''}`, { crit: t.critical })).join('') || '<div class="rnote">No tasks in this stage.</div>'}
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+function routeReqs(P, pr) {
+  const count = Object.fromEntries(pr.reqs.map((r) => [r.id, r]));
+  return `<div class="hint">What each university asks for. Grades show your live prediction from the Uni tab.</div>
+    <div class="grid g2">${P.unis.map((u) => {
+      const k = count[u.id];
+      return `<div class="uni-card${k.active ? '' : ' rdim'}">
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h3 style="font-size:15px">${esc(u.name)}</h3>
+          <span class="chip">${k.done}/${k.total}</span>
+        </div>
+        <div style="color:var(--text-muted);font-size:12.5px">${esc([u.prog, u.verdict].filter(Boolean).join(' · '))}</div>
+        ${k.active ? '' : `<p class="uni-p" style="color:var(--serious);margin-top:6px">Dropped: you switched off
+          ${u.keep === 'mit' ? 'MIT' : 'the UK applications'} above. Its boxes still tick; they just stop counting.</p>`}
+        <div style="margin-top:6px">${u.items.map((it) => routeRow(it.id, esc(it.text),
+          Array.isArray(it.req) ? `<span class="rnote">${gradeGapHtml(gradeGap(it.req[0], it.req[1]))}</span>` : '')).join('')}</div>
+        ${u.money ? `<div class="rmoney">${esc(u.money)}</div>` : ''}
+      </div>`;
+    }).join('') || '<div class="rnote">No universities in the plan.</div>'}</div>`;
+}
+
+function routePortfolio(P, pr) {
+  const info = Object.fromEntries(pr.projects.map((x) => [x.id, x]));
+  const WORD = { done: ['good', '✓ done'], 'in-progress': ['warn', 'in progress'], 'not-started': ['', 'not started'], later: ['', 'later'] };
+  const station = (id) => P.phases.find((ph) => ph.id === id)?.station;
+  const card = (x) => {
+    const p = info[x.id], [cls, word] = WORD[p.status];
+    return `<div class="rproj${x.mini ? '' : ' flag'}">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <span class="rkind">${esc(x.kind || (x.mini ? 'Mini project' : 'Flagship project'))}</span>
+        <span class="status ${cls}" style="${cls ? '' : 'color:var(--text-muted)'}">${word}</span>
+      </div>
+      <h3 style="font-size:16px;margin-top:4px">${esc(x.name)}</h3>
+      <div class="rmeta">${x.cost ? `<span class="rtag cost">${esc(x.cost)}</span>` : ''}${
+        station(x.start) ? `<span class="rtag">starts: ${esc(station(x.start))}</span>` : ''}</div>
+      ${x.pitch ? `<p class="uni-p">${esc(x.pitch)}</p>` : ''}
+      ${x.why ? `<p class="uni-p" style="color:var(--text-muted)">${esc(x.why)}</p>` : ''}
+      <div class="row" style="gap:10px;margin:10px 0 4px;flex-wrap:nowrap">
+        <div class="hbar" style="flex:1"><span style="width:${p.pct}%;background:var(--s1)"></span></div>
+        <span class="num" style="font-size:12px;color:var(--text-muted)">${p.done}/${p.total}</span>
+      </div>
+      ${(x.steps || []).map((s) => {
+        const next = p.next?.id === s.id;
+        return routeRow(s.id, esc(s.text), next ? '<span class="rtags"><span class="rtag next">next</span></span>' : '', { cls: next ? ' next' : '' });
+      }).join('')}
+    </div>`;
+  };
+  const flag = P.projects.filter((x) => !x.mini), mini = P.projects.filter((x) => x.mini);
+  return (flag.length ? `<div class="uni-label" style="margin-top:0">Flagship projects</div>${flag.map(card).join('')}` : '')
+    + (mini.length ? `<div class="uni-label">Mini projects</div><div class="grid g2">${mini.map(card).join('')}</div>` : '')
+    || '<div class="rnote">No projects in the plan.</div>';
+}
+
+function routeCourses(P, pr) {
+  const CERT = { free: 'free certificate', paid: 'paid certificate' };
+  const known = new Set(P.phases.map((ph) => ph.id));
+  const groups = [...P.phases.map((ph) => [ph.station + (ph.when ? ' · ' + ph.when : ''), P.courses.filter((x) => x.phase === ph.id)]),
+    ['Any time', P.courses.filter((x) => !known.has(x.phase))]].filter(([, cs]) => cs.length);
+  return `<div class="hint">${pr.courses.done} of ${pr.courses.total} done · core ${pr.courses.core.done} of ${pr.courses.core.total}.
+      Core courses feed the plan directly; extras are for when there is time.</div>
+    ${groups.map(([label, cs]) => `<div class="uni-label">${esc(label)}</div>
+      ${cs.map((x) => routeRow(x.id, rLink(x.url, esc(x.name)) || esc(x.name), `<span class="rtags">
+          <span class="rtag${x.core === false ? '' : ' next'}">${x.core === false ? 'extra' : 'core'}</span>
+          <span class="rtag${x.cert === 'paid' ? ' cost' : ''}">${CERT[x.cert] || 'no certificate'}</span></span>
+        <span class="rnote">${esc([x.by, x.when, x.feeds && 'feeds ' + x.feeds].filter(Boolean).join(' · '))}${
+          x.certNote ? `<br>${esc(x.certNote)}` : ''}</span>`)).join('')}`).join('') || '<div class="rnote">No courses in the plan.</div>'}`;
+}
+
+function routeEarn(P, pr) {
+  const info = Object.fromEntries(pr.earn.map((e) => [e.id, e]));
+  return `<div class="hint">Most platforms need you to be 18 or over — use a parent's account where the platform allows it,
+      and read each site's rules first.</div>
+    <div class="grid g2">${P.earn.map((e) => {
+      const p = info[e.id];
+      return `<div class="rboost">
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <h4>${esc(e.name)}</h4><span class="chip">${p.done}/${p.total}</span>
+        </div>
+        ${e.pitch ? `<p>${esc(e.pitch)}</p>` : ''}
+        ${e.why ? `<p class="why">${esc(e.why)}</p>` : ''}
+        ${(e.sites || []).length ? `<div class="uni-label">Where</div><ul class="uni-list">${e.sites.map((x) => `<li>${
+          rLink(x.url, esc(x.name)) || esc(x.name)}${x.note ? ` <span style="color:var(--text-muted)">— ${esc(x.note)}</span>` : ''}</li>`).join('')}</ul>` : ''}
+        ${(e.steps || []).length ? `<div class="uni-label">Steps</div>${e.steps.map((x) => routeRow(x.id, esc(x.text),
+          p.next?.id === x.id ? '<span class="rtags"><span class="rtag next">next</span></span>' : '')).join('')}` : ''}
+      </div>`;
+    }).join('') || '<div class="rnote">No earning tracks in the plan.</div>'}</div>`;
+}
+
+/* Files → Route plan. Lives outside views.files because the artifact build
+   swaps that view out; afterRender adds it in both. */
+function routeFilesCard() {
+  const P = R.plan();
+  const ticked = P ? R.items().filter((it) => R.isDone(it.id)).length : 0;
+  return `<div class="card" style="margin-bottom:16px">
+    <h2>Route plan</h2>
+    <div class="hint">${P ? `Now: <b>${esc(P.name || 'Your route')}</b>${P._example ? ' (the example)' : ''} —
+      ${P.phases.length} stages, ${R.items().length} items, ${ticked} ticked.` : 'No plan yet.'}
+      Paste a plan below or choose a file: a bare plan, <code>{plan, done}</code> as exported here, or the old
+      planner's export (that one only brings its ticks). Your plan lives in your data, never in the app.</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="routePick">Choose a .json file…</button>
+      <input type="file" id="routeFile" accept="application/json,.json" hidden>
+      ${P ? '<button class="btn" id="routeExport">Export plan + ticks</button>' : ''}
+    </div>
+    <div class="form-row" style="grid-template-columns:1fr auto">
+      <label class="f">Plan JSON<textarea id="routePaste" rows="4" spellcheck="false"
+        placeholder='{"name":"…","phases":[…]}' style="font-family:var(--mono);font-size:11px"></textarea></label>
+      <button class="btn primary" id="routeImport">Import</button>
+    </div>
+    <div id="routeMsg" class="hint" style="margin:10px 0 0"></div>
+    <textarea id="routeOut" rows="8" readonly hidden spellcheck="false"
+      style="width:100%;margin-top:10px;font-family:var(--mono);font-size:11px"></textarea>
+    <button class="btn sm" id="routeCopy" hidden style="margin-top:8px">Copy</button>
+  </div>`;
+}
+
+function applyRouteOpts(o) {
+  S.routeOpts = R.opts();
+  for (const k of ['uk', 'mit']) if (typeof o?.[k] === 'boolean') S.routeOpts[k] = o[k];
+}
+
+/* Accepts a bare plan, {plan, done, opts}, or the old planner's export
+   {keepUK, keepMIT, items:[{id, done}]} — ticks only, applied to the plan you have.
+   Validated before anything is written; a real plan is replaced only on a second click. */
+function importRoute(text) {
+  const say = (html, bad = false) => {
+    $('#routeMsg').innerHTML = bad ? `<span style="color:var(--critical)">${html}</span>` : html;
+  };
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  let x;
+  try { x = JSON.parse(text); } catch { return say('That is not valid JSON.', true); }
+  if (!isObj(x)) return say('That is not a route plan.', true);
+  if (text.length > 400000) return say('That plan is too large (400 KB at most).', true);
+  const today = todayISO();
+
+  if (!x.plan && !x.phases && Array.isArray(x.items)) {
+    if (!R.plan()) return say('That file only holds ticks. Import the plan first, then this.', true);
+    const known = new Set(R.items().map((it) => it.id));
+    let n = 0;
+    mutate(() => {
+      S.routeDone ||= {};
+      for (const it of x.items) if (it?.done && known.has(it.id) && !S.routeDone[it.id]) { S.routeDone[it.id] = today; n++; }
+      applyRouteOpts({ uk: x.keepUK, mit: x.keepMIT });
+    });
+    return say(`<span style="color:var(--good)">Applied ${n} tick${n === 1 ? '' : 's'} to your plan.</span>`);
+  }
+
+  const plan = x.plan || x;
+  if (!isObj(plan) || !Array.isArray(plan.phases) || !plan.phases.length) {
+    return say('A route plan needs a list of stages (<code>phases</code>).', true);
+  }
+  const T = createRoute(() => ({ route: plan }));
+  const v = T.validate();
+  if (v.duplicates.length) return say(`Not imported — the plan uses these ids twice: <b>${esc(v.duplicates.join(', '))}</b>.`, true);
+  if (v.badPhaseRefs.length) return say(`Not imported — these items point at stages that do not exist: <b>${
+    esc(v.badPhaseRefs.map((b) => `${b.id} → ${b.phase}`).join(', '))}</b>.`, true);
+  const cur = R.plan();
+  if (cur && !cur._example && routePending !== text) {
+    routePending = text;
+    return say(`<b>This replaces your plan “${esc(cur.name || 'Your route')}”.</b> Ticks stay wherever the ids match.
+      Click Import again to go ahead.`);
+  }
+  routePending = null;
+
+  const known = new Set(T.items().map((it) => it.id));
+  const d = x.plan ? x.done : null;
+  // ticks: {id: date} as exported here (dates kept), a list of ids, or the old planner's {items}
+  const ticks = Array.isArray(d) ? d.map((id) => [id])
+    : Array.isArray(d?.items) ? d.items.filter((i) => i?.done).map((i) => [i.id])
+    : isObj(d) ? Object.entries(d) : [];
+  let n = 0;
+  mutate(() => {
+    S.route = plan;
+    S.routeDone ||= {};
+    for (const [id, when] of ticks) {
+      if (!known.has(id) || S.routeDone[id]) continue;
+      S.routeDone[id] = /^\d{4}-\d{2}-\d{2}$/.test(when || '') ? when : today;
+      n++;
+    }
+    const o = x.opts || (typeof d?.keepUK === 'boolean' || typeof d?.keepMIT === 'boolean' ? { uk: d.keepUK, mit: d.keepMIT } : null);
+    if (o) applyRouteOpts(o);
+  });
+  say(`<span style="color:var(--good)">Imported “${esc(plan.name || 'your plan')}”: ${plan.phases.length} stages,
+    ${known.size} items${n ? `, ${n} tick${n === 1 ? '' : 's'} added` : ''}.</span>${
+    v.warnings.length ? `<br>${esc(v.warnings.join('; '))}` : ''}`);
+}
+
+function exportRoute() {
+  const out = $('#routeOut');
+  out.value = JSON.stringify({ plan: S.route, done: S.routeDone || {}, opts: R.opts() }, null, 2);
+  out.hidden = false; $('#routeCopy').hidden = false;
+  out.select();
+}
 
 views.files = () => `
   <div class="card" style="margin-bottom:16px" id="companionCard">
@@ -2280,6 +2646,10 @@ function afterRender(v) {
   if (v === 'whiteboard') initWhiteboard();
   if (v === 'files') { loadIntegrationStatus(); loadConfigUI(); }
   if (v === 'files') loadCompanionCard();
+  if (v === 'files') $('#view-files').insertAdjacentHTML('afterbegin', routeFilesCard());
+  // on a phone the station line scrolls sideways: keep the current stop in view
+  const line = v === 'route' && $('.rline'), stop = line && $('.rstop.now', line);
+  if (stop) line.scrollLeft = stop.offsetLeft - line.clientWidth / 2;
 }
 
 // The Files tab's companion card: the exact connector URL, ready to copy. The
@@ -2569,6 +2939,19 @@ document.addEventListener('click', (e) => {
     });
   }
 
+  /* route */
+  if (t.dataset.rtick) return routeTick(t.dataset.rtick);
+  if (t.dataset.rtab) { routeTab = t.dataset.rtab; return renderAll(); }
+  if (t.dataset.rtag !== undefined) { routeTag = t.dataset.rtag; return renderAll(); }
+  if (t.dataset.rstop) {
+    routeTab = 'timeline'; routeTag = ''; renderAll();
+    return document.getElementById('rphase-' + t.dataset.rstop)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  if (t.id === 'routeImport') return importRoute($('#routePaste').value);
+  if (t.id === 'routePick') return $('#routeFile').click();
+  if (t.id === 'routeExport') return exportRoute();
+  if (t.id === 'routeCopy') return copyText($('#routeOut').value, t);
+
   /* whiteboard + files handled in their own modules */
   if (wbClick(t)) return;
   if (t.dataset.savecfg) return saveConfig(t.dataset.savecfg, t);
@@ -2615,6 +2998,12 @@ document.addEventListener('change', (e) => {
     const r = new FileReader();
     r.onload = () => importData(String(r.result));
     r.readAsText(f);
+    return;
+  }
+  if (t.dataset.ropt) return mutate(() => { applyRouteOpts({ [t.dataset.ropt]: t.checked }); });
+  if (t.id === 'routeFile') {
+    const f = t.files?.[0]; if (!f) return;
+    f.text().then((text) => { $('#routePaste').value = text; importRoute(text); });
     return;
   }
   if (t.dataset.hw) return mutate(() => {
@@ -3056,8 +3445,8 @@ function coachReplan(btn) {
   runCoach([PREAMBLE, '', igcseSummary(), '',
     'Their subjects are Maths, Further Maths, Physics, Computer Science and German.',
     'German is a locked A* (native speaker) and needs no time.',
-    'They are aiming at ETH Zürich engineering, which also means a January entrance',
-    'exam on the Swiss Matura syllabus in maths, physics and chemistry.', '',
+    'They are aiming at ETH Zürich engineering: direct admission needs A grades in A Level',
+    'maths, physics and a language (German); the reduced entrance exam is only the fallback.', '',
     'Current predictions vs targets:', preds, '',
     'The plan the dashboard generated for this week:', summary, '',
     weak.length ? 'Marks lost by topic so far: ' + weak.map((w) => `${w.name} (${w.marks})`).join(', ') : 'No question-level paper data yet.', '',

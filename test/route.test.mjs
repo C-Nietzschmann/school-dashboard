@@ -91,6 +91,14 @@ test('progress: on track, ahead and behind', () => {
   p = R.progress('2026-10-25');                                  // nothing of stage two done, 81% gone
   assert.equal(p.stage.verdict, 'behind');
   assert.equal(p.stage.behindBy, 5);
+  // a stage with nothing left active in it (only UK work, UK dropped) is not "behind"
+  S.route.phases[0].tasks = [{ id: 'u1', text: 'UK only', tags: ['uk'] }];
+  S.route.courses = []; S.route.earn = [];
+  S.routeOpts.uk = false;
+  S.routeDone.b1 = '2026-09-02';                                   // a tick that still exists, so there is data
+  assert.deepEqual([R.progress('2026-09-25').stage.verdict, R.progress('2026-09-25').stage.behindBy], ['on-track', 0]);
+  delete S.routeDone.b1;
+  S.route = structuredClone(PLAN); S.routeOpts.uk = true;
   S.routeDone.f1 = '2026-09-20';
   const flagship = R.progress('2026-09-25').projects[0];
   assert.deepEqual([flagship.status, flagship.pct, flagship.next.id], ['in-progress', 50, 'f2']);
