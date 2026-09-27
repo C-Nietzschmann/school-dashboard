@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, routePayload, routeFull, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -334,7 +334,9 @@ const mcp = createMcpServer({
     + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
     + 'writes: to-dos, study-period choices and study sessions, tests, worksheets, notes, marked work '
-    + 'and question packs. get_uploads lists the photos and PDFs the student uploaded (stored in Google '
+    + 'and question packs. get_route reads the university plan (the "route"): today\'s route checklist, '
+    + 'progress per stage and project, deadlines; apply_changes route.tick ticks items off. '
+    + 'get_uploads lists the photos and PDFs the student uploaded (stored in Google '
     + 'Drive; read them by driveId through the Google Drive connector). When the student asks you to read '
     + 'their notes, worksheet or work ("read my notes", "what is waiting"), call read_queue: it shows the '
     + 'pages the companion app could not show Claude, as pictures, and says exactly what to save. Every change '
@@ -387,6 +389,9 @@ const mcp = createMcpServer({
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
         + 'markScheme}] (1-30 questions)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
         + 'pack.delete {packId}; '
+        + 'route.tick {itemId, done?: boolean} (ids from get_route); route.opts {uk?: boolean, mit?: boolean} (keep or drop '
+        + 'the UK / MIT applications); route.import {plan, done?: [ids], opts?} (replaces the whole plan — only when the '
+        + 'student asks); route.task.add {phaseId, task:{id?, text, note?, tags?, critical?, cost?}}; '
         + 'read.request {request:{id, kind: notes|worksheet|mark|check, title, subjectId?, targetId?, date?, '
         + 'files?:[{driveId, name?, mime?}], pages?, ask}} and read.page {requestId, n, label?, mime, data: base64} '
         + '(the app queuing work for Claude to read — see read_queue); read.done {requestId, error?, result?} '
@@ -462,6 +467,27 @@ const mcp = createMcpServer({
       } },
       annotations: { readOnlyHint: true },
       handler: async (a) => ({ uploads: uploadsList(await loadState(), a) }),
+    },
+    {
+      name: 'get_route',
+      title: 'The university route',
+      description: 'The student\'s university plan (the "route"): the current stage, today\'s route checklist within '
+        + 'a time budget (school day, weekend, or grades-only in exam weeks), whether they are on track, progress per '
+        + 'project, and upcoming deadlines. detail="today" (default) is that summary; detail="full" adds the whole '
+        + 'plan (every task, course, project step, earning step and requirement with its id), the ticks, and the '
+        + 'plan\'s "context" block describing the student — what you need to write a hand-off brief or add a task.',
+      inputSchema: { type: 'object', properties: {
+        detail: { type: 'string', enum: ['today', 'full'] },
+        date: { type: 'string', description: 'YYYY-MM-DD in the student\'s local time; default today' },
+      } },
+      annotations: { readOnlyHint: true },
+      handler: async (a) => {
+        const S = await loadState();
+        const d = new Date();   // local to the server — set TZ on the host (see render.yaml)
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(a?.date || '') ? a.date
+          : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return a?.detail === 'full' ? routeFull(S, date) : (routePayload(S, date) || { plan: null, hint: 'No route plan yet.' });
+      },
     },
   ],
 });
