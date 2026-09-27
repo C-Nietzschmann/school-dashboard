@@ -428,7 +428,7 @@ const APP = {
   reading: {},            // request id -> pages being sent for Claude, this visit
   reader: LS.get('reader', null), readerError: null,  // the Claude Code session reading them
   work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick'),
-    mode: LS.get('workMode', 'worksheet'), worksheetId: '' },
+    mode: LS.get('workMode', 'worksheet'), worksheetId: '', where: LS.get('workWhere', 'class'), minutes: null },
   history: { view: 'mistakes', subject: '' },
   details: {},            // attempt id -> full marking, fetched on demand
   sheets: {},             // worksheet id -> its questions, fetched on demand
@@ -498,10 +498,17 @@ const TRANSPORT = {
 /* Connector failures each have their own fix, so each gets its own words. */
 function connError(e, server = DASH) {
   if (server === REMOTE) {
-    if (['server_not_connected', 'server_not_found', 'not_in_manifest', 'blocked_by_policy', 'approval_required'].includes(e?.code)) {
-      return 'Claude Code is not available to this page. Allow it when Claude asks, or check that Claude Code is on for your account.';
-    }
+    const hint = {
+      server_not_connected: 'This Claude view has no Claude Code for pages — open the same link in Safari on claude.ai',
+      server_not_found: 'This Claude view has no Claude Code for pages — open the same link in Safari on claude.ai',
+      not_in_manifest: 'Allow Claude Code Remote in this page\'s connector settings (the ⋯ or share menu), then reload',
+      not_granted: 'Allow Claude Code Remote when Claude asks — tap Start Claude',
+      blocked_by_policy: 'Your organisation blocks Claude Code here',
+      approval_required: 'Your organisation needs to approve Claude Code here',
+    }[e?.code];
+    if (hint) return `${hint} (${e.code}).`;
     if (e?.code === 'tool_error') return (e.message || 'Claude Code reported an error.').replace(/^Error:\s*/, '');
+    if (e?.code) return `${e.message || 'Claude Code did not answer'} (${e.code}).`;
   }
   const s = server === DASH ? 'the A Level Dashboard connector' : 'your Google Drive connector';
   switch (e?.code) {
@@ -1344,11 +1351,35 @@ function workForm(w, canMark) {
     ${notebookNotice(w)}
     <div class="field"><span>What is it?</span><div class="modes">${MODES.map(([k, label, sub]) =>
       `<button type="button" class="mode" data-mode="${k}" aria-pressed="${w.mode === k}"><b>${label}</b><small>${sub}</small></button>`).join('')}</div></div>
+    ${w.mode === 'worksheet' ? '' : whereField(w)}
     ${body}
     ${w.error ? `<div class="notice bad">${esc(w.error)}</div>` : ''}
     ${why ? `<div class="${broken.length || !canMark ? 'notice bad' : 'muted'}" style="font-size:13px">${esc(why)}</div>` : ''}
   </div></div>`;
 }
+
+// Done in class (its topics were taught) or at home (study time, logged on the dashboard).
+function whereField(w) {
+  return `<div class="row"><span class="field" style="display:inline"><span>Done</span></span>
+    <div class="seg"><button type="button" data-where="class" aria-pressed="${w.where !== 'home'}">In class</button><button type="button" data-where="home" aria-pressed="${w.where === 'home'}">At home</button></div>
+    ${w.where === 'home' ? `<input id="wMins" type="number" min="5" max="600" step="5" inputmode="numeric" value="${esc(w.minutes || '')}" placeholder="minutes — Claude guesses" style="width:190px" aria-label="Minutes">` : ''}
+    <span class="muted" style="font-size:12.5px">${w.where === 'home' ? 'Logged as study time.' : 'Its topics count as taught.'}</span></div>`;
+}
+// Claude's guess at how long it took, from the pages it read.
+function guessMinutes(n, mode) {
+  return Math.min(240, Math.max(10, Math.round((n || 1) * (mode === 'notes' ? 12 : 18) / 5) * 5));
+}
+// The review carries where it was done, and at home the minutes: yours, or a guess once Claude has read it.
+function stampWhere(r, readPages) {
+  if (r.mode === 'worksheet') return r;
+  const w = APP.work;
+  r.where = w.where === 'home' ? 'home' : 'class';
+  r.minutes = r.where === 'home' ? (w.minutes || (readPages ? guessMinutes(readPages, r.mode) : null)) : null;
+  r.minutesGuessed = r.where === 'home' && !w.minutes && Boolean(readPages);
+  return r;
+}
+const minutesField = (r) => (r.where === 'home' ? `<label class="field"><span>Study time, minutes${r.minutesGuessed ? ' — Claude\'s guess' : ''}</span>
+  <input id="rMins" type="number" min="5" max="600" step="5" inputmode="numeric" value="${esc(r.minutes || '')}" placeholder="Claude guesses when it reads it"></label>` : '');
 
 /* ------------------------------------------ the same notebook, again
    A notebook you keep writing in comes back as a longer PDF. It is matched to
@@ -1425,6 +1456,7 @@ function fileUpdate() {
   w.review = { mode: 'notes', kind: 'notes', updateOf: n.id, title: n.title, subjectId: n.subjectId, topicIds: [...(n.topicIds || [])],
     homeworkId: '', questions: [], summary: n.summary || '', keyPoints: [...(n.keyPoints || [])], newPoints: [], detected: null,
     readPages: n.readPages || 0, pageCount: pageUnits(w).length, readLabel: null, unreadLabel: pagesLabel(readUnits(w)) };
+  stampWhere(w.review, 0);
   w.stage = 'review';
   w.dest = null;
   render();
@@ -1571,6 +1603,7 @@ function notesReviewView() {
         ${topicsField(r)}
         <label class="field"><span>What they cover</span><textarea id="rSummary" data-keep placeholder="optional">${esc(r.summary)}</textarea></label>
         <label class="field"><span>Key points — one per line</span><textarea id="rPoints" data-keep placeholder="optional">${esc((r.keyPoints || []).join('\n'))}</textarea></label>
+        ${minutesField(r)}
         <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
       </div>
     </div>
@@ -1600,6 +1633,7 @@ function markReviewView() {
         ${topicsField(r)}
         ${ws ? '' : `<label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
           ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>`}
+        ${minutesField(r)}
         <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
       </div>
     </div>
@@ -1642,6 +1676,13 @@ function studyToLog(worksheetId) {
 }
 const logButton = (sp) => (sp ? `<button class="btn" data-act="study-done" data-date="${esc(APP.data.date)}" data-key="${esc(sp.key)}">Log the ${esc(sp.start)} study period</button>` : '');
 
+// What the upload counted as on the dashboard.
+function studyLine(s) {
+  if (s.where === 'class') return '<div class="muted" style="font-size:13px;margin-top:10px">🏫 Done in class — its topics count as taught.</div>';
+  if (s.where !== 'home') return '';
+  return `<div class="muted" style="font-size:13px;margin-top:10px">🏠 ${s.minutes ? `Logged ${s.minutes} min of study${s.subjectId ? ' in ' + esc(subjectName(s.subjectId)) : ''}.`
+    : 'Logged as study time once Claude has read it — it guesses the minutes from the pages.'}</div>`;
+}
 function savedView(s) {
   const filed = s.folder ? ' · filed in ' + esc(s.folder) : ' · not in Drive';
   if (s.mode === 'worksheet') {
@@ -1666,7 +1707,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.pages} page${s.pages === 1 ? '' : 's'}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<div class="eyebrow">Added</div><ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${readingCard(s, 'the new pages')}
+      ${studyLine(s)}${readingCard(s, 'the new pages')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         <button class="btn" data-act="open-note" data-id="${esc(s.noteId)}">See all the notes</button>
@@ -1681,7 +1722,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.topicIds?.length ? ' · ' + s.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${readingCard(s, 'your notes')}
+      ${studyLine(s)}${readingCard(s, 'your notes')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
@@ -1694,7 +1735,7 @@ function savedView(s) {
       <h2 style="font-size:17px;margin-top:2px">${esc(s.title)}</h2>
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${filed}</div>
       <p style="color:var(--text-2);margin:12px 0 0">Claude marks it from the pages; the marks, your mistakes and the corrections then show up in History${s.worksheetId ? ', under the worksheet' : ''}.</p>
-      ${readingCard(s, 'and mark it')}
+      ${studyLine(s)}${readingCard(s, 'and mark it')}
       <div class="row" style="margin-top:14px">
         ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
         ${s.worksheetId ? `<button class="btn ghost" data-act="open-ws" data-id="${esc(s.worksheetId)}">The worksheet</button>` : ''}
@@ -1708,6 +1749,7 @@ function savedView(s) {
         <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${filed}</div></div>
     </div>
     ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
+    ${studyLine(s)}
     ${s.weakTopics.length ? `<div class="notice" style="margin-top:10px">Added to your revision:
       <b>${s.weakTopics.map((id) => esc(topicOf(id)?.name || id)).join(', ')}</b>. They will come up in your free periods over the next few days.</div>` : ''}
     ${s.nextSteps?.length ? `<div style="margin-top:12px"><div class="eyebrow">Next</div><ul style="margin:6px 0 0;padding-left:18px">${s.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
@@ -1728,6 +1770,10 @@ function savedView(s) {
    the same connector, so the work is filed here and read there: this is the
    message to paste into a chat, with the file attached. */
 const chatOpId = () => newId('chat');
+// Done at home: study time — the minutes the student gave, or Claude's guess from the pages.
+const MINUTES_GUESS = '<your guess at the minutes this took: about 10-15 per page of handwritten notes, 15-20 per page of worked answers, rounded to 5>';
+const whereJson = (x) => (x.where === 'home' ? `"where": "home", "minutes": ${x.minutes || `"${MINUTES_GUESS}"`}, ` : x.where === 'class' ? '"where": "class", ' : '');
+const studyJson = (x) => (x.where === 'home' ? `, "study": {"minutes": ${x.minutes || `"${MINUTES_GUESS}"`}}` : '');
 // x.via === 'queue': for the reader — the pages are pictures from read_queue, not an attachment
 function chatAsk(kind, x) {
   const conn = `the "${DASH}" connector`;
@@ -1739,7 +1785,7 @@ function chatAsk(kind, x) {
     return `${q ? `These pictures are pages of ${what}` : `I've attached ${what} (${x.pages} page${x.pages === 1 ? '' : 's'})`}.${x.label ? ` Only ${x.label} are new or changed since you last read them — read those.` : ' Please read them.'}${so}
 
 Then save what they cover to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
-{"id": "${chatOpId()}", "type": "notes.update", "attachmentId": "${x.id}", "patch": {"title": "<a short name>", "subjectId": "${x.subjectId || '<maths|fmaths|physics|cs|german>'}", "topicIds": ["<${topics}>"], "summary": "<what the whole notebook covers, up to three sentences>", "keyPoints": [${x.keyPoints?.length ? '<the key points above, then up to 6 new ones from these pages>' : '<up to 8 key facts, formulas or methods>'}]}}${q ? '' : '\nThen tell me the summary and the key points.'}`;
+{"id": "${chatOpId()}", "type": "notes.update", "attachmentId": "${x.id}", "patch": {${whereJson(x, 'notes')}"title": "<a short name>", "subjectId": "${x.subjectId || '<maths|fmaths|physics|cs|german>'}", "topicIds": ["<${topics}>"], "summary": "<what the whole notebook covers, up to three sentences>", "keyPoints": [${x.keyPoints?.length ? '<the key points above, then up to 6 new ones from these pages>' : '<up to 8 key facts, formulas or methods>'}]}}${q ? '' : '\nThen tell me the summary and the key points.'}`;
   }
   if (kind === 'worksheet') {
     return `${q ? 'These pictures are' : "I've attached"} a worksheet, "${x.title}"${x.subjectId ? ` (${subjectName(x.subjectId)})` : ''}. Please read every question on it and save them to my A Level dashboard: call apply_changes on ${conn} with this one op, filled in —
@@ -1747,10 +1793,10 @@ Then save what they cover to my A Level dashboard: call apply_changes on ${conn}
   }
   const ws = x.worksheet;
   const a = x.attachment;
-  const attachment = a ? JSON.stringify({ ...a, topicIds: [`<${topics}>`] })
+  const attachment = a ? JSON.stringify({ ...a, topicIds: [`<${topics}>`] }) + studyJson(x)
     : `{"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}`;
   return `${q ? 'These pictures are' : "I've attached"} ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. ${q ? 'Then save' : 'Show me the marking, then save'} it with apply_changes on ${conn} —
-{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
+{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}${a ? '' : studyJson(x)}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
 }
 function chatCard(text, what = 'it') {
   return `<div class="card chatcard">
@@ -1889,7 +1935,12 @@ function sessionState(s) {
   return 'done';
 }
 // One reader at a time: a running one also reads what arrives while it works.
+// Where your organisation won't let a page start Claude Code, a reader session
+// woken every hour (a routine on your account) reads the queue instead.
+const SCHEDULED_CODES = ['blocked_by_policy', 'approval_required', 'server_not_connected', 'server_not_found'];
+const scheduledReader = () => LS.get('readerScheduled', false);
 async function startReader(why) {
+  if (scheduledReader()) return null;
   const cur = APP.reader;
   if (cur?.id && Date.now() - (cur.at || 0) < 20 * 60e3) {
     const s = await remote('get_session', { session_id: cur.id }).catch(() => null);
@@ -1900,6 +1951,7 @@ async function startReader(why) {
     s = await remote('create_session', { environment_id: await readerEnv(), title: ('A Level reader · ' + why).slice(0, 120),
       prompt: readerPrompt(), extra_allowed_tools: readerTools(), tags: ['a-level-reader'] });
   } catch (e) {
+    if (SCHEDULED_CODES.includes(e?.code)) { LS.set('readerScheduled', true); APP.readerError = null; render(); return null; }
     throw { ...e, server: REMOTE };
   }
   if (!s?.id) throw { code: 'tool_error', message: 'Claude Code did not start the reader. Try again in a minute.' };
@@ -1957,6 +2009,7 @@ function readState(id) {
   if (local?.state === 'failed') return { k: 'failed', text: local.error, again: true };
   if (local?.state === 'sending') return { k: 'sending', text: `Getting the pages ready for Claude… ${local.sent} of ${local.total}` };
   if (waitingList().some((x) => x.id === id) || local?.state === 'queued') {
+    if (scheduledReader()) return { k: 'reading', text: 'Waiting for Claude: it reads waiting work every hour (7:00–22:00) and saves it here by itself.' };
     if (APP.reader?.status === 'blocked') return { k: 'blocked', text: 'Claude needs your OK to carry on. Open the reader and allow it — once is enough.' };
     if (APP.readerError) return { k: 'waiting', text: `Claude couldn't be started to read it (${APP.readerError}).` };
     if (APP.reader?.status === 'working') return { k: 'reading', text: 'Claude is reading it now. It usually takes a minute or two; you can close the app — it saves by itself.' };
@@ -1994,7 +2047,8 @@ function readingPanel() {
   const st = APP.reader?.status === 'blocked' ? `<div class="notice" style="margin:8px 0">✋ Claude needs your OK to carry on. ${readerLink()}</div>`
     : APP.readerError ? `<div class="notice bad" style="margin:8px 0">Claude couldn't be started: ${esc(APP.readerError)}
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="read-start">Try again</button></div></div>`
-    : APP.reader?.status === 'working' && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">👀 Claude is reading these now.</div>' : '';
+    : APP.reader?.status === 'working' && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">👀 Claude is reading these now.</div>'
+    : scheduledReader() && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">Claude reads these at its next hourly check (7:00–22:00).</div>' : '';
   return `<div class="card"><div class="card-h"><h2>With Claude</h2><span class="count">${q.length + sending.length}</span></div>${st}
     ${sending.map((x) => row(x.title, x.kind, x.state === 'failed' ? `<span class="late" style="font-size:12.5px">${esc(x.error || 'not sent')}</span>` : `<span class="muted" style="font-size:12.5px">sending ${x.sent}/${x.total}</span>`)).join('')}
     ${q.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="muted" style="font-size:12.5px">${x.pageCount} p.</span>
@@ -2002,7 +2056,7 @@ function readingPanel() {
     ${failed.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="late" style="font-size:12.5px">${esc(x.error || 'not read')}</span>
       <button class="btn sm" data-act="read-retry" data-id="${esc(x.id)}">Try again</button>
       <button class="btn ghost sm" data-act="read-cancel" data-id="${esc(x.id)}" aria-label="Remove">✕</button></span>`)).join('')}
-    ${q.length && !['working', 'blocked'].includes(APP.reader?.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>` : ''}
+    ${q.length && !scheduledReader() && !['working', 'blocked'].includes(APP.reader?.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>` : ''}
   </div>`;
 }
 async function retryReading(id) {
@@ -2020,6 +2074,11 @@ async function retryReading(id) {
 }
 async function startReaderNow() {
   APP.readerError = null;
+  // from a tap: let the view ask for Claude Code if it needs your consent
+  try {
+    const perms = await claude.use('permissions');
+    if (perms) await perms.request(['mcp', 'mcp:' + REMOTE]);
+  } catch { /* nothing to ask here */ }
   try { await startReader('waiting work'); toast('Claude is reading it now.'); } catch (e) { APP.readerError = e?.code === 'tool_error' ? e.message : connError(e, REMOTE); }
   render();
 }
@@ -2553,6 +2612,7 @@ function readWorkForm() {
   const w = APP.work;
   w.hint = { subjectId: $('#wSubj')?.value ?? w.hint.subjectId, homeworkId: $('#wHw')?.value ?? w.hint.homeworkId };
   if ($('#wSheet')) w.worksheetId = $('#wSheet').value;
+  if ($('#wMins')) w.minutes = Number($('#wMins').value) || null;
 }
 
 async function analyse(force = false) {
@@ -2620,7 +2680,7 @@ async function analyse(force = false) {
   }
 }
 function startReview(a) {
-  APP.work.review = JSON.parse(JSON.stringify(a));
+  APP.work.review = stampWhere(JSON.parse(JSON.stringify(a)), a.mode === 'notes' ? (a.readPages || readUnits(APP.work).length) : pageUnits(APP.work).length || APP.work.pages.length);
   APP.work.stage = 'review';
   APP.work.dest = null;
   render();
@@ -2637,6 +2697,7 @@ function fileOnly(markLater = false) {
     homeworkId: mode === 'other' ? w.hint.homeworkId : '',
     kind: mode === 'worksheet' ? 'worksheet' : markLater ? 'answers' : 'notes', title: ws ? 'Answers — ' + ws.title : defaultTitle(),
     questions: [], summary: '', keyPoints: [], nextSteps: [], detected: null };
+  stampWhere(w.review, 0);
   w.stage = 'review';
   w.dest = null;
   render();
@@ -3047,11 +3108,11 @@ async function saveWork(noDrive = false) {
     const attachment = { id: newId('f'), title: r.title, subjectId, homeworkId: r.homeworkId || null,
       kind: ws ? 'answers' : ['answers', 'test'].includes(r.kind) ? r.kind : 'answers', worksheetId: ws?.id || null,
       driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '', folderId: info?.folderId || null, ownCopy,
-      mime: info?.mime || '', pages, hash: w.hash };
-    w.saved = { mode: 'marklater', title: r.title, subjectId, worksheetId: ws?.id || null, url: info?.url || null, folder: info?.folder || null,
+      mime: info?.mime || '', pages, hash: w.hash, where: r.where };
+    w.saved = { mode: 'marklater', where: r.where, minutes: r.minutes, title: r.title, subjectId, worksheetId: ws?.id || null, url: info?.url || null, folder: info?.folder || null,
       chat: chatAsk('mark', { worksheet: ws, subjectId }),
       queue: { kind: 'mark', units: pageUnits(w).slice(0, QUEUE_PAGES.mark),
-        x: { title: r.title, subjectId, targetId: attachment.id, worksheet: ws, attachment, stamp, files: driveFiles(w, info) } } };
+        x: { title: r.title, subjectId, targetId: attachment.id, worksheet: ws, attachment, stamp, files: driveFiles(w, info), where: r.where, minutes: r.minutes } } };
     w.stage = 'saved';
     render();
     return startQueue(w.saved);
@@ -3068,16 +3129,17 @@ async function saveWork(noDrive = false) {
     send({ type: 'notes.update', attachmentId: r.updateOf, pageSigs: sigs,
       patch: { title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary || '', keyPoints: r.keyPoints || [],
         pageCount: pages, readPages: Math.max(old?.readPages || 0, r.readPages || 0), firstSig: sigs[0] || undefined,
+        ...(r.where ? { where: r.where } : {}), ...(r.where === 'home' && r.minutes ? { minutes: r.minutes } : {}),
         fileName: w.pages[0]?.name || undefined,
         ...(info ? { driveId: info.id || null, driveUrl: info.url || null, folder: info.folder || '', folderId: info.folderId || old?.folderId || null,
           mime: info.mime || '', ownCopy } : {}) } });
-    w.saved = { mode: 'notes', updated: true, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary,
+    w.saved = { mode: 'notes', updated: true, where: r.where, minutes: r.minutes, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary,
       keyPoints: r.newPoints || [], pages, version, url: info?.url || old?.driveUrl || null,
       folder: info?.folder || old?.folder || null, noteId: r.updateOf,
       chat: r.readLabel ? null : chatAsk('notes', { id: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
         summary: r.summary, keyPoints: r.keyPoints }),
       queue: r.readLabel ? null : { kind: 'notes', units: notebookUnits(w, r),
-        x: { id: r.updateOf, targetId: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
+        x: { id: r.updateOf, targetId: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel, where: r.where, minutes: r.minutes,
           summary: r.summary, keyPoints: r.keyPoints, files: driveFiles(w, info) } } };
     w.stage = 'saved';
     render();
@@ -3111,19 +3173,21 @@ async function saveWork(noDrive = false) {
     type: 'work.save',
     attachment: { id: attachmentId, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
       kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
-      folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash },
+      folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash,
+      ...(r.where ? { where: r.where } : {}) },
+    study: r.where === 'home' && r.minutes ? { minutes: r.minutes } : undefined,
     notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [], fileName: w.pages[0]?.name || '',
       pageCount: pages, readPages: r.readPages || (r.detected ? pages : 0), firstSig: sigs[0] || undefined, pageSigs: sigs } : undefined,
     marking: questions.length ? { questions, summary: r.summary, nextSteps: r.nextSteps, tier: w.tierUsed, detected: r.detected } : null,
   });
   const score = questions.reduce((a, q) => a + q.marks, 0), max = questions.reduce((a, q) => a + q.maxMarks, 0);
   const weakTopics = [...new Set(questions.filter((q) => q.marks < q.maxMarks && q.topicId).map((q) => q.topicId))];
-  w.saved = { mode: r.mode, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
+  w.saved = { mode: r.mode, where: r.where, minutes: r.minutes, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
     nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
     url: info?.url || null, folder: info?.folder || null, weakTopics, noteId: kind === 'notes' ? attachmentId : null,
     chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null,
     queue: kind === 'notes' && !r.readLabel && !r.detected ? { kind: 'notes', units: pageUnits(w).slice(0, QUEUE_PAGES.notes),
-      x: { id: attachmentId, targetId: attachmentId, title: r.title, subjectId: r.subjectId, pages, files: driveFiles(w, info) } } : null };
+      x: { id: attachmentId, targetId: attachmentId, title: r.title, subjectId: r.subjectId, pages, files: driveFiles(w, info), where: r.where, minutes: r.minutes } } : null };
   w.stage = 'saved';
   render();
   startQueue(w.saved);
@@ -3144,7 +3208,7 @@ function resetWork(preset = {}) {
     if (p.busy) p.dropped = true;           // its pages are still being sent to Claude
     else try { p.doc?.destroy(); } catch { /* already gone */ }
   }
-  APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier,
+  APP.work = { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: APP.work.tier, where: APP.work.where, minutes: null,
     mode: LS.get('workMode', 'worksheet'), worksheetId: '', ...preset };
   render();
 }
@@ -3544,7 +3608,8 @@ function readTestFields() {
 function readerState() {
   const env = LS.get('readerEnv', null);
   const where = env?.name ? ` in your “${env.name}” Claude Code environment` : '';
-  if (APP.readerError) return 'could not start — ' + APP.readerError;
+  if (scheduledReader()) return "an hourly reader session on your account checks for waiting work, 7:00–22:00";
+  if (APP.readerError) return "could not start — " + APP.readerError;
   const st = { working: 'Claude is reading now', blocked: 'waiting for your OK', failed: 'the last reader stopped with an error', done: 'ready' }[APP.reader?.status];
   return (st || 'starts when this view can\'t show Claude pictures and you save work') + where;
 }
@@ -3863,6 +3928,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.prio) { t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.conf) { SHEET.ctx.conf = Number(t.dataset.conf); t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.kind && SHEET.ctx?.kind === 'test') { SHEET.ctx.test.kind = t.dataset.kind; t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
+  if (t.dataset.where) { readWorkForm(); APP.work.where = t.dataset.where; LS.set('workWhere', APP.work.where); return render(); }
   if (t.dataset.tier) { readWorkForm(); APP.work.tier = t.dataset.tier; LS.set('tier', APP.work.tier); return render(); }
   if (t.dataset.mode) {
     readWorkForm();
@@ -3883,6 +3949,7 @@ document.addEventListener('input', (e) => {
   if (el.id === 'qaText') return updateQuickPreview();
   if (el.id === 'rTopicSearch') return topicSuggest();
   if (el.id === 'rTitle' && APP.work.review) { APP.work.review.title = el.value; return; }
+  if (el.id === 'rMins' && APP.work.review) { APP.work.review.minutes = Number(el.value) || null; APP.work.review.minutesGuessed = false; return; }
   if (el.id === 'rSummary' && APP.work.review) { APP.work.review.summary = el.value; return; }
   if (el.id === 'rPoints' && APP.work.review) { APP.work.review.keyPoints = el.value.split('\n').map((x) => x.trim()).filter(Boolean); return; }
   if (el.dataset.qf && APP.work.review) {
