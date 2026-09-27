@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { exec } from 'node:child_process';
+import { paths } from './lib/paths.mjs';
 
 const PORT = 8788;
 const REDIRECT = `http://localhost:${PORT}/callback`;
@@ -26,7 +27,7 @@ const SCOPES = (GMAIL
      'https://www.googleapis.com/auth/classroom.coursework.me.readonly']).join(' ');
 const SECTION = GMAIL ? 'gmail' : 'classroom';
 
-const cfg = existsSync('./config.json') ? JSON.parse(await readFile('./config.json', 'utf8')) : {};
+const cfg = existsSync(paths.config) ? JSON.parse(await readFile(paths.config, 'utf8')) : {};
 cfg[SECTION] ||= {};
 
 /* Credentials come from the JSON Google gives you when you create the OAuth
@@ -67,7 +68,9 @@ if (!client_id || !client_secret) {
 
 const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
   client_id, redirect_uri: REDIRECT, response_type: 'code',
-  scope: SCOPES, access_type: 'offline', prompt: 'consent',
+  // select_account: without it Google silently reuses whichever account the
+  // browser is already signed into — usually the personal one, not the school's.
+  scope: SCOPES, access_type: 'offline', prompt: 'select_account consent',
 });
 
 console.log(GMAIL
@@ -88,7 +91,14 @@ const code = await new Promise((resolve, reject) => {
     err ? reject(new Error(err)) : resolve(u.searchParams.get('code'));
   });
   s.listen(PORT, '127.0.0.1');
-  setTimeout(() => { s.close(); reject(new Error('timed out after 3 minutes')); }, 18e4);
+  // Google only redirects here on success or a plain "Deny". A block (Access
+  // blocked, access_not_configured, not a test user) stops on its own error page
+  // and never comes back, so a timeout nearly always means that page was shown.
+  setTimeout(() => {
+    s.close();
+    reject(new Error('no reply from Google after 10 minutes. The browser almost certainly '
+      + 'stopped on an error page — that page\'s error code is what to fix.'));
+  }, 6e5).unref();
 });
 
 const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -102,8 +112,8 @@ const { refresh_token } = await res.json();
 if (!refresh_token) { console.error('\nNo refresh token came back. Revoke the app at myaccount.google.com/permissions and run this again.'); process.exit(1); }
 
 cfg[SECTION] = { ...cfg[SECTION], client_id, client_secret, refresh_token };
-await writeFile('./config.json', JSON.stringify(cfg, null, 2));
-console.log('\n✓ Saved to config.json.\n');
+await writeFile(paths.config, JSON.stringify(cfg, null, 2));
+console.log(`\n✓ Saved to ${paths.config}\n`);
 const P = GMAIL ? 'GMAIL' : 'CLASSROOM';
 console.log('  For the hosted dashboard, add these three to Render → Environment:');
 console.log(`    ${P}_CLIENT_ID      = ` + client_id);
