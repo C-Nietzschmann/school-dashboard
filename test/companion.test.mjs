@@ -554,3 +554,25 @@ test('reading in the background: queued with its pages, shown to Claude as pictu
   assert.equal(S.readQueue.length, 0);
   assert.equal(store.m.has('rp-r9-0'), false);
 });
+
+test('uploads count: in class marks the topics taught, at home logs study time once', async () => {
+  const S = fixture();
+  const store = memStore();
+  const tid = S.topics.find((t) => t.subjectId === 'cs').id;
+  Object.assign(S.topics.find((t) => t.id === tid), { taught: false, started: false });
+  const before = S.sessions.length;
+  const save = (id, a, study) => ({ id, type: 'work.save', study, attachment: { id: 'f' + id, title: 'Networks', kind: 'notes', subjectId: 'cs', topicIds: [tid], ...a },
+    notes: { summary: '', keyPoints: [] } });
+  await applyOps(S, [save('c1', { where: 'class' }, { minutes: 40 })], { date: MONDAY, store });
+  let t = S.topics.find((x) => x.id === tid);
+  assert.deepEqual([t.taught, t.started, t.lastStudied, S.sessions.length], [true, true, MONDAY, before], 'class: taught, no study time');
+  await applyOps(S, [save('h1', { where: 'home' }, { minutes: 33 }), save('h1', { where: 'home' }, { minutes: 33 }),
+    save('h2', { where: 'home' }, { minutes: 2 }), save('h3', { where: 'home' })], { date: MONDAY, store });
+  const logged = S.sessions.slice(before);
+  assert.deepEqual(logged.map((x) => [x.subjectId, x.topicId, x.minutes, x.source, x.attachmentId]),
+    [['cs', tid, 33, 'upload', 'fh1'], ['cs', tid, 5, 'upload', 'fh2']], 'resent op logs nothing; minutes clamp to 5; no minutes, no session');
+  const out = await applyOps(S, [{ id: 'u1', type: 'notes.update', attachmentId: 'fh3', patch: { where: 'home', minutes: 25, summary: 'More' } }], { date: MONDAY, store });
+  assert.equal(out.results[0].minutes, 25);
+  assert.equal(S.sessions.at(-1).attachmentId, 'fh3');
+  assert.deepEqual(S.attachments.find((a) => a.id === 'fh3').sessionIds.length, 1);
+});
