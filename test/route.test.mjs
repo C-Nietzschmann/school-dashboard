@@ -169,7 +169,7 @@ test('route.import: a plan with clashing ids is refused; the old planner export 
   out = await applyOps(S, [{ id: 'i2', type: 'route.import', plan: PLAN,
     done: { keepUK: false, keepMIT: true, items: [{ id: 'a1', done: true }, { id: 'zz', done: true }, { id: 'a3', done: false }] } }], { date: '2026-09-20' });
   assert.deepEqual([out.results[0].ok, out.results[0].done], [true, 1]);
-  assert.deepEqual(S.routeDone, { a1: '2026-09-20' });
+  assert.deepEqual(S.routeDone, { a1: true });                   // imported: done, but not today
   assert.deepEqual(S.routeOpts, { uk: false, mit: true });
 });
 

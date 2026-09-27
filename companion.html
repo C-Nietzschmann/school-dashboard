@@ -659,6 +659,17 @@ const LOCAL = {
     }
   },
   'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
+  'route.tick': (d, op) => {
+    const r = d.route;
+    if (!r) return;
+    if (op.done === false) { r.doneToday = r.doneToday.filter((x) => x.id !== op.itemId); return; }
+    const x = r.checklist.find((c) => c.id === op.itemId);
+    if (!x) return;
+    r.checklist = r.checklist.filter((c) => c !== x);
+    r.doneToday.push({ id: x.id, text: x.text });
+    r.stage.done += 1;
+    r.stage.pct = r.stage.total ? Math.round(r.stage.done / r.stage.total * 100) : 0;
+  },
   'pack.delete': (d, op) => {
     const k = d.packs?.find((x) => x.id === op.packId);
     d.packs = (d.packs || []).filter((x) => x.id !== op.packId);
@@ -819,7 +830,53 @@ function viewToday() {
   const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
   return `${weekStrip(days)}<div class="grid2">
     <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
-    <div class="stack">${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+    <div class="stack">${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+  </div>`;
+}
+
+/* The university route: today's short list from your plan, and whether you
+   are on track. Built on the server by lib/route.mjs; ticking sends route.tick. */
+const VERDICT = { ahead: 'Ahead of plan', 'on-track': 'On track', unknown: 'Tick what you have done to see if you are on track' };
+const routeVerdict = (st) => (st.verdict === 'behind' ? `Behind by ${st.behindBy} item${st.behindBy === 1 ? '' : 's'}` : VERDICT[st.verdict] || '');
+function routeCard(d) {
+  const r = d.route;
+  if (!r) return '';
+  const mode = r.mode === 'exam' ? `Exam time: grades only${r.examLabel ? ` (${esc(r.examLabel)})` : ''}`
+    : `${r.mode === 'school' ? 'School day' : r.mode === 'holiday' ? 'Holiday' : 'Weekend'} · ${r.totalMinutes} of ${r.budget} min`;
+  const next = r.deadlines[0];
+  const row = (x) => `<li class="task${x.critical ? ' p-high' : ''}">
+    ${x.id ? `<button class="check" data-act="route-tick" data-id="${esc(x.id)}" aria-label="Mark done">✓</button>` : '<span></span>'}
+    <div class="task-main"><span class="task-title">${esc(x.text)}</span>
+      <span class="task-meta">${x.minutes} min · ${esc(x.reason)}${x.critical ? ' · <span class="prio-high">Critical</span>' : ''}
+        ${x.projectName ? `· ${esc(x.projectName)}` : ''}${x.url && /^https:\/\//.test(x.url) ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">open</a>` : ''}</span></div></li>`;
+  return `<div class="card">
+    <div class="card-h"><h2>${esc(r.station)} <span class="count">${esc(r.name)}</span></h2></div>
+    ${r.example ? '<div class="opt-why" style="margin-bottom:6px">An example plan. Import yours on the dashboard: Files → Route plan.</div>' : ''}
+    <div class="task-meta" style="margin-bottom:4px">${esc(routeVerdict(r.stage))} · ${r.stage.done} of ${r.stage.total} done this stage</div>
+    <div class="bar" style="margin-bottom:10px"><span class="lv-high" style="width:${r.stage.pct}%"></span></div>
+    <div class="eyebrow" style="margin-bottom:4px">${mode}</div>
+    ${r.checklist.length ? `<ul class="tasks">${r.checklist.map(row).join('')}</ul>` : '<div class="empty">Nothing on your route today.</div>'}
+    ${r.doneToday.length ? `<details style="margin-top:8px"><summary class="muted" style="font-size:13.5px">Done today (${r.doneToday.length})</summary>
+      <ul class="tasks">${r.doneToday.map((x) => `<li class="task is-done"><button class="check" data-act="route-tick" data-id="${esc(x.id)}" data-done="0" aria-label="Mark not done">✓</button>
+        <div class="task-main"><span class="task-title">${esc(x.text)}</span></div></li>`).join('')}</ul></details>` : ''}
+    ${next ? `<div class="test-row" style="margin-top:10px"><div><div style="font-weight:500">${esc(next.label)}</div>
+      <div class="task-meta">${next.approx ? '≈ ' : ''}${esc(fmtDay(next.date))}</div></div>
+      <span class="days-left${next.daysLeft <= 14 ? ' close' : ''}">${next.daysLeft === 0 ? 'today' : next.daysLeft + ' days'}</span></div>` : ''}
+  </div>`;
+}
+
+// On the Skills tab: the whole plan, and each project's progress.
+function routeSkills(d) {
+  const r = d.route;
+  if (!r) return '';
+  const bar = (p) => `<div class="bar"><span class="lv-high" style="width:${p}%"></span></div>`;
+  return `<div class="card"><div class="card-h"><h2>${esc(r.name)}</h2><span class="level-num">${r.plan.pct}<span class="muted" style="font-size:14px">%</span></span></div>
+    ${bar(r.plan.pct)}
+    <div class="muted" style="font-size:12.5px;margin-bottom:8px">${r.plan.done} of ${r.plan.total} across the whole plan · now at ${esc(r.station)}: ${esc(routeVerdict(r.stage))}</div>
+    ${r.projects.filter((p) => p.status !== 'later').map((p) => `<div class="topic-row"><span>${esc(p.name)}
+        <span class="ev">${p.status === 'done' ? 'done' : p.next ? 'next: ' + esc(p.next.text) : ''}</span></span>
+      ${bar(p.pct)}<span class="mono">${p.pct}%</span></div>`).join('')}
+    ${r.projects.some((p) => p.status === 'later') ? `<div class="muted" style="font-size:12.5px;margin-top:6px">Later: ${r.projects.filter((p) => p.status === 'later').map((p) => esc(p.name)).join(', ')}</div>` : ''}
   </div>`;
 }
 
@@ -3537,6 +3594,7 @@ function viewSkills() {
     </div>`;
   }).join('');
   return `<div class="stack">
+    ${routeSkills(d)}
     ${testsFull(d)}
     ${focus.length ? `<div class="card"><div class="card-h"><h2>Where today's study periods point</h2></div>
       ${focus.map((o) => `<div class="row" style="padding:5px 0;border-top:1px solid var(--line)"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>${esc(optTitle(o))}</div>`).join('')}
@@ -3765,6 +3823,7 @@ document.addEventListener('click', (e) => {
       }
       closeSheet(); return render();
     }
+    case 'route-tick': return send({ type: 'route.tick', itemId: t.dataset.id, done: t.dataset.done !== '0' });
     case 'task-done': {
       const done = d.done.some((x) => x.id === t.dataset.id);
       return send({ type: 'task.done', taskId: t.dataset.id, done: !done });

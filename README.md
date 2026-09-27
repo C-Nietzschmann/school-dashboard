@@ -175,7 +175,24 @@ or both — and writes an original pack in the board's style, with a mark scheme
 once you accept it does it go into the companion as a to-do with an **Open pack**
 button. **Mark my answers** then marks your photos against that scheme.
 
-`npm test` runs the checks on the planner, the change log and the connector.
+## The route planner
+
+The **Route** tab holds a long-range plan — the road to university: stages with dates,
+tasks, courses, portfolio projects, earning steps, and each university's entry
+requirements (grade requirements are checked live against your predicted grades). From
+it `lib/route.mjs` works out a short list for today: critical items first, projects on
+Mondays, Wednesdays and Fridays, courses on Tuesdays and Thursdays, a mix at weekends and
+in holidays, and grades only in exam weeks (from the plan's exam windows, or a real exam
+on the dashboard), within 75 or 150 minutes. Each stage's progress is compared with how
+much of it has passed; with nothing ticked it says so instead of calling you behind.
+
+Your plan is your data. The repository ships only an invented example; import your own in
+**Files → Route plan** (a plan's JSON, or the old planner's export of ticks), or through the
+connector's `route.import`. The companion shows today's route on its Today tab, and the
+skills in `.claude/skills/` — `/DayChecklist`, `/Taskinfo`, `/TaskCreator` — read and tick
+the same plan through the connector's `get_route` and `route.*` changes.
+
+`npm test` runs the checks on the planner, the route engine, the change log and the connector.
 
 ## Connecting things (all optional)
 
