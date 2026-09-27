@@ -1896,7 +1896,12 @@ function sessionState(s) {
   return 'done';
 }
 // One reader at a time: a running one also reads what arrives while it works.
+// Where your organisation won't let a page start Claude Code, a reader session
+// woken every hour (a routine on your account) reads the queue instead.
+const SCHEDULED_CODES = ['blocked_by_policy', 'approval_required', 'server_not_connected', 'server_not_found'];
+const scheduledReader = () => LS.get('readerScheduled', false);
 async function startReader(why) {
+  if (scheduledReader()) return null;
   const cur = APP.reader;
   if (cur?.id && Date.now() - (cur.at || 0) < 20 * 60e3) {
     const s = await remote('get_session', { session_id: cur.id }).catch(() => null);
@@ -1907,6 +1912,7 @@ async function startReader(why) {
     s = await remote('create_session', { environment_id: await readerEnv(), title: ('A Level reader · ' + why).slice(0, 120),
       prompt: readerPrompt(), extra_allowed_tools: readerTools(), tags: ['a-level-reader'] });
   } catch (e) {
+    if (SCHEDULED_CODES.includes(e?.code)) { LS.set('readerScheduled', true); APP.readerError = null; render(); return null; }
     throw { ...e, server: REMOTE };
   }
   if (!s?.id) throw { code: 'tool_error', message: 'Claude Code did not start the reader. Try again in a minute.' };
@@ -1964,6 +1970,7 @@ function readState(id) {
   if (local?.state === 'failed') return { k: 'failed', text: local.error, again: true };
   if (local?.state === 'sending') return { k: 'sending', text: `Getting the pages ready for Claude… ${local.sent} of ${local.total}` };
   if (waitingList().some((x) => x.id === id) || local?.state === 'queued') {
+    if (scheduledReader()) return { k: 'reading', text: 'Waiting for Claude: it reads waiting work every hour (7:00–22:00) and saves it here by itself.' };
     if (APP.reader?.status === 'blocked') return { k: 'blocked', text: 'Claude needs your OK to carry on. Open the reader and allow it — once is enough.' };
     if (APP.readerError) return { k: 'waiting', text: `Claude couldn't be started to read it (${APP.readerError}).` };
     if (APP.reader?.status === 'working') return { k: 'reading', text: 'Claude is reading it now. It usually takes a minute or two; you can close the app — it saves by itself.' };
@@ -2001,7 +2008,8 @@ function readingPanel() {
   const st = APP.reader?.status === 'blocked' ? `<div class="notice" style="margin:8px 0">✋ Claude needs your OK to carry on. ${readerLink()}</div>`
     : APP.readerError ? `<div class="notice bad" style="margin:8px 0">Claude couldn't be started: ${esc(APP.readerError)}
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="read-start">Try again</button></div></div>`
-    : APP.reader?.status === 'working' && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">👀 Claude is reading these now.</div>' : '';
+    : APP.reader?.status === 'working' && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">👀 Claude is reading these now.</div>'
+    : scheduledReader() && q.length ? '<div class="muted" style="font-size:13px;margin-bottom:6px">Claude reads these at its next hourly check (7:00–22:00).</div>' : '';
   return `<div class="card"><div class="card-h"><h2>With Claude</h2><span class="count">${q.length + sending.length}</span></div>${st}
     ${sending.map((x) => row(x.title, x.kind, x.state === 'failed' ? `<span class="late" style="font-size:12.5px">${esc(x.error || 'not sent')}</span>` : `<span class="muted" style="font-size:12.5px">sending ${x.sent}/${x.total}</span>`)).join('')}
     ${q.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="muted" style="font-size:12.5px">${x.pageCount} p.</span>
@@ -2009,7 +2017,7 @@ function readingPanel() {
     ${failed.map((x) => row(x.title, x.kind, `<span class="row" style="gap:6px"><span class="late" style="font-size:12.5px">${esc(x.error || 'not read')}</span>
       <button class="btn sm" data-act="read-retry" data-id="${esc(x.id)}">Try again</button>
       <button class="btn ghost sm" data-act="read-cancel" data-id="${esc(x.id)}" aria-label="Remove">✕</button></span>`)).join('')}
-    ${q.length && !['working', 'blocked'].includes(APP.reader?.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>` : ''}
+    ${q.length && !scheduledReader() && !['working', 'blocked'].includes(APP.reader?.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="read-start">Start Claude</button></div>` : ''}
   </div>`;
 }
 async function retryReading(id) {
@@ -3556,7 +3564,8 @@ function readTestFields() {
 function readerState() {
   const env = LS.get('readerEnv', null);
   const where = env?.name ? ` in your “${env.name}” Claude Code environment` : '';
-  if (APP.readerError) return 'could not start — ' + APP.readerError;
+  if (scheduledReader()) return "an hourly reader session on your account checks for waiting work, 7:00–22:00";
+  if (APP.readerError) return "could not start — " + APP.readerError;
   const st = { working: 'Claude is reading now', blocked: 'waiting for your OK', failed: 'the last reader stopped with an error', done: 'ready' }[APP.reader?.status];
   return (st || 'starts when this view can\'t show Claude pictures and you save work') + where;
 }
