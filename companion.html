@@ -859,7 +859,26 @@ function viewToday() {
   const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
   return `${weekStrip(days)}<div class="grid2">
     <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
-    <div class="stack">${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+    <div class="stack">${archiveCard(d)}${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+  </div>`;
+}
+
+/* Reminder, daily for the last week: mistakes you haven't fixed get archived
+   (out of the queue, no credit) 14 days after the work. Urgent in the last 3. */
+function archiveCard(d) {
+  const soon = (d.mistakes || []).filter((m) => m.daysLeft != null && m.daysLeft <= 7);
+  if (!soon.length) return '';
+  const first = Math.max(0, Math.min(...soon.map((m) => m.daysLeft)));
+  const byWork = {};
+  for (const m of soon) (byWork[m.title] ||= []).push(m);
+  return `<div class="card"${first <= 3 ? ' style="border-color:var(--warn)"' : ''}>
+    <div class="card-h"><h2>Fix before they're archived <span class="count">${soon.length}</span></h2></div>
+    <div class="task-meta" style="margin-bottom:8px">${first === 0 ? 'The first ones are archived tonight.' : `The first ones are archived in ${first} day${first === 1 ? '' : 's'}.`}
+      Archived mistakes stay as data but leave your fix list, with no credit.</div>
+    <ul class="tasks">${Object.entries(byWork).slice(0, 5).map(([t, ms]) => `<li class="task${ms[0].daysLeft <= 3 ? ' p-high' : ''}"><span></span>
+      <div class="task-main"><span class="task-title">${esc(t)}</span>
+      <span class="task-meta">${ms.length} mistake${ms.length === 1 ? '' : 's'} · ${ms.map((m) => esc(m.q)).slice(0, 6).join(', ')} · ${Math.max(0, Math.min(...ms.map((m) => m.daysLeft)))}d left</span></div></li>`).join('')}</ul>
+    <button class="btn" data-act="tab" data-tab="history" style="margin-top:8px">Fix them</button>
   </div>`;
 }
 

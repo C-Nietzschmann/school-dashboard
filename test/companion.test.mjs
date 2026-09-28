@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlanner } from '../lib/plan.mjs';
-import { applyOps, todayPayload, weekPayload, summarize, getAttempt, uploadsList, readQueue, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
+import { applyOps, todayPayload, weekPayload, summarize, getAttempt, uploadsList, readQueue, archiveStale, loadAppToken, rotateAppToken } from '../lib/companion.mjs';
 import { createMcpServer } from '../lib/mcp.mjs';
 import { upgrade } from '../lib/upgrade.mjs';
 import { inlineModules } from '../lib/inline.mjs';
@@ -158,6 +158,17 @@ test('archiving an old mistake clears the queue without crediting a fix', async 
   await applyOps(S, [{ id: 'f', type: 'mistake.resolve', attemptId: S.attempts[0].id, q: '1', how: 'archived' }], { date: MONDAY, store });
   assert.equal(P.openMistakes().length, 0);
   assert.equal(P.mastery(MONDAY).topics.t004.score, before);
+});
+
+test('unfixed mistakes get a week of reminders, then archive after 14 days', async () => {
+  const S = fixture();
+  await applyOps(S, [{ id: 'w', type: 'work.save', attachment: { title: 'x', subjectId: 'maths', topicIds: ['t004'] },
+    marking: { questions: [{ q: '1', topicId: 't004', marks: 0, maxMarks: 2 }] } }], { date: MONDAY, store: memStore() });
+  assert.equal(todayPayload(S, { date: '2026-10-05' }).mistakes[0].daysLeft, 7, 'reminders start a week before');
+  assert.equal(archiveStale(S, { date: '2026-10-11' }), 0);
+  assert.equal(archiveStale(S, { date: '2026-10-12' }), 1);
+  assert.equal(S.attempts[0].questions[0].resolved, 'archived');
+  assert.equal(todayPayload(S, { date: '2026-10-12' }).mistakes.length, 0);
 });
 
 test('a test result becomes a paper, which moves the grade projection', async () => {

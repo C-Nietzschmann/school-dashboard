@@ -989,6 +989,7 @@ views.today = () => {
     </div>
   </div>
 
+  ${archiveReminderCard()}
   ${routeTodayCard()}
 
   <div class="card" style="margin-top:16px">
@@ -2121,6 +2122,20 @@ const routeMode = (c) => (c.mode === 'exam' ? `Exam week (${c.examLabel}): grade
   : `${{ school: 'School day', weekend: 'Weekend', holiday: 'Holiday' }[c.mode]} · up to ${c.budget} min`);
 
 // The Today tab's short version.
+// Daily in the last week: unfixed mistakes are archived 14 days after the work.
+function archiveReminderCard() {
+  const soon = openMistakes().filter((m) => m.daysLeft <= 7);
+  if (!soon.length) return '';
+  const first = Math.max(0, Math.min(...soon.map((m) => m.daysLeft)));
+  const works = [...new Set(soon.map((m) => m.title))];
+  return `<div class="card" style="margin-top:16px">
+    <h2>Fix before they're archived</h2>
+    <div class="hint"><span class="status ${first <= 3 ? 'bad' : 'warn'}">${soon.length} mistake${soon.length === 1 ? '' : 's'} · first archived ${first === 0 ? 'tonight' : `in ${first} day${first === 1 ? '' : 's'}`}</span>
+      · fix them in the companion app (History → Mistakes). Archived ones stay as data, with no credit.</div>
+    ${works.slice(0, 5).map((t) => `<div class="rnote">${esc(t)}</div>`).join('')}${works.length > 5 ? `<div class="rnote">+${works.length - 5} more</div>` : ''}
+  </div>`;
+}
+
 function routeTodayCard() {
   if (!R.plan()) return '';
   const today = todayISO(), c = R.checklist(today), st = R.progress(today).stage;

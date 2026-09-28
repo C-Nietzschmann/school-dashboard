@@ -16,7 +16,7 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, routePayload, routeFull, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, routePayload, routeFull, archiveStale, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -45,7 +45,8 @@ async function loadState() {
     await saveState(fresh);
     return fresh;
   }
-  if (upgrade(stored, seedState(), SCHEMA)) await saveState(stored);
+  const upgraded = upgrade(stored, seedState(), SCHEMA);
+  if (archiveStale(stored) || upgraded) await saveState(stored);
   return stored;
 }
 
