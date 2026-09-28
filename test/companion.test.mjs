@@ -432,6 +432,41 @@ test('study sessions on a weekend get options, can be planned and logged, and re
   assert.equal(S.sessions.length, before - (sp.options[0].subjectId ? 1 : 0));
 });
 
+test('a study period takes more tasks once one is done, each logged as its own session', async () => {
+  const S = fixture();
+  const sp = at(S, '10:00').studyOptions(MONDAY)[0];
+  const [first, second] = sp.options.filter((o) => o.subjectId);
+  const before = S.sessions.length;
+  const out = await applyOps(S, [
+    { id: 'm1', type: 'study.choose', date: MONDAY, key: sp.key, option: first },
+    { id: 'm2', type: 'study.done', date: MONDAY, key: sp.key, minutes: 30 },
+    { id: 'm3', type: 'study.choose', date: MONDAY, key: sp.key, add: true, item: 'i1', option: { ...second, mins: 30 } },
+    { id: 'm4', type: 'study.choose', date: MONDAY, key: sp.key, add: true, item: 'i1', option: second },   // same item: once
+    { id: 'm5', type: 'study.done', date: MONDAY, key: sp.key, item: 'i1', minutes: 25, confidence: 4 },
+  ], { date: MONDAY });
+  assert.ok(out.results.every((r) => r.ok));
+  assert.equal(out.results[2].item, 'i1');
+  assert.equal(S.sessions.length, before + 2);
+  const now = at(S, '10:00').studyOptions(MONDAY)[0];
+  assert.deepEqual(now.more.map((m) => [m.id, m.option.id, m.done, m.minutes, m.confidence]), [['i1', second.id, true, 25, 4]]);
+  assert.equal(weekPayload(S, { date: MONDAY }).log.filter((e) => e.date === MONDAY).length, 2);
+  // a further task needs a first one
+  const bad = await applyOps(S, [{ id: 'm6', type: 'study.choose', date: MONDAY, key: '11:50', add: true, option: second }], { date: MONDAY });
+  assert.equal(bad.results[0].ok, false);
+  // undoing the extra takes only its session back
+  await applyOps(S, [{ id: 'm7', type: 'study.undo', date: MONDAY, key: sp.key, item: 'i1' }], { date: MONDAY });
+  assert.equal(S.sessions.length, before + 1);
+  // clearing the first pick keeps the extra: it becomes the period's pick
+  await applyOps(S, [{ id: 'm8', type: 'study.choose', date: MONDAY, key: sp.key, option: null }], { date: MONDAY });
+  assert.equal(S.sessions.length, before);
+  assert.deepEqual([S.dayPlans[MONDAY][sp.key].option.id, S.dayPlans[MONDAY][sp.key].more], [second.id, undefined]);
+  // and a further task can be taken out again
+  await applyOps(S, [{ id: 'm9', type: 'study.choose', date: MONDAY, key: sp.key, add: true, item: 'i2', option: first },
+    { id: 'm10', type: 'study.done', date: MONDAY, key: sp.key, item: 'i2' },
+    { id: 'm11', type: 'study.choose', date: MONDAY, key: sp.key, item: 'i2', option: null }], { date: MONDAY });
+  assert.deepEqual([S.dayPlans[MONDAY][sp.key].more, S.sessions.length], [[], before]);
+});
+
 test('notes are kept as notes, with what Claude read in them, and count as studying the topic', async () => {
   const S = fixture();
   const t = S.topics.find((x) => x.id === 't004');

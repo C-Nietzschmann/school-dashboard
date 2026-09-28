@@ -84,7 +84,7 @@ header.top.hide{transform:translateY(-105%)}
 @keyframes pulse{50%{opacity:.35}}
 
 nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px))}
+  display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px))}
 nav.tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;
   padding:5px 0;border-radius:10px;color:var(--muted);font-size:11.5px;font-weight:500}
 nav.tabbar button svg{width:22px;height:22px}
@@ -348,6 +348,8 @@ section.tab.on{display:block}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5M12 8v4.5l3 2"/></svg><span>History<span class="badge" id="mistakeBadge" hidden></span></span></button>
       <button role="tab" data-tab="skills" aria-selected="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V13M12 20V8M19 20V4"/></svg>Skills</button>
+      <button role="tab" data-tab="route" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/></svg>Route</button>
     </nav>
   </div>
 </header>
@@ -357,6 +359,7 @@ section.tab.on{display:block}
   <section class="tab" id="tab-work" role="tabpanel"></section>
   <section class="tab" id="tab-history" role="tabpanel"></section>
   <section class="tab" id="tab-skills" role="tabpanel"></section>
+  <section class="tab" id="tab-route" role="tabpanel"></section>
 </main>
 
 <input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
@@ -422,6 +425,7 @@ const APP = {
   syncedAt: LS.get('syncedAt', null),
   outbox: LS.get('outbox', []),
   tab: LS.get('tab', 'today'),
+  routeFull: LS.get('routeFull', null), routeView: 'stages', routeError: null,
   transport: null, mode: 'connecting', status: { kind: 'busy', text: 'Connecting…' },
   mcp: null, sample: null, limits: null, fileArgs: false,
   imagesOff: LS.get('imagesOff', false),   // this view refused pictures before: remembered on this device
@@ -486,12 +490,14 @@ const TRANSPORT = {
     week: () => rest(`/api/app/week?from=${weekFrom()}&days=14&date=${nowISO()}&time=${nowHM()}`),
     apply: (ops) => rest('/api/app/ops', { method: 'POST', body: JSON.stringify({ ops, date: nowISO(), time: nowHM() }) }),
     attempt: (q) => rest('/api/app/attempt?' + new URLSearchParams(typeof q === 'string' ? { id: q } : q)),
+    route: () => rest(`/api/app/route?date=${nowISO()}`),
   },
   mcp: {
     today: () => dash('get_today', { date: nowISO(), time: nowHM(), detail: 'full' }),
     week: () => dash('get_week', { from: weekFrom(), days: 14, date: nowISO(), time: nowHM() }),
     apply: (ops) => dash('apply_changes', { ops, date: nowISO(), time: nowHM() }),
     attempt: (q) => dash('get_attempt', typeof q === 'string' ? { id: q } : q),
+    route: () => dash('get_route', { detail: 'full', date: nowISO() }),
   },
 };
 
@@ -588,6 +594,7 @@ function refresh() {
       } catch { /* keep the last copy */ }
       APP.syncedAt = new Date().toISOString();
       LS.set('data', d); LS.set('syncedAt', APP.syncedAt);
+      if (APP.tab === 'route') await loadRoute();
       for (const op of APP.outbox) applyLocal(op);        // pending changes stay visible
       setStatus('ok');
       watchReader().catch(() => {});
@@ -659,7 +666,10 @@ const LOCAL = {
     }
   },
   'task.delete': (d, op) => { d.tasks = d.tasks.filter((x) => x.id !== op.taskId); d.done = d.done.filter((x) => x.id !== op.taskId); },
+  'route.opts': (d, op) => { if (APP.routeFull?.opts) for (const k of ['uk', 'mit']) if (typeof op[k] === 'boolean') APP.routeFull.opts[k] = op[k]; },
   'route.tick': (d, op) => {
+    const F = APP.routeFull;
+    if (F?.done) { if (op.done === false) delete F.done[op.itemId]; else F.done[op.itemId] = nowISO(); }
     const r = d.route;
     if (!r) return;
     if (op.done === false) { r.doneToday = r.doneToday.filter((x) => x.id !== op.itemId); return; }
@@ -676,9 +686,22 @@ const LOCAL = {
     if (k) d.tasks = d.tasks.filter((x) => x.id !== k.taskId);
   },
   'study.choose': (d, op) => {
-    for (const s of studySlots(op.date)) if (s.key === op.key) { s.chosen = op.option; s.done = false; }
-    for (const w of (d.worksheets || [])) w.planned = (w.planned || []).filter((p) => !(p.date === op.date && p.key === op.key));
     const w = op.option?.worksheetId && (d.worksheets || []).find((x) => x.id === op.option.worksheetId);
+    if (op.add || op.item) {                    // a further task in the period, added or taken out
+      for (const s of studySlots(op.date)) if (s.key === op.key) {
+        s.more = (s.more || []).filter((m) => m.id !== op.item);
+        if (op.add) s.more.push({ id: op.item, option: op.option, done: false, minutes: null, confidence: null });
+      }
+      if (!op.add && APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key && e.item === op.item));
+      if (w) w.planned.push({ date: op.date, key: op.key, done: false });
+      return;
+    }
+    for (const s of studySlots(op.date)) if (s.key === op.key) {
+      const first = !op.option && s.more?.[0];   // clearing the pick: the next task takes its place
+      if (first) { s.chosen = first.option; s.done = first.done; s.more = s.more.slice(1); } else { s.chosen = op.option; s.done = false; }
+    }
+    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key && !e.item));
+    for (const x of (d.worksheets || [])) x.planned = (x.planned || []).filter((p) => !(p.date === op.date && p.key === op.key));
     if (w) w.planned.push({ date: op.date, key: op.key, done: false });
   },
   'worksheet.add': (d, op) => {
@@ -713,17 +736,23 @@ const LOCAL = {
   },
   'study.done': (d, op) => {
     for (const s of studySlots(op.date)) if (s.key === op.key) {
-      s.done = true;
+      const m = op.item ? s.more?.find((x) => x.id === op.item) : null;
+      if (op.item && !m) continue;
+      const option = m ? m.option : s.chosen, minutes = op.minutes ?? option?.mins ?? s.mins;
+      if (m) Object.assign(m, { done: true, minutes, confidence: op.confidence ?? null }); else s.done = true;
       const log = APP.week?.log;
-      if (log && s.chosen && !log.some((e) => e.date === op.date && e.key === op.key)) {
-        log.unshift({ date: op.date, key: op.key, start: s.start, end: s.end, option: s.chosen, done: true,
-          minutes: op.minutes ?? s.mins, confidence: op.confidence ?? null, note: op.note || '' });
+      if (log && option && !log.some((e) => e.date === op.date && e.key === op.key && e.item === op.item)) {
+        log.unshift({ date: op.date, key: op.key, ...(op.item ? { item: op.item } : {}), start: s.start, end: s.end, option, done: true,
+          minutes, confidence: op.confidence ?? null, note: op.note || '' });
       }
     }
   },
   'study.undo': (d, op) => {
-    for (const s of studySlots(op.date)) if (s.key === op.key) s.done = false;
-    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key));
+    for (const s of studySlots(op.date)) if (s.key === op.key) {
+      const m = op.item && s.more?.find((x) => x.id === op.item);
+      if (m) Object.assign(m, { done: false, minutes: null, confidence: null }); else if (!op.item) s.done = false;
+    }
+    if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key && e.item === op.item));
   },
   'study.slot.add': (d, op) => {
     const key = 'x' + op.start;
@@ -776,7 +805,7 @@ function renderNow() {
   document.querySelectorAll('nav.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === APP.tab)));
   document.querySelectorAll('section.tab').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + APP.tab));
   const host = $('#tab-' + APP.tab);
-  host.innerHTML = ({ today: viewToday, work: viewWork, history: viewHistory, skills: viewSkills })[APP.tab]();
+  host.innerHTML = ({ today: viewToday, work: viewWork, history: viewHistory, skills: viewSkills, route: viewRoute })[APP.tab]?.() ?? viewToday();
 
   for (const [id, [v, pos]] of Object.entries(keep)) {
     const el = document.getElementById(id);
@@ -880,6 +909,151 @@ function routeSkills(d) {
   </div>`;
 }
 
+/* ================================================================== route
+   The whole university plan, on its own tab: stages with their tasks,
+   courses, earning steps and project steps; projects; courses; earning;
+   universities; dates. Fetched when the tab opens (get_route, detail full);
+   ticking anything sends route.tick, like the short list on Today. */
+const ROUTE_TAGS = { eth: 'ETH', de: 'Germany', uk: 'UK', mit: 'MIT', port: 'Portfolio', skill: 'Skill', grades: 'Grades', earn: 'Earning', uni: 'Uni' };
+const ROUTE_VIEWS = [['stages', 'Stages'], ['projects', 'Projects'], ['courses', 'Courses'], ['earn', 'Earning'], ['unis', 'Unis'], ['dates', 'Dates']];
+let routeLoading = null;
+function loadRoute() {
+  if (routeLoading || !APP.transport?.route) return routeLoading;
+  routeLoading = (async () => {
+    try {
+      const r = await APP.transport.route();
+      if (!r || typeof r !== 'object') throw { message: 'The dashboard sent something unexpected.' };
+      APP.routeFull = r; APP.routeError = null; LS.set('routeFull', r);
+    } catch (e) { APP.routeError = e?.message || 'The route could not be loaded.'; }
+    finally { routeLoading = null; if (APP.tab === 'route') render(); }
+  })();
+  return routeLoading;
+}
+function routeIsActive(tags = [], opts = {}) {
+  const opt = tags.filter((t) => t === 'uk' || t === 'mit');
+  if (!opt.length || tags.some((t) => t !== 'uk' && t !== 'mit')) return true;
+  return opt.some((t) => opts[t] !== false);
+}
+const routeLink = (url, text) => (url && /^https:\/\//.test(url) ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text));
+function routeRow(R, id, title, meta = '', critical = false) {
+  const done = Boolean(R.done?.[id]);
+  return `<li class="task${done ? ' is-done' : critical ? ' p-high' : ''}">
+    <button class="check" data-act="route-tick" data-id="${esc(id)}" ${done ? 'data-done="0" aria-label="Mark not done"' : 'aria-label="Mark done"'}>✓</button>
+    <div class="task-main"><span class="task-title">${title}</span>${meta ? `<span class="task-meta">${meta}</span>` : ''}</div></li>`;
+}
+const routeTags = (tags) => (tags || []).map((t) => `<span class="chip">${esc(ROUTE_TAGS[t] || t)}</span>`).join(' ');
+// chips, then a line of facts, then the note on its own line
+const routeMeta = (chips, facts, note) => [chips.filter(Boolean).join(' '), facts.filter(Boolean).join(' · '),
+  note ? `<span class="muted" style="display:block">${esc(note)}</span>` : ''].filter(Boolean).join(' ');
+function routeTaskRow(R, t) {
+  return routeRow(R, t.id, esc(t.text), routeMeta([routeTags(t.tags)],
+    [t.critical ? '<span class="prio-high">Critical</span>' : '', t.cost ? esc(t.cost) : ''], t.note), t.critical);
+}
+function routeCourseRow(R, c) {
+  return routeRow(R, c.id, routeLink(c.url, c.name), routeMeta([c.core ? '<span class="chip">Core</span>' : ''],
+    [esc(c.by || ''), esc(c.when || ''), c.feeds ? `for ${esc(c.feeds)}` : '',
+      c.cert === 'free' ? 'free certificate' : c.cert === 'paid' ? 'paid certificate' : ''], c.certNote));
+}
+const pctOf = (n, of) => (of ? Math.round(n / of * 100) : 0);
+const routeBar = (p) => `<div class="bar" style="margin:6px 0"><span class="lv-high" style="width:${p}%"></span></div>`;
+
+function viewRoute() {
+  const R = APP.routeFull;
+  if (!R) {
+    if (!APP.routeError) loadRoute();
+    return `<div class="card"><div class="empty">${APP.routeError ? `${esc(APP.routeError)} <button class="btn sm" data-act="route-reload">Try again</button>` : 'Loading your route…'}</div></div>`;
+  }
+  const P = R.plan;
+  if (!P) return '<div class="card"><div class="empty">No route plan yet. Import yours on the dashboard: Files → Route plan.</div></div>';
+  const G = R.progress || {}, st = G.stage || {}, opts = R.opts || {};
+  const view = APP.routeView || 'stages';
+  const head = `<div class="card">
+    <div class="card-h"><h2>${esc(P.name || 'Your route')}</h2><span class="level-num">${G.plan?.pct ?? 0}<span class="muted" style="font-size:14px">%</span></span></div>
+    ${P.story ? `<div class="opt-why" style="margin-bottom:4px">“${esc(P.story)}”</div>` : ''}
+    ${routeBar(G.plan?.pct ?? 0)}
+    <div class="task-meta">${G.plan?.done ?? 0} of ${G.plan?.total ?? 0} done · now at ${esc(st.station || '')}: ${esc(routeVerdict(st))}</div>
+    <div class="row" style="margin-top:10px;gap:6px"><span class="eyebrow">Applications</span>
+      ${['uk', 'mit'].map((k) => `<button class="btn sm${opts[k] !== false ? '' : ' ghost'}" data-act="route-opt" data-k="${k}" aria-pressed="${opts[k] !== false}">${k === 'uk' ? 'UK' : 'MIT'}: ${opts[k] !== false ? 'keeping' : 'dropped'}</button>`).join('')}</div>
+  </div>
+  <div class="segwrap"><div class="seg">${ROUTE_VIEWS.map(([v, l]) => `<button data-act="route-view" data-v="${v}" aria-pressed="${view === v}">${l}</button>`).join('')}</div></div>`;
+  return `<div class="stack">${head}${({ stages: routeStages, projects: routeProjects, courses: routeCourses, earn: routeEarn, unis: routeUnis, dates: routeDates })[view](R, P, opts)}</div>`;
+}
+function routeStages(R, P, opts) {
+  const cur = R.progress?.stage?.id;
+  const hidden = P.phases.reduce((a, ph) => a + (ph.tasks || []).filter((t) => !routeIsActive(t.tags, opts)).length, 0);
+  return P.phases.map((ph) => {
+    const tasks = (ph.tasks || []).filter((t) => routeIsActive(t.tags, opts));
+    const courses = (P.courses || []).filter((c) => c.phase === ph.id);
+    const earn = (P.earn || []).flatMap((e) => (e.steps || []).filter((s) => s.phase === ph.id).map((s) => ({ ...s, track: e.name })));
+    const steps = (P.projects || []).flatMap((p) => (p.steps || []).filter((s) => s.phase === ph.id).map((s) => ({ ...s, project: p.name })));
+    const ids = [...tasks, ...courses, ...earn, ...steps].map((x) => x.id);
+    const done = ids.filter((id) => R.done?.[id]).length;
+    const list = (label, rows) => (rows.length ? `<div class="eyebrow" style="margin-top:10px">${label}</div><ul class="tasks">${rows.join('')}</ul>` : '');
+    return `<div class="card"><details${ph.id === cur ? ' open' : ''}>
+      <summary class="row" style="cursor:pointer"><h2 style="font-size:16px;flex:1">${esc(ph.station || ph.id)}${ph.id === cur ? ' <span class="chip">now</span>' : ''}</h2>
+        <span class="task-meta">${esc(ph.when || '')} · ${done}/${ids.length}</span></summary>
+      ${routeBar(pctOf(done, ids.length))}
+      ${ph.why ? `<div class="opt-why">${esc(ph.why)}</div>` : ''}
+      ${list('Tasks', tasks.map((t) => routeTaskRow(R, t)))}
+      ${list('Courses', courses.map((c) => routeCourseRow(R, c)))}
+      ${list('Project steps', steps.map((s) => routeRow(R, s.id, esc(s.text), esc(s.project))))}
+      ${list('Earning', earn.map((s) => routeRow(R, s.id, esc(s.text), esc(s.track))))}
+    </details></div>`;
+  }).join('') + (hidden ? `<div class="muted" style="font-size:12.5px">${hidden} UK/MIT task${hidden === 1 ? '' : 's'} hidden while you have dropped them.</div>` : '');
+}
+function routeProjects(R, P) {
+  const prog = Object.fromEntries((R.progress?.projects || []).map((p) => [p.id, p]));
+  const phaseName = (id) => P.phases.find((ph) => ph.id === id)?.station || '';
+  return (P.projects || []).map((p) => {
+    const g = prog[p.id] || {};
+    return `<div class="card"><div class="card-h"><h2>${esc(p.name)}</h2><span class="mono">${g.pct ?? 0}%</span></div>
+      <div class="task-meta">${[esc(p.kind || ''), p.cost ? esc(p.cost) : '', p.start ? `starts ${esc(phaseName(p.start))}` : ''].filter(Boolean).join(' · ')}</div>
+      ${routeBar(g.pct ?? 0)}
+      ${p.pitch ? `<div class="opt-why">${esc(p.pitch)}</div>` : ''}
+      ${p.why ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px">Why it matters</summary><div class="opt-why">${esc(p.why)}</div></details>` : ''}
+      <ul class="tasks">${(p.steps || []).map((s) => routeRow(R, s.id, esc(s.text), s.phase ? esc(phaseName(s.phase)) : '')).join('')}</ul></div>`;
+  }).join('') || '<div class="card"><div class="empty">No projects in the plan.</div></div>';
+}
+function routeCourses(R, P) {
+  const all = P.courses || [];
+  const c = R.progress?.courses || {};
+  return `<div class="card"><div class="task-meta">${c.done ?? 0} of ${c.total ?? all.length} courses done · core ${c.core?.done ?? 0} of ${c.core?.total ?? 0}</div></div>`
+    + P.phases.map((ph) => {
+      const list = all.filter((x) => x.phase === ph.id);
+      return list.length ? `<div class="card"><h2 style="font-size:16px">${esc(ph.station || ph.id)} <span class="count">${esc(ph.when || '')}</span></h2>
+        <ul class="tasks">${list.map((x) => routeCourseRow(R, x)).join('')}</ul></div>` : '';
+    }).join('');
+}
+function routeEarn(R, P) {
+  const phaseName = (id) => P.phases.find((ph) => ph.id === id)?.station || '';
+  return (P.earn || []).map((e) => `<div class="card"><h2 style="font-size:16px">${esc(e.name)}</h2>
+    ${e.pitch ? `<div class="opt-why">${esc(e.pitch)}</div>` : ''}
+    ${e.why ? `<div class="task-meta" style="margin-top:4px">${esc(e.why)}</div>` : ''}
+    ${(e.sites || []).length ? `<div class="task-meta" style="margin-top:6px">${e.sites.map((s) => `${routeLink(s.url, s.name)}${s.note ? ` <span class="muted">(${esc(s.note)})</span>` : ''}`).join(' · ')}</div>` : ''}
+    <ul class="tasks">${(e.steps || []).map((s) => routeRow(R, s.id, esc(s.text), s.phase ? esc(phaseName(s.phase)) : '')).join('')}</ul></div>`).join('')
+    || '<div class="card"><div class="empty">No earning tracks in the plan.</div></div>';
+}
+function routeUnis(R, P, opts) {
+  const keepOn = (k) => (k === 'uk' || k === 'mit' ? opts[k] !== false : true);
+  return (P.unis || []).map((u) => `<div class="card${keepOn(u.keep) ? '' : ' muted'}">
+    <div class="card-h"><h2>${esc(u.name)}</h2>${u.verdict ? `<span class="chip">${esc(u.verdict)}</span>` : ''}</div>
+    ${u.prog ? `<div class="task-meta">${esc(u.prog)}</div>` : ''}
+    ${keepOn(u.keep) ? '' : '<div class="task-meta">Dropped — its tasks are hidden.</div>'}
+    <ul class="tasks">${(u.items || []).map((it) => routeRow(R, it.id, esc(it.text))).join('')}</ul>
+    ${u.money ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px">Costs</summary><div class="opt-why">${esc(u.money)}</div></details>` : ''}
+  </div>`).join('') || '<div class="card"><div class="empty">No universities in the plan.</div></div>';
+}
+function routeDates(R, P) {
+  const dl = R.deadlines || [];
+  const ex = (P.examWindows || P.exam_windows || []).filter((w) => w.to >= nowISO());
+  return `<div class="card"><h2 style="font-size:16px">Deadlines</h2>
+    <div style="display:grid;gap:6px;margin-top:8px">${dl.length ? dl.map((x) => `<div class="test-row"><div><div style="font-weight:500">${esc(x.label)}</div>
+      <div class="task-meta">${x.approx ? '≈ ' : ''}${esc(fmtDay(x.date))}${x.tag ? ` · ${esc(ROUTE_TAGS[x.tag] || x.tag)}` : ''}</div></div>
+      <span class="days-left${x.daysLeft <= 14 ? ' close' : ''}">${x.daysLeft === 0 ? 'today' : x.daysLeft + ' days'}</span></div>`).join('') : '<div class="empty">No deadlines ahead.</div>'}</div></div>
+    ${ex.length ? `<div class="card"><h2 style="font-size:16px">Exam windows</h2><div style="display:grid;gap:6px;margin-top:8px">${ex.map((w) => `<div class="test-row"><div><div style="font-weight:500">${esc(w.label)}</div>
+      <div class="task-meta">${esc(fmtDay(w.from))} – ${esc(fmtDay(w.to))}</div></div></div>`).join('')}</div></div>` : ''}`;
+}
+
 function weekStrip(days) {
   if (!days.length) return '';
   const sel = APP.selDay || APP.data.date;
@@ -967,24 +1141,52 @@ function slotSheet(date) {
     </div>`);
 }
 
-function studyBlock(sp, state, date) {
-  const at = `data-date="${esc(date)}" data-key="${esc(sp.key)}"`;
-  if (sp.chosen) {
-    const o = sp.chosen;
-    const logged = (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key);
-    const doneText = sp.done ? `Done${logged?.minutes ? ` · ${logged.minutes} min` : ''}${logged?.confidence != null ? ` · felt ${logged.confidence}/5` : ''}` : '';
-    return `<div class="opts"><div class="opt chosen${sp.done ? ' done' : ''}">
+// Minutes of a study period not yet logged: the default for a further task in it.
+function leftMins(sp, date) {
+  const used = (sp.done ? (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key && !e.item)?.minutes ?? sp.mins : 0)
+    + (sp.more || []).reduce((a, m) => a + (m.done ? m.minutes || 0 : m.option?.mins || 0), 0);
+  return Math.max(10, Math.round(((sp.mins || 50) - used) / 5) * 5);
+}
+// One task in a study period: its first pick, or one added after it (`item`).
+function chosenCard(o, done, doneText, state, at, item) {
+  const it = item ? ` data-item="${esc(item)}"` : '';
+  return `<div class="opts"><div class="opt chosen${done ? ' done' : ''}">
         <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
-        ${sp.done ? `<div class="resolved">${esc(doneText)}</div>` : `<div class="opt-why">${state === 'later' ? 'Planned' : esc(o.why)}</div>`}
+        ${done ? `<div class="resolved">${esc(doneText)}</div>` : `<div class="opt-why">${state === 'later' ? 'Planned' : esc(o.why)}</div>`}
       </div></div>
-      <div class="opt-actions">${sp.done
-        ? `<button class="btn ghost sm" data-act="study-undo" ${at}>Undo</button>`
-        : `${state !== 'later' ? `<button class="btn primary sm" data-act="study-done" ${at}>Done</button>` : ''}
-           <button class="btn ghost sm" data-act="study-change" ${at}>Change</button>`}
+      <div class="opt-actions">${done
+        ? `<button class="btn ghost sm" data-act="study-undo" ${at}${it}>Undo</button>`
+        : `${state !== 'later' ? `<button class="btn primary sm" data-act="study-done" ${at}${it}>Done</button>` : ''}
+           <button class="btn ghost sm" data-act="study-change" ${at}${it}>${item ? 'Remove' : 'Change'}</button>`}
         ${o.worksheetId && worksheetOf(o.worksheetId) ? `<button class="btn sm" data-act="ws-answers" data-id="${esc(o.worksheetId)}">Add answers</button>
           <button class="btn ghost sm" data-act="open-ws" data-id="${esc(o.worksheetId)}">The sheet</button>` : ''}</div>`;
+}
+const doneLine = (m, c) => `Done${m ? ` · ${m} min` : ''}${c != null ? ` · felt ${c}/5` : ''}`;
+function studyBlock(sp, state, date) {
+  const at = `data-date="${esc(date)}" data-key="${esc(sp.key)}"`;
+  if (sp.chosen) {
+    const logged = (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key && !e.item);
+    const more = (sp.more || []).map((m) => chosenCard(m.option, m.done, doneLine(m.minutes, m.confidence), state, at, m.id)).join('');
+    // once the first task is done, more can go into the same period
+    let add = '';
+    if (sp.done && APP.addMore === date + '|' + sp.key) {
+      const taken = new Set([sp.chosen.id, ...(sp.more || []).map((m) => m.option?.id)]);
+      add = `<div class="opt-why" style="margin-top:4px">What else did you do in this period?</div>
+        <div class="opts">${sp.options.map((o, i) => (taken.has(o.id) ? '' : `
+          <button class="opt" data-act="choose" data-add="1" ${at} data-i="${i}">
+            <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
+              ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
+            <div class="opt-title">${esc(optTitle(o))}</div>
+            <div class="opt-why">${esc(o.why)}</div>
+          </button>`)).join('')}
+          <div class="row" style="gap:6px"><button class="btn ghost sm" data-act="study-custom" data-add="1" ${at}>Something else…</button>
+            <button class="btn ghost sm" data-act="study-more" ${at}>Cancel</button></div></div>`;
+    } else if (sp.done) {
+      add = `<div class="opt-actions"><button class="btn sm" data-act="study-more" ${at}>+ Add another task</button></div>`;
+    }
+    return chosenCard(sp.chosen, sp.done, doneLine(logged?.minutes, logged?.confidence), state, at) + more + add;
   }
   const own = `<button class="btn ghost sm" data-act="study-custom" ${at} style="justify-self:start">Something else…</button>`;
   if (!sp.options.length) return `<div class="opts">${own}</div>`;
@@ -1228,17 +1430,18 @@ function taskSheet(id) {
     </div>`);
 }
 
-function doneSheet(date, key) {
+function doneSheet(date, key, item) {
   const sp = studySlots(date).find((s) => s.key === key);
-  if (!sp?.chosen) return;
-  const o = sp.chosen;
-  SHEET.ctx = { kind: 'done', date, key, conf: null };
+  const m = item ? sp?.more?.find((x) => x.id === item) : null;
+  const o = item ? m?.option : sp?.chosen;
+  if (!o) return;
+  SHEET.ctx = { kind: 'done', date, key, item: item || undefined, conf: null };
   openSheet(`<div class="sheet-h"><h2>How did it go?</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <p style="margin:0 0 12px">${esc(optTitle(o))}</p>
     <div class="fields">
       <div class="field"><span>How well do you know it now? 0 = lost, 5 = could teach it</span>
         <div class="rate" id="rate">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" data-conf="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>
-      <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${sp.mins || 45}" min="1" max="600" inputmode="numeric"></label>
+      <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${(item ? o.mins : sp.mins) || 45}" min="1" max="600" inputmode="numeric"></label>
       <label class="field"><span>Note (optional)</span><input id="dNote" placeholder="e.g. did q1–8, stuck on 6"></label>
       ${o.taskId ? `<label class="row" style="font-size:14px"><input type="checkbox" id="dTask" style="width:auto" checked> Tick off “${esc(o.title)}”</label>` : ''}
       <button class="btn primary" data-act="done-save">Log it</button>
@@ -1246,10 +1449,10 @@ function doneSheet(date, key) {
 }
 
 // Planning (or logging) something that is not on the list of suggestions.
-function customSheet(date, key) {
+function customSheet(date, key, add) {
   const sp = studySlots(date).find((s) => s.key === key);
   if (!sp) return;
-  SHEET.ctx = { kind: 'custom', date, key, past: date < nowISO() || (date === nowISO() && toMins(nowHM()) >= toMins(sp.end)) };
+  SHEET.ctx = { kind: 'custom', date, key, add: Boolean(add), past: date < nowISO() || (date === nowISO() && toMins(nowHM()) >= toMins(sp.end)) };
   openSheet(`<div class="sheet-h"><h2>${SHEET.ctx.past ? 'What did you do?' : 'Plan something else'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="fields">
       <label class="field"><span>What</span><input id="cTitle" placeholder="e.g. Physics past paper Jan 2024 P1"></label>
@@ -3768,20 +3971,37 @@ document.addEventListener('click', (e) => {
       if (!o) return;
       // choosing for a period that is already over is logging it: ask how it went
       const over = Boolean(t.closest('.slot')?.classList.contains('past'));
+      if (t.dataset.add) {                        // a further task in a period whose first one is done
+        const item = newId('i');
+        APP.addMore = null;
+        send({ type: 'study.choose', date, key, add: true, item, option: { ...o, mins: leftMins(sp, date) } });
+        return doneSheet(date, key, item);
+      }
       send({ type: 'study.choose', date, key, option: o });
       if (over) doneSheet(date, key);
       return;
     }
-    case 'study-change': return send({ type: 'study.choose', date: t.dataset.date, key: t.dataset.key, option: null });
-    case 'study-done': return doneSheet(t.dataset.date, t.dataset.key);
-    case 'study-undo': return send({ type: 'study.undo', date: t.dataset.date, key: t.dataset.key });
-    case 'study-custom': return customSheet(t.dataset.date, t.dataset.key);
+    case 'study-more': {
+      const k = t.dataset.date + '|' + t.dataset.key;
+      APP.addMore = APP.addMore === k ? null : k;
+      return render();
+    }
+    case 'study-change': return send({ type: 'study.choose', date: t.dataset.date, key: t.dataset.key, option: null, item: t.dataset.item || undefined });
+    case 'study-done': return doneSheet(t.dataset.date, t.dataset.key, t.dataset.item);
+    case 'study-undo': return send({ type: 'study.undo', date: t.dataset.date, key: t.dataset.key, item: t.dataset.item || undefined });
+    case 'study-custom': return customSheet(t.dataset.date, t.dataset.key, t.dataset.add);
     case 'custom-save': {
       const c = SHEET.ctx, title = $('#cTitle')?.value.trim();
       if (!title) return $('#cTitle')?.focus();
       const sp = studySlots(c.date).find((s) => s.key === c.key);
       const option = { id: newId('custom:'), kind: 'custom', title, why: 'your own plan', subjectId: $('#cSubj')?.value || null,
-        topicId: null, taskId: null, testId: null, mins: sp?.mins || 45 };
+        topicId: null, taskId: null, testId: null, mins: (c.add ? sp && leftMins(sp, c.date) : sp?.mins) || 45 };
+      if (c.add) {
+        const item = newId('i');
+        APP.addMore = null;
+        send({ type: 'study.choose', date: c.date, key: c.key, add: true, item, option });
+        return doneSheet(c.date, c.key, item);
+      }
       send({ type: 'study.choose', date: c.date, key: c.key, option });
       if (c.past) return doneSheet(c.date, c.key);
       return closeSheet();
@@ -3815,15 +4035,19 @@ document.addEventListener('click', (e) => {
     }
     case 'done-save': {
       const c = SHEET.ctx;
-      send({ type: 'study.done', date: c.date, key: c.key, minutes: Number($('#dMins')?.value) || undefined,
+      send({ type: 'study.done', date: c.date, key: c.key, item: c.item, minutes: Number($('#dMins')?.value) || undefined,
         confidence: c.conf ?? undefined, note: $('#dNote')?.value.trim() || undefined, taskDone: Boolean($('#dTask')?.checked) });
       if ($('#dTask')?.checked) {
-        const o = studySlots(c.date).find((s) => s.key === c.key)?.chosen;
+        const sp = studySlots(c.date).find((s) => s.key === c.key);
+        const o = c.item ? sp?.more?.find((m) => m.id === c.item)?.option : sp?.chosen;
         if (o?.taskId) applyLocal({ type: 'task.done', taskId: o.taskId, done: true });
       }
       closeSheet(); return render();
     }
     case 'route-tick': return send({ type: 'route.tick', itemId: t.dataset.id, done: t.dataset.done !== '0' });
+    case 'route-view': APP.routeView = t.dataset.v; return render();
+    case 'route-opt': return send({ type: 'route.opts', [t.dataset.k]: t.getAttribute('aria-pressed') !== 'true' });
+    case 'route-reload': APP.routeError = null; loadRoute(); return render();
     case 'task-done': {
       const done = d.done.some((x) => x.id === t.dataset.id);
       return send({ type: 'task.done', taskId: t.dataset.id, done: !done });
