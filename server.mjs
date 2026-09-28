@@ -385,7 +385,7 @@ const mcp = createMcpServer({
         + 'pageSigs?} (more of the same notebook); '
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, errorType?: careless|method|knowledge|timing, '
         + 'explanation, correction}], summary, nextSteps}}; attempt.update {attemptId, patch?, questions?}; '
-        + 'mistake.resolve {attemptId, q, how: self|checked}; attempt.note {attemptId, q?, text}; '
+        + 'mistake.resolve {attemptId, q, how: self|checked|archived — archived = older work kept as data, no fix credit}; attempt.note {attemptId, q?, text}; '
         + 'attempt.delete {attemptId}; attachment.delete {attachmentId}; '
         + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '

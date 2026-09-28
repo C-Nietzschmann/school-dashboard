@@ -148,6 +148,18 @@ test('fixing mistakes and correcting the marks both raise your level', async () 
   assert.equal(P.mastery(MONDAY).subjects.maths.dominant, null, 'no lost marks left, so no error pattern');
 });
 
+test('archiving an old mistake clears the queue without crediting a fix', async () => {
+  const S = fixture();
+  const store = memStore();
+  await applyOps(S, [{ id: 'w', type: 'work.save', attachment: { title: 'x', subjectId: 'maths', topicIds: ['t004'] },
+    marking: { questions: [{ q: '1', topicId: 't004', marks: 0, maxMarks: 4, errorType: 'knowledge' }] } }], { date: MONDAY, store });
+  const P = at(S);
+  const before = P.mastery(MONDAY).topics.t004.score;
+  await applyOps(S, [{ id: 'f', type: 'mistake.resolve', attemptId: S.attempts[0].id, q: '1', how: 'archived' }], { date: MONDAY, store });
+  assert.equal(P.openMistakes().length, 0);
+  assert.equal(P.mastery(MONDAY).topics.t004.score, before);
+});
+
 test('a test result becomes a paper, which moves the grade projection', async () => {
   const S = fixture();
   const papers = S.papers.length;

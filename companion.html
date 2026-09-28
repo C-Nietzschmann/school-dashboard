@@ -3732,7 +3732,7 @@ function attemptSheet(a, full, loading = false) {
           ${lost ? `${q.explanation ? `<div class="q-text"><b>Why:</b> ${esc(q.explanation)}</div>` : ''}
             ${q.correction ? `<div class="working">${esc(q.correction)}</div>` : ''}
             ${qn.map((n) => `<div class="q-text" style="white-space:pre-wrap"><b>${n.kind === 'check' ? 'Your redo' : 'More'}:</b> ${esc(n.text)}</div>`).join('')}
-            ${q.resolved ? `<div class="resolved" style="margin-top:6px">Fixed${q.resolved === 'checked' ? ' — checked by Claude' : ''} ✓</div>`
+            ${q.resolved ? `<div class="resolved" style="margin-top:6px">${q.resolved === 'archived' ? 'Archived — older work, kept as data' : `Fixed${q.resolved === 'checked' ? ' — checked by Claude' : ''} ✓`}</div>`
               : `<div class="opt-actions">
                 <button class="btn sm primary" data-act="fix" data-q="${esc(q.q)}">I've fixed it</button>
                 ${canCheck ? `<button class="btn sm" data-act="check-redo" data-q="${esc(q.q)}">Check my redo</button>` : ''}
