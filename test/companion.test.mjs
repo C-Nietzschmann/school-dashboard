@@ -377,10 +377,27 @@ test('a worksheet added by name gets its questions from the first marking', asyn
     marking: { questions: [{ q: '1', marks: 2, maxMarks: 2 }, { q: '2a', marks: 1, maxMarks: 3 }, { q: '2b', marks: 0, maxMarks: 1 }, { q: '3', marks: 4, maxMarks: 4 }] } }], { date: MONDAY, store });
   const w = S.worksheets[0];
   assert.equal(w.pending, undefined);
-  assert.deepEqual([w.questionCount, w.maxMarks], [4, 10]);
+  assert.deepEqual([w.questionCount, w.maxMarks], [3, 10]);                    // 2a and 2b are one question
   assert.equal(store.m.get('ws-wp').questions[1].q, '2a');
   const p = todayPayload(S, { date: MONDAY }).worksheets[0];
-  assert.deepEqual([p.done, p.left], [4, 0]);
+  assert.deepEqual([p.done, p.left], [3, 0]);
+});
+
+test('worksheet questions count by number: parts are one question, and saved sheets can be recounted', async () => {
+  const S = fixture();
+  const store = memStore();
+  const qs = ['1a', '1b', '1c', 'Q2', '3a(i)', '3a(ii)', '3b'].map((q) => ({ q, text: 'x', maxMarks: 1 }));
+  await applyOps(S, [{ id: 'a', type: 'worksheet.add', worksheet: { id: 'wn', title: 'Parts', subjectId: 'maths' }, questions: qs }], { date: MONDAY, store });
+  assert.deepEqual([S.worksheets[0].questionCount, S.worksheets[0].maxMarks], [3, 7]);
+  // answering any part of a question counts that question towards done
+  await applyOps(S, [{ id: 'm', type: 'work.save', attachment: { title: 'Answers', kind: 'answers', worksheetId: 'wn' },
+    marking: { questions: [{ q: '1a', marks: 1, maxMarks: 1 }, { q: '1b', marks: 0, maxMarks: 1 }] } }], { date: MONDAY, store });
+  assert.deepEqual((({ done, left }) => [done, left])(todayPayload(S, { date: MONDAY }).worksheets.find((w) => w.id === 'wn')), [1, 2]);
+  // a sheet saved when every part counted is put right from its stored questions
+  Object.assign(S.worksheets[0], { questionCount: 7, doneCount: 5 });
+  const r = await applyOps(S, [{ id: 'rc', type: 'worksheet.recount' }], { date: MONDAY, store });
+  assert.deepEqual(r.results[0].recounted, [{ worksheetId: 'wn', from: 7, to: 3 }]);
+  assert.deepEqual([S.worksheets[0].questionCount, S.worksheets[0].doneCount], [3, 3]);
 });
 
 test('a worksheet shows how much is done and left; a planned period takes more tasks', async () => {

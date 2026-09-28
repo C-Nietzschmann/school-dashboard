@@ -714,8 +714,8 @@ const LOCAL = {
   'worksheet.add': (d, op) => {
     const w = op.worksheet;
     if ((d.worksheets ||= []).some((x) => x.id === w.id)) return;
-    d.worksheets.unshift({ ...w, date: nowISO(), created: new Date().toISOString(), questionCount: op.questions.length || w.questionCount || 0,
-      done: 0, left: op.questions.length || w.questionCount || null,
+    const n = questionTotal(op.questions) || w.questionCount || 0;
+    d.worksheets.unshift({ ...w, date: nowISO(), created: new Date().toISOString(), questionCount: n, done: 0, left: n || null,
       maxMarks: op.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0), attempts: [], planned: [] });
     if (w.hash) (d.worksheetHashes ||= {})[w.hash] = w.id;
     APP.sheets[w.id] ||= { found: true, questions: op.questions, summary: op.summary || '', attempts: [] };
@@ -1516,6 +1516,12 @@ const MODES = [
   ['other', 'Other', 'mark it now, or just file it'],
 ];
 const worksheetList = () => APP.data?.worksheets || [];
+// Questions are counted by number: 1a, 1b and 1(c)(ii) are all question 1 (as on the dashboard).
+const mainQuestion = (label) => {
+  const t = String(label ?? '').trim().replace(/^(q(uestion)?|ex(ercise)?)\.?\s*/i, '');
+  return t.match(/^\d+/)?.[0] ?? t.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+const questionTotal = (qs) => new Set((qs || []).map((q) => mainQuestion(q.q ?? q)).filter(Boolean)).size;
 const worksheetOf = (id) => worksheetList().find((w) => w.id === id) || null;
 // Worksheets to answer: unanswered ones first, the ones planned soonest before the rest.
 function answerable() {
@@ -1860,7 +1866,7 @@ function sheetReviewView() {
   const total = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
   return `<div class="stack">
     <div class="card">
-      <div class="card-h"><h2>Check the worksheet</h2><span class="count">${r.questions.length} question${r.questions.length === 1 ? '' : 's'}${total ? ` · ${fmtN(total)} marks` : ''}</span></div>
+      <div class="card-h"><h2>Check the worksheet</h2><span class="count">${questionTotal(r.questions)} question${questionTotal(r.questions) === 1 ? '' : 's'}${r.questions.length > questionTotal(r.questions) ? ` (${r.questions.length} parts)` : ''}${total ? ` · ${fmtN(total)} marks` : ''}</span></div>
       ${cacheNote(w)}${detectedLine(r)}
       <div class="fields">
         <label class="field"><span>Title</span><input id="rTitle" data-keep value="${esc(r.title)}"></label>
