@@ -1181,14 +1181,14 @@ function studyBlock(sp, state, date) {
             <div class="opt-title">${esc(optTitle(o))}</div>
             <div class="opt-why">${esc(o.why)}</div>
           </button>`)).join('')}
-          <div class="row" style="gap:6px"><button class="btn ghost sm" data-act="study-custom" data-add="1" ${at}>Something else…</button>
+          <div class="row" style="gap:6px">${wsButton(at, true)}<button class="btn ghost sm" data-act="study-custom" data-add="1" ${at}>Something else…</button>
             <button class="btn ghost sm" data-act="study-more" ${at}>Cancel</button></div></div>`;
     } else if (sp.done) {
       add = `<div class="opt-actions"><button class="btn sm" data-act="study-more" ${at}>+ Add another task</button></div>`;
     }
     return chosenCard(sp.chosen, sp.done, doneLine(logged?.minutes, logged?.confidence), state, at) + more + add;
   }
-  const own = `<button class="btn ghost sm" data-act="study-custom" ${at} style="justify-self:start">Something else…</button>`;
+  const own = `<div class="row" style="gap:6px">${wsButton(at)}<button class="btn ghost sm" data-act="study-custom" ${at}>Something else…</button></div>`;
   if (!sp.options.length) return `<div class="opts">${own}</div>`;
   return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'What did you do?' : state === 'later' ? 'Plan this period:' : 'Pick one for this period:'}</div>
     <div class="opts">${sp.options.map((o, i) => `
@@ -2362,15 +2362,53 @@ function planSheet(wid) {
   openSheet(`<div class="sheet-h"><h2>Plan “${esc(ws.title)}”</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     ${rows || '<div class="empty">No study periods in the next two weeks. Add a study session on the Today tab — weekends too.</div>'}`);
 }
+// A worksheet as a study-period task.
+const worksheetOption = (ws, mins) => ({ id: 'ws:' + ws.id, kind: 'worksheet', title: 'Worksheet: ' + ws.title,
+  why: 'planned by you', subjectId: ws.subjectId || null, topicId: ws.topicIds?.[0] || null, taskId: null, testId: null,
+  worksheetId: ws.id, mins: mins || 45 });
 function planWorksheet(wid, date, key) {
   const ws = worksheetOf(wid);
   const sp = studySlots(date).find((s) => s.key === key);
   if (!ws || !sp) return;
-  send({ type: 'study.choose', date, key, option: { id: 'ws:' + ws.id, kind: 'worksheet', title: 'Worksheet: ' + ws.title,
-    why: 'planned by you', subjectId: ws.subjectId || null, topicId: ws.topicIds?.[0] || null, taskId: null, testId: null,
-    worksheetId: ws.id, mins: sp.mins || 45 } });
+  send({ type: 'study.choose', date, key, option: worksheetOption(ws, sp.mins) });
   closeSheet();
   toast(`Planned for ${date === nowISO() ? 'today' : fmtDay(date)} at ${sp.start}.`);
+}
+// Worksheets you have not answered yet: any of them can go into a study period.
+const openWorksheets = () => worksheetList().filter((w) => !w.attempts?.length);
+const wsButton = (at, add = false) => (openWorksheets().length
+  ? `<button class="btn ghost sm" data-act="study-ws" ${add ? 'data-add="1" ' : ''}${at}>Worksheet…</button>` : '');
+function wsPickSheet(date, key, add) {
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!sp) return;
+  SHEET.ctx = { kind: 'wspick', date, key, add: Boolean(add) };
+  const groups = {};
+  for (const w of openWorksheets()) (groups[w.subjectId || ''] ||= []).push(w);
+  openSheet(`<div class="sheet-h"><h2>${add ? 'Which worksheet did you do?' : `Worksheet for ${esc(sp.start)}`}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    ${Object.entries(groups).map(([sid, list]) => `<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px">
+      <span class="dot" style="--c:${colourOf(sid)}"></span> ${esc(subjectName(sid))}</div><div class="opts" style="margin:0">${list.map((w) => {
+        const next = (w.planned || []).find((p) => !p.done && p.date >= nowISO());
+        return `<button class="opt" data-act="ws-pick" data-id="${esc(w.id)}"><div class="opt-title">${esc(w.title)}</div>
+          <div class="opt-why">${[w.questionCount ? `${w.questionCount} question${w.questionCount === 1 ? '' : 's'}` : '',
+            (w.topicIds || []).slice(0, 2).map((id) => topicOf(id)?.name).filter(Boolean).join(', '),
+            next ? `planned ${next.date === nowISO() ? 'today' : fmtDay(next.date)} ${String(next.key).replace(/^x/, '')}` : ''].filter(Boolean).map(esc).join(' · ')}</div></button>`;
+      }).join('')}</div></div>`).join('') || '<div class="empty">Every worksheet is answered.</div>'}`);
+}
+function pickWorksheet(wid) {
+  const c = SHEET.ctx, ws = worksheetOf(wid);
+  const sp = c && studySlots(c.date).find((s) => s.key === c.key);
+  if (!ws || !sp) return closeSheet();
+  if (c.add) {                                  // a further task in a period whose first one is done
+    const item = newId('i');
+    APP.addMore = null;
+    send({ type: 'study.choose', date: c.date, key: c.key, add: true, item, option: worksheetOption(ws, leftMins(sp, c.date)) });
+    return doneSheet(c.date, c.key, item);
+  }
+  send({ type: 'study.choose', date: c.date, key: c.key, option: worksheetOption(ws, sp.mins) });
+  // a period that is over is being logged: ask how it went
+  if (c.date < nowISO() || (c.date === nowISO() && toMins(nowHM()) >= toMins(sp.end))) return doneSheet(c.date, c.key);
+  closeSheet();
+  toast(`Planned “${ws.title}” for ${c.date === nowISO() ? 'today' : fmtDay(c.date)} at ${sp.start}.`);
 }
 // From anywhere — Today, History, the saved screen — to "add my answers" for one worksheet.
 function startAnswers(wid) {
@@ -3990,6 +4028,8 @@ document.addEventListener('click', (e) => {
     case 'study-done': return doneSheet(t.dataset.date, t.dataset.key, t.dataset.item);
     case 'study-undo': return send({ type: 'study.undo', date: t.dataset.date, key: t.dataset.key, item: t.dataset.item || undefined });
     case 'study-custom': return customSheet(t.dataset.date, t.dataset.key, t.dataset.add);
+    case 'study-ws': return wsPickSheet(t.dataset.date, t.dataset.key, t.dataset.add);
+    case 'ws-pick': return pickWorksheet(t.dataset.id);
     case 'custom-save': {
       const c = SHEET.ctx, title = $('#cTitle')?.value.trim();
       if (!title) return $('#cTitle')?.focus();
