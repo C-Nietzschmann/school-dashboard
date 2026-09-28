@@ -686,33 +686,49 @@ const LOCAL = {
     if (k) d.tasks = d.tasks.filter((x) => x.id !== k.taskId);
   },
   'study.choose': (d, op) => {
-    const w = op.option?.worksheetId && (d.worksheets || []).find((x) => x.id === op.option.worksheetId);
+    const wsOf = (o) => o?.worksheetId && (d.worksheets || []).find((x) => x.id === o.worksheetId);
+    const unplan = (o) => {                     // one planned mark for this period, for that worksheet
+      const x = wsOf(o), i = x ? (x.planned || []).findIndex((p) => p.date === op.date && p.key === op.key) : -1;
+      if (i >= 0) x.planned.splice(i, 1);
+    };
+    const plan = (o) => { const x = wsOf(o); if (x) (x.planned ||= []).push({ date: op.date, key: op.key, done: false }); };
+    const slots = studySlots(op.date).filter((s) => s.key === op.key);
     if (op.add || op.item) {                    // a further task in the period, added or taken out
-      for (const s of studySlots(op.date)) if (s.key === op.key) {
+      if (!op.add) unplan(slots[0]?.more?.find((m) => m.id === op.item)?.option);
+      for (const s of slots) {
         s.more = (s.more || []).filter((m) => m.id !== op.item);
         if (op.add) s.more.push({ id: op.item, option: op.option, done: false, minutes: null, confidence: null });
       }
       if (!op.add && APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key && e.item === op.item));
-      if (w) w.planned.push({ date: op.date, key: op.key, done: false });
+      if (op.add) plan(op.option);
       return;
     }
-    for (const s of studySlots(op.date)) if (s.key === op.key) {
+    unplan(slots[0]?.chosen);
+    for (const s of slots) {
       const first = !op.option && s.more?.[0];   // clearing the pick: the next task takes its place
       if (first) { s.chosen = first.option; s.done = first.done; s.more = s.more.slice(1); } else { s.chosen = op.option; s.done = false; }
     }
     if (APP.week?.log) APP.week.log = APP.week.log.filter((e) => !(e.date === op.date && e.key === op.key && !e.item));
-    for (const x of (d.worksheets || [])) x.planned = (x.planned || []).filter((p) => !(p.date === op.date && p.key === op.key));
-    if (w) w.planned.push({ date: op.date, key: op.key, done: false });
+    plan(op.option);
   },
   'worksheet.add': (d, op) => {
     const w = op.worksheet;
     if ((d.worksheets ||= []).some((x) => x.id === w.id)) return;
-    d.worksheets.unshift({ ...w, date: nowISO(), created: new Date().toISOString(), questionCount: op.questions.length,
+    d.worksheets.unshift({ ...w, date: nowISO(), created: new Date().toISOString(), questionCount: op.questions.length || w.questionCount || 0,
+      done: 0, left: op.questions.length || w.questionCount || null,
       maxMarks: op.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0), attempts: [], planned: [] });
     if (w.hash) (d.worksheetHashes ||= {})[w.hash] = w.id;
     APP.sheets[w.id] ||= { found: true, questions: op.questions, summary: op.summary || '', attempts: [] };
   },
-  'worksheet.update': (d, op) => { const w = (d.worksheets || []).find((x) => x.id === op.worksheetId); if (w) Object.assign(w, op.patch); },
+  'worksheet.update': (d, op) => {
+    const w = (d.worksheets || []).find((x) => x.id === op.worksheetId);
+    if (!w) return;
+    Object.assign(w, op.patch);
+    if (op.patch?.doneCount != null) {
+      w.done = Math.max(Number(op.patch.doneCount) || 0, 0);
+      if (w.questionCount) { w.done = Math.min(w.questionCount, w.done); w.left = w.questionCount - w.done; }
+    }
+  },
   'worksheet.delete': (d, op) => {
     d.worksheets = (d.worksheets || []).filter((x) => x.id !== op.worksheetId);
     for (const a of d.attempts) if (a.worksheetId === op.worksheetId) delete a.worksheetId;
@@ -1174,6 +1190,7 @@ function chosenCard(o, done, doneText, state, at, item) {
           ${o.subjectId ? `<span class="dot" style="--c:${colourOf(o.subjectId)}"></span><span class="slot-meta">${esc(subjectName(o.subjectId))}</span>` : ''}</div>
         <div class="opt-title">${esc(optTitle(o))}</div>
         ${done ? `<div class="resolved">${esc(doneText)}</div>` : `<div class="opt-why">${state === 'later' ? 'Planned' : esc(o.why)}</div>`}
+        ${o.worksheetId && wsProgress(worksheetOf(o.worksheetId)) ? `<div class="slot-meta">${esc(wsProgress(worksheetOf(o.worksheetId)))}</div>` : ''}
       </div></div>
       <div class="opt-actions">${done
         ? `<button class="btn ghost sm" data-act="study-undo" ${at}${it}>Undo</button>`
@@ -1188,11 +1205,11 @@ function studyBlock(sp, state, date) {
   if (sp.chosen) {
     const logged = (APP.week?.log || []).find((e) => e.date === date && e.key === sp.key && !e.item);
     const more = (sp.more || []).map((m) => chosenCard(m.option, m.done, doneLine(m.minutes, m.confidence), state, at, m.id)).join('');
-    // once the first task is done, more can go into the same period
+    // more tasks can go into any period: planned ahead, or logged after
     let add = '';
-    if (sp.done && APP.addMore === date + '|' + sp.key) {
-      const taken = new Set([sp.chosen.id, ...(sp.more || []).map((m) => m.option?.id)]);
-      add = `<div class="opt-why" style="margin-top:4px">What else did you do in this period?</div>
+    if (APP.addMore === date + '|' + sp.key) {
+      const taken = takenIn(sp);
+      add = `<div class="opt-why" style="margin-top:4px">${state === 'past' || sp.done ? 'What else did you do in this period?' : 'What else will you do in this period?'}</div>
         <div class="opts">${sp.options.map((o, i) => (taken.has(o.id) ? '' : `
           <button class="opt" data-act="choose" data-add="1" ${at} data-i="${i}">
             <div class="row"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>
@@ -1200,14 +1217,14 @@ function studyBlock(sp, state, date) {
             <div class="opt-title">${esc(optTitle(o))}</div>
             <div class="opt-why">${esc(o.why)}</div>
           </button>`)).join('')}
-          <div class="row" style="gap:6px">${wsButton(at, true)}<button class="btn ghost sm" data-act="study-custom" data-add="1" ${at}>Something else…</button>
+          <div class="row" style="gap:6px">${todoButton(at, true)}${wsButton(at, true)}<button class="btn ghost sm" data-act="study-custom" data-add="1" ${at}>Something else…</button>
             <button class="btn ghost sm" data-act="study-more" ${at}>Cancel</button></div></div>`;
-    } else if (sp.done) {
+    } else if ((sp.more || []).length < 12) {
       add = `<div class="opt-actions"><button class="btn sm" data-act="study-more" ${at}>+ Add another task</button></div>`;
     }
     return chosenCard(sp.chosen, sp.done, doneLine(logged?.minutes, logged?.confidence), state, at) + more + add;
   }
-  const own = `<div class="row" style="gap:6px">${wsButton(at)}<button class="btn ghost sm" data-act="study-custom" ${at}>Something else…</button></div>`;
+  const own = `<div class="row" style="gap:6px">${todoButton(at)}${wsButton(at)}<button class="btn ghost sm" data-act="study-custom" ${at}>Something else…</button></div>`;
   if (!sp.options.length) return `<div class="opts">${own}</div>`;
   return `<div class="opt-why" style="margin-top:4px">${state === 'past' ? 'What did you do?' : state === 'later' ? 'Plan this period:' : 'Pick one for this period:'}</div>
     <div class="opts">${sp.options.map((o, i) => `
@@ -1463,6 +1480,8 @@ function doneSheet(date, key, item) {
       <label class="field"><span>Minutes</span><input type="number" id="dMins" value="${(item ? o.mins : sp.mins) || 45}" min="1" max="600" inputmode="numeric"></label>
       <label class="field"><span>Note (optional)</span><input id="dNote" placeholder="e.g. did q1–8, stuck on 6"></label>
       ${o.taskId ? `<label class="row" style="font-size:14px"><input type="checkbox" id="dTask" style="width:auto" checked> Tick off “${esc(o.title)}”</label>` : ''}
+      ${o.worksheetId && worksheetOf(o.worksheetId) ? `<label class="field"><span>Questions done so far${worksheetOf(o.worksheetId).questionCount ? ` (of ${worksheetOf(o.worksheetId).questionCount})` : ''}</span>
+        <input type="number" id="dWsDone" data-id="${esc(o.worksheetId)}" value="${worksheetOf(o.worksheetId).done || ''}" min="0" max="${worksheetOf(o.worksheetId).questionCount || 500}" inputmode="numeric"></label>` : ''}
       <button class="btn primary" data-act="done-save">Log it</button>
     </div>`);
 }
@@ -1540,8 +1559,9 @@ function viewWork() {
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
   return `<div class="stack">
     ${w.pages.length ? '' : readingPanel()}
-    ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. Photograph your answer pages —
-      as many as you need — then tap <b>Mark my answers</b>.</div>` : ''}
+    ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. ${ws.pending
+      ? 'Photograph the question booklet <b>and</b> your answer pages together, in any order'
+      : 'Photograph your answer pages — as many as you need —'} then tap <b>Mark my answers</b>.</div>` : ''}
     <div class="card">
       <div class="card-h"><h2>Add your work</h2><span class="count">photos · scans · PDF</span></div>
       <div class="pickers">
@@ -2384,7 +2404,7 @@ function planSheet(wid) {
 // A worksheet as a study-period task.
 const worksheetOption = (ws, mins) => ({ id: 'ws:' + ws.id, kind: 'worksheet', title: 'Worksheet: ' + ws.title,
   why: 'planned by you', subjectId: ws.subjectId || null, topicId: ws.topicIds?.[0] || null, taskId: null, testId: null,
-  worksheetId: ws.id, mins: mins || 45 });
+  worksheetId: ws.id, mins: mins || null });
 function planWorksheet(wid, date, key) {
   const ws = worksheetOf(wid);
   const sp = studySlots(date).find((s) => s.key === key);
@@ -2393,41 +2413,90 @@ function planWorksheet(wid, date, key) {
   closeSheet();
   toast(`Planned for ${date === nowISO() ? 'today' : fmtDay(date)} at ${sp.start}.`);
 }
-// Worksheets you have not answered yet: any of them can go into a study period.
-const openWorksheets = () => worksheetList().filter((w) => !w.attempts?.length);
-const wsButton = (at, add = false) => (openWorksheets().length
-  ? `<button class="btn ghost sm" data-act="study-ws" ${add ? 'data-add="1" ' : ''}${at}>Worksheet…</button>` : '');
+// How much of a worksheet is done: from marked answers, or what you said when logging.
+const wsProgress = (w) => (w?.questionCount ? `${w.done || 0} of ${w.questionCount} done · ${w.left ?? w.questionCount} left`
+  : w?.done ? `${w.done} question${w.done === 1 ? '' : 's'} done` : '');
+// Worksheets not finished yet: any of them can go into a study period.
+const openWorksheets = () => worksheetList().filter((w) => (w.questionCount ? (w.left ?? w.questionCount) > 0 : !w.attempts?.length));
+const wsButton = (at, add = false) => `<button class="btn ghost sm" data-act="study-ws" ${add ? 'data-add="1" ' : ''}${at}>Worksheet…</button>`;
+// A worksheet by name only — a question booklet, say — to plan now and upload
+// later together with your answers. Claude reads its questions when marking.
+function newWsSheet() {
+  const c = SHEET.ctx?.kind === 'wspick' ? SHEET.ctx : null;
+  SHEET.ctx = { kind: 'wsnew', from: c };
+  openSheet(`<div class="sheet-h"><h2>New worksheet</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>Name</span><input id="nwTitle" placeholder="e.g. P1 Ch3 question booklet"></label>
+      <label class="field"><span>Subject</span><select id="nwSubj">${subjectOptions('', 'None')}</select></label>
+      <label class="field"><span>How many questions (optional)</span><input type="number" id="nwCount" min="1" max="200" inputmode="numeric"></label>
+      <div class="muted" style="font-size:13px">Nothing to upload now. When you've done it, open it and tap <b>Add my answers</b>, then photograph the booklet and your answers together — Claude reads the questions and marks them in one go.</div>
+      <button class="btn primary" data-act="ws-new-save">${c ? 'Add it and plan it' : 'Add it'}</button>
+    </div>`);
+}
+const todoButton = (at, add = false) => ((APP.data?.tasks || []).length
+  ? `<button class="btn ghost sm" data-act="study-todo" ${add ? 'data-add="1" ' : ''}${at}>To-do…</button>` : '');
+// What is already in a period, so the pickers don't offer it twice.
+const takenIn = (sp) => new Set([sp?.chosen?.id, ...(sp?.more || []).map((m) => m.option?.id)].filter(Boolean));
+const isOver = (date, sp) => date < nowISO() || (date === nowISO() && toMins(nowHM()) >= toMins(sp.end));
+// Put an option into a period: as its task, or (add) as one more task in it.
+// A period that is over is being logged, so ask how it went; otherwise it's planned.
+function putInPeriod(date, key, option, add) {
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!sp) return closeSheet();
+  const over = isOver(date, sp);
+  if (add) {
+    const item = newId('i');
+    APP.addMore = null;
+    send({ type: 'study.choose', date, key, add: true, item, option: { ...option, mins: leftMins(sp, date) } });
+    if (over) return doneSheet(date, key, item);
+  } else {
+    send({ type: 'study.choose', date, key, option: { ...option, mins: option.mins || sp.mins || 45 } });
+    if (over) return doneSheet(date, key);
+  }
+  const fromSheet = Boolean(SHEET.ctx);
+  closeSheet();
+  if (fromSheet) toast(`${add ? 'Added to' : 'Planned for'} ${date === nowISO() ? 'today' : fmtDay(date)} at ${sp.start}.`);
+}
+function todoPickSheet(date, key, add) {
+  const sp = studySlots(date).find((s) => s.key === key);
+  if (!sp) return;
+  SHEET.ctx = { kind: 'todopick', date, key, add: Boolean(add) };
+  const taken = takenIn(sp);
+  const list = (APP.data?.tasks || []).filter((h) => !taken.has('task:' + h.id));
+  openSheet(`<div class="sheet-h"><h2>${add ? 'Which to-do?' : `To-do for ${esc(sp.start)}`}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    ${list.length ? `<div class="opts" style="margin:0">${list.map((h) => `<button class="opt" data-act="todo-pick" data-id="${esc(h.id)}">
+      <div class="row">${h.subjectId ? `<span class="dot" style="--c:${colourOf(h.subjectId)}"></span><span class="slot-meta">${esc(subjectName(h.subjectId))}</span>` : ''}</div>
+      <div class="opt-title">${esc(h.title)}</div>
+      <div class="opt-why">${h.due ? `due ${esc(h.due === nowISO() ? 'today' : fmtDay(h.due))}` : 'no due date'} · ${esc(h.priority)} priority</div></button>`).join('')}</div>`
+      : '<div class="empty">Every open to-do is already in this period.</div>'}`);
+}
+function pickTodo(id) {
+  const c = SHEET.ctx, h = (APP.data?.tasks || []).find((x) => x.id === id);
+  if (!c || !h) return closeSheet();
+  putInPeriod(c.date, c.key, { id: 'task:' + h.id, kind: 'task', title: h.title, why: 'planned by you',
+    subjectId: h.subjectId || null, topicId: null, taskId: h.id, testId: null }, c.add);
+}
 function wsPickSheet(date, key, add) {
   const sp = studySlots(date).find((s) => s.key === key);
   if (!sp) return;
   SHEET.ctx = { kind: 'wspick', date, key, add: Boolean(add) };
-  const groups = {};
-  for (const w of openWorksheets()) (groups[w.subjectId || ''] ||= []).push(w);
+  const groups = {}, taken = takenIn(sp);
+  for (const w of openWorksheets()) if (!taken.has('ws:' + w.id)) (groups[w.subjectId || ''] ||= []).push(w);
   openSheet(`<div class="sheet-h"><h2>${add ? 'Which worksheet did you do?' : `Worksheet for ${esc(sp.start)}`}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ New worksheet (upload later)</button>
     ${Object.entries(groups).map(([sid, list]) => `<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px">
       <span class="dot" style="--c:${colourOf(sid)}"></span> ${esc(subjectName(sid))}</div><div class="opts" style="margin:0">${list.map((w) => {
         const next = (w.planned || []).find((p) => !p.done && p.date >= nowISO());
         return `<button class="opt" data-act="ws-pick" data-id="${esc(w.id)}"><div class="opt-title">${esc(w.title)}</div>
-          <div class="opt-why">${[w.questionCount ? `${w.questionCount} question${w.questionCount === 1 ? '' : 's'}` : '',
+          <div class="opt-why">${[wsProgress(w),
             (w.topicIds || []).slice(0, 2).map((id) => topicOf(id)?.name).filter(Boolean).join(', '),
             next ? `planned ${next.date === nowISO() ? 'today' : fmtDay(next.date)} ${String(next.key).replace(/^x/, '')}` : ''].filter(Boolean).map(esc).join(' · ')}</div></button>`;
-      }).join('')}</div></div>`).join('') || '<div class="empty">Every worksheet is answered.</div>'}`);
+      }).join('')}</div></div>`).join('') || '<div class="empty">No other unfinished worksheets — add a new one above.</div>'}`);
 }
 function pickWorksheet(wid) {
   const c = SHEET.ctx, ws = worksheetOf(wid);
-  const sp = c && studySlots(c.date).find((s) => s.key === c.key);
-  if (!ws || !sp) return closeSheet();
-  if (c.add) {                                  // a further task in a period whose first one is done
-    const item = newId('i');
-    APP.addMore = null;
-    send({ type: 'study.choose', date: c.date, key: c.key, add: true, item, option: worksheetOption(ws, leftMins(sp, c.date)) });
-    return doneSheet(c.date, c.key, item);
-  }
-  send({ type: 'study.choose', date: c.date, key: c.key, option: worksheetOption(ws, sp.mins) });
-  // a period that is over is being logged: ask how it went
-  if (c.date < nowISO() || (c.date === nowISO() && toMins(nowHM()) >= toMins(sp.end))) return doneSheet(c.date, c.key);
-  closeSheet();
-  toast(`Planned “${ws.title}” for ${c.date === nowISO() ? 'today' : fmtDay(c.date)} at ${sp.start}.`);
+  if (!c || !ws) return closeSheet();
+  putInPeriod(c.date, c.key, worksheetOption(ws), c.add);
 }
 // From anywhere — Today, History, the saved screen — to "add my answers" for one worksheet.
 function startAnswers(wid) {
@@ -2848,7 +2917,9 @@ ${qs.length ? `
 THE WORKSHEET'S QUESTIONS (q · marks · topic id · question)
 ${qs.map((q) => `${q.q} · ${q.maxMarks} · ${q.topicId || '-'} · ${q.text || '(see the sheet)'}`).join('\n')}
 ` : '\nThe questions were not written down when the worksheet was saved — read them from the sheet.\n'}
-${sheetPages ? `The first ${sheetPages === 1 ? 'image is' : `${sheetPages} images are`} the worksheet itself; the rest are the student's answer pages, in order.` : 'The images are the student\'s answer pages, in order.'} The handwriting may be quick and messy — read it carefully.
+${sheetPages ? `The first ${sheetPages === 1 ? 'image is' : `${sheetPages} images are`} the worksheet itself; the rest are the student's answer pages, in order.`
+  : ws.pending ? 'The images are the question booklet and the student\'s answer pages together, in any order: read each question from the booklet, then mark the student\'s answer to it. Use the booklet\'s own question labels and printed marks.'
+  : 'The images are the student\'s answer pages, in order.'} The handwriting may be quick and messy — read it carefully.
 
 1. Mark every question and part of the worksheet${qs.length ? ', using the q labels and the marks above' : ''}. A question the student did not attempt gets 0 marks with errorType "timing".
 2. ${MARK_RULES}
@@ -3566,6 +3637,8 @@ function bySubject(list) {
 }
 function wsStatus(w) {
   const last = w.attempts?.[0];
+  if (w.questionCount && w.left > 0 && w.done > 0) return `<span class="open-n">${w.left} left</span>`;
+  if (w.pending && !last && !(w.planned || []).some((p) => !p.done && p.date >= nowISO())) return '<span class="open-n">not uploaded</span>';
   if (last) return `<span class="score">${fmtN(last.score)}/${fmtN(last.max)}</span>`;
   const next = (w.planned || []).find((p) => !p.done && p.date >= nowISO());
   if (next) return `<span class="muted" style="font-size:12.5px">planned ${esc(next.date === nowISO() ? 'today' : fmtDay(next.date))}</span>`;
@@ -3602,12 +3675,12 @@ function viewHistory() {
           <span class="mono late">−${fmtN(m.marksLost)}</span></button>`).join('')}</div>`;
     }).join('') : '<div class="empty">No open mistakes. Anything you get wrong in marked work lands here until you fix it.</div>';
   } else if (h.view === 'worksheets') {
-    body = wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
+    body = '<button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ New worksheet (upload later)</button>' + (wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
       ${list.map((w) => `<button class="attempt" data-act="open-ws" data-id="${esc(w.id)}">
         <span><span class="t">${esc(w.title)}</span><span class="task-meta">${topicNames(w.topicIds) || 'no topic'} · ${esc(fmtDay(w.date))}
-          ${w.attempts?.length > 1 ? `· answered ${w.attempts.length}×` : ''}</span></span>
+          ${wsProgress(w) ? `· ${esc(wsProgress(w))}` : ''}${w.attempts?.length > 1 ? ` · answered ${w.attempts.length}×` : ''}</span></span>
         ${wsStatus(w)}</button>`).join('')}</div>`).join('')
-      : '<div class="empty">No worksheets yet. On the Work tab, add the pages and choose <b>Worksheet</b>.</div>';
+      : '<div class="empty">No worksheets yet. On the Work tab, add the pages and choose <b>Worksheet</b> — or add one by name above.</div>');
   } else if (h.view === 'notes') {
     body = notes.length ? bySubject(notes).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
       ${list.map((n) => `<button class="attempt" data-act="open-note" data-id="${esc(n.id)}">
@@ -3649,6 +3722,8 @@ function worksheetSheet(w, full, loading = false) {
     <div class="row" style="margin-bottom:14px">
       ${w.folderUrl ? `<a class="btn sm" href="${esc(w.folderUrl)}" target="_blank" rel="noopener">Folder in Drive</a>` : '<span class="muted" style="font-size:13px">Not in Drive</span>'}
       ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}</div>
+    ${w.questionCount ? `<div class="task-meta" style="margin-bottom:4px">${esc(wsProgress(w))}</div>
+      <div class="bar" style="margin-bottom:14px"><span class="lv-high" style="width:${Math.round((w.done || 0) / w.questionCount * 100)}%"></span></div>` : ''}
     <div class="eyebrow">Your answers</div>
     ${atts.length ? `<div>${atts.map((a) => `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}" data-from="${esc(w.id)}">
         <span><span class="t">Answers · ${esc(fmtDay(a.date))}</span><span class="task-meta">tap for Claude's corrections</span></span>
@@ -3663,6 +3738,7 @@ function worksheetSheet(w, full, loading = false) {
       ${loading ? '<div class="muted" style="font-size:13px;margin-top:6px">Fetching…</div>'
         : qs.length ? `<div class="page" style="margin-top:8px">${qs.map((q) => `<div class="q"><div class="q-label">${esc(q.q)}</div>
             <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}</div></div></div>`).join('')}</div>`
+        : w.pending ? `<div class="muted" style="font-size:13px;margin-top:6px">Not uploaded yet. When you've done it, tap <b>Add my answers</b> and photograph the booklet and your answers together.</div>`
         : `<div class="muted" style="font-size:13px;margin-top:6px">Its questions were not read when it was saved — Claude looks at the sheet itself when marking.</div>
           <button class="btn sm" style="margin-top:6px" data-act="chat-ws" data-id="${esc(w.id)}">Have Claude read them in a chat</button>`}
     </details>
@@ -4026,17 +4102,7 @@ document.addEventListener('click', (e) => {
       const sp = studySlots(date).find((s) => s.key === key);
       const o = sp?.options[Number(t.dataset.i)];
       if (!o) return;
-      // choosing for a period that is already over is logging it: ask how it went
-      const over = Boolean(t.closest('.slot')?.classList.contains('past'));
-      if (t.dataset.add) {                        // a further task in a period whose first one is done
-        const item = newId('i');
-        APP.addMore = null;
-        send({ type: 'study.choose', date, key, add: true, item, option: { ...o, mins: leftMins(sp, date) } });
-        return doneSheet(date, key, item);
-      }
-      send({ type: 'study.choose', date, key, option: o });
-      if (over) doneSheet(date, key);
-      return;
+      return putInPeriod(date, key, o, t.dataset.add);
     }
     case 'study-more': {
       const k = t.dataset.date + '|' + t.dataset.key;
@@ -4049,21 +4115,25 @@ document.addEventListener('click', (e) => {
     case 'study-custom': return customSheet(t.dataset.date, t.dataset.key, t.dataset.add);
     case 'study-ws': return wsPickSheet(t.dataset.date, t.dataset.key, t.dataset.add);
     case 'ws-pick': return pickWorksheet(t.dataset.id);
+    case 'study-todo': return todoPickSheet(t.dataset.date, t.dataset.key, t.dataset.add);
+    case 'ws-new': return newWsSheet();
+    case 'ws-new-save': {
+      const c = SHEET.ctx, title = $('#nwTitle')?.value.trim();
+      if (!title) return $('#nwTitle')?.focus();
+      const id = newId('w'), count = Number($('#nwCount')?.value) || 0;
+      send({ type: 'worksheet.add', worksheet: { id, title, subjectId: $('#nwSubj')?.value || '', topicIds: [], pending: true,
+        ...(count ? { questionCount: count } : {}) }, questions: [] });
+      const ws = worksheetOf(id);
+      if (c?.from && ws) return putInPeriod(c.from.date, c.from.key, worksheetOption(ws), c.from.add);
+      closeSheet();
+      return toast(`Added “${title}”. Plan it from any study period.`);
+    }
+    case 'todo-pick': return pickTodo(t.dataset.id);
     case 'custom-save': {
       const c = SHEET.ctx, title = $('#cTitle')?.value.trim();
       if (!title) return $('#cTitle')?.focus();
-      const sp = studySlots(c.date).find((s) => s.key === c.key);
-      const option = { id: newId('custom:'), kind: 'custom', title, why: 'your own plan', subjectId: $('#cSubj')?.value || null,
-        topicId: null, taskId: null, testId: null, mins: (c.add ? sp && leftMins(sp, c.date) : sp?.mins) || 45 };
-      if (c.add) {
-        const item = newId('i');
-        APP.addMore = null;
-        send({ type: 'study.choose', date: c.date, key: c.key, add: true, item, option });
-        return doneSheet(c.date, c.key, item);
-      }
-      send({ type: 'study.choose', date: c.date, key: c.key, option });
-      if (c.past) return doneSheet(c.date, c.key);
-      return closeSheet();
+      return putInPeriod(c.date, c.key, { id: newId('custom:'), kind: 'custom', title, why: 'your own plan',
+        subjectId: $('#cSubj')?.value || null, topicId: null, taskId: null, testId: null }, c.add);
     }
     case 'log-all': return logSheet();
     case 'slot-new': return slotSheet(t.dataset.date);
@@ -4096,6 +4166,8 @@ document.addEventListener('click', (e) => {
       const c = SHEET.ctx;
       send({ type: 'study.done', date: c.date, key: c.key, item: c.item, minutes: Number($('#dMins')?.value) || undefined,
         confidence: c.conf ?? undefined, note: $('#dNote')?.value.trim() || undefined, taskDone: Boolean($('#dTask')?.checked) });
+      const wsDone = $('#dWsDone');
+      if (wsDone && wsDone.value !== '') send({ type: 'worksheet.update', worksheetId: wsDone.dataset.id, patch: { doneCount: Number(wsDone.value) } });
       if ($('#dTask')?.checked) {
         const sp = studySlots(c.date).find((s) => s.key === c.key);
         const o = c.item ? sp?.more?.find((m) => m.id === c.item)?.option : sp?.chosen;

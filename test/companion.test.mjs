@@ -368,6 +368,43 @@ test('your own plan for a study period is kept as written', async () => {
   assert.equal(S.sessions.at(-1).subjectId, 'physics');
 });
 
+test('a worksheet added by name gets its questions from the first marking', async () => {
+  const S = fixture();
+  const store = memStore();
+  await applyOps(S, [{ id: 'a', type: 'worksheet.add', worksheet: { id: 'wp', title: 'Booklet', subjectId: 'maths', pending: true, questionCount: 3 }, questions: [] }], { date: MONDAY, store });
+  assert.deepEqual([S.worksheets[0].pending, S.worksheets[0].questionCount], [true, 3]);
+  await applyOps(S, [{ id: 'm', type: 'work.save', attachment: { title: 'Answers', kind: 'answers', worksheetId: 'wp' },
+    marking: { questions: [{ q: '1', marks: 2, maxMarks: 2 }, { q: '2a', marks: 1, maxMarks: 3 }, { q: '2b', marks: 0, maxMarks: 1 }, { q: '3', marks: 4, maxMarks: 4 }] } }], { date: MONDAY, store });
+  const w = S.worksheets[0];
+  assert.equal(w.pending, undefined);
+  assert.deepEqual([w.questionCount, w.maxMarks], [4, 10]);
+  assert.equal(store.m.get('ws-wp').questions[1].q, '2a');
+  const p = todayPayload(S, { date: MONDAY }).worksheets[0];
+  assert.deepEqual([p.done, p.left], [4, 0]);
+});
+
+test('a worksheet shows how much is done and left; a planned period takes more tasks', async () => {
+  const S = fixture();
+  const store = memStore();
+  const qs = ['1', '2', '3', '4'].map((q) => ({ q, text: 'x', maxMarks: 1 }));
+  await applyOps(S, [{ id: 'a', type: 'worksheet.add', worksheet: { id: 'w4', title: 'Four', subjectId: 'maths' }, questions: qs }], { date: MONDAY, store });
+  const key = at(S).studyOptions(MONDAY)[0].key;
+  await applyOps(S, [
+    { id: 'p1', type: 'study.choose', date: MONDAY, key, option: { id: 'ws:w4', kind: 'worksheet', title: 'Worksheet: Four', worksheetId: 'w4' } },
+    { id: 'p2', type: 'study.choose', date: MONDAY, key, add: true, item: 'i1', option: { id: 'custom:x', kind: 'custom', title: 'Flashcards' } },
+  ], { date: MONDAY, store });
+  assert.equal(S.dayPlans[MONDAY][key].more.length, 1, 'a planned (not yet done) period takes another task');
+  const w = () => todayPayload(S, { date: MONDAY }).worksheets.find((x) => x.id === 'w4');
+  assert.deepEqual([w().done, w().left], [0, 4]);
+  await applyOps(S, [{ id: 'm', type: 'work.save', attachment: { title: 'Answers', kind: 'answers', worksheetId: 'w4' },
+    marking: { questions: [{ q: '1', marks: 1, maxMarks: 1 }, { q: '2', marks: 0, maxMarks: 1 }] } }], { date: MONDAY, store });
+  assert.deepEqual([w().done, w().left], [2, 2], 'marked answers count as done');
+  await applyOps(S, [{ id: 'u', type: 'worksheet.update', worksheetId: 'w4', patch: { doneCount: 3 } }], { date: MONDAY, store });
+  assert.deepEqual([w().done, w().left], [3, 1], 'what you logged counts too');
+  await applyOps(S, [{ id: 'u2', type: 'worksheet.update', worksheetId: 'w4', patch: { doneCount: 9 } }], { date: MONDAY, store });
+  assert.deepEqual([w().done, w().left], [4, 0]);
+});
+
 test('a worksheet: saved with its questions, offered in study periods, answered, then shown with its answers', async () => {
   const S = fixture();
   const store = memStore();
