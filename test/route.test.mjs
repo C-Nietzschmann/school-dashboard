@@ -201,6 +201,22 @@ test('route.tick, route.opts and route.task.add, idempotent by op id', async () 
   assert.equal(S.route.phases[1].tasks.at(-1).id, 'b9');
 });
 
+test('route.item.update edits a task or course in place and keeps its tick', async () => {
+  const S = { ...base(), route: structuredClone(PLAN), routeDone: { a1: true } };
+  const out = await applyOps(S, [
+    { id: 'u1', type: 'route.item.update', itemId: 'a1', patch: { tags: ['eth', 7, ''], critical: false } },
+    { id: 'u2', type: 'route.item.update', itemId: 'k1', patch: { feeds: 'ETH', core: true } },
+    { id: 'u3', type: 'route.item.update', itemId: 'nope', patch: { text: 'x' } },
+    { id: 'u4', type: 'route.item.update', itemId: 'a1', patch: { text: '  ' } },
+  ]);
+  assert.deepEqual(out.results.map((r) => r.ok), [true, true, false, false]);
+  const a1 = S.route.phases[0].tasks.find((t) => t.id === 'a1');
+  assert.deepEqual([a1.tags, a1.critical, a1.text], [['eth'], false, 'Critical admin']);
+  const k1 = S.route.courses.find((c) => c.id === 'k1');
+  assert.deepEqual([k1.feeds, k1.core], ['ETH', true]);
+  assert.equal(S.routeDone.a1, true);
+});
+
 test('the companion payload carries today\'s route, and the chat summary a short version', () => {
   const S = { ...base(), route: structuredClone(PLAN), routeDone: { a1: '2026-09-21' } };
   const p = todayPayload(S, { date: '2026-09-21', time: '08:00' });

@@ -148,7 +148,9 @@ your board — replace them.
 ## The companion app
 
 `companion.html` is the daily side: the fortnight's timetable with a choice of
-what to do in each free period (and study sessions of your own, weekends too), a
+what to do in each free period (and study sessions of your own, weekends too;
+once the first thing is done, more tasks can be added to the same period, each
+logged as its own study session), a
 to-do list that understands `phys wksht 3 fri high`, and a Work tab for
 worksheets, answers, notes and anything else. A worksheet is read by Claude for
 its questions and topic, filed in a Drive folder of its own inside the topic's
@@ -160,7 +162,10 @@ the pages wait on the dashboard and a Claude Code session the app starts reads
 them through the connector's `read_queue` tool and saves what it finds. Mistakes stay
 listed in History until you fix them, and every marked page moves your level per
 topic, which the free-period suggestions and the revision queue both use. Add a
-test and the suggestions shift towards its topics as the date approaches.
+test and the suggestions shift towards its topics as the date approaches. The
+Route tab shows your whole university plan: each stage with its tasks, courses,
+project and earning steps, then projects, courses, earning, universities and dates,
+all tickable.
 
 It reaches the dashboard two ways: inside Claude through a custom connector
 (the URL to paste is on the Files tab — see [DEPLOY.md](DEPLOY.md)), or from this

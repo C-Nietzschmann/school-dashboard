@@ -366,7 +366,9 @@ const mcp = createMcpServer({
         + 'task.add {task:{title, subjectId?, due?: YYYY-MM-DD, priority?: high|normal|low, notes?}}; '
         + 'task.update {taskId, patch}; task.done {taskId, done}; task.delete {taskId}; '
         + 'study.choose {date, key, option} (key and option from get_today studyPeriods); '
-        + 'study.done {date, key, minutes?, confidence?: 0-5, note?}; study.undo {date, key}; '
+        + 'study.choose {date, key, option, add: true, item?} adds a further task to a period that already has one '
+        + '(each shows under studyPeriods[].more; {date, key, item, option: null} takes it out again); '
+        + 'study.done {date, key, item?, minutes?, confidence?: 0-5, note?}; study.undo {date, key, item?}; '
         + 'study.slot.add {date, start: HH:MM, minutes?, title?} (a study session on any day, weekends too; '
         + 'its key comes back and it gets options like a free period); study.slot.remove {date, key}; '
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
@@ -392,6 +394,8 @@ const mcp = createMcpServer({
         + 'route.tick {itemId, done?: boolean} (ids from get_route); route.opts {uk?: boolean, mit?: boolean} (keep or drop '
         + 'the UK / MIT applications); route.import {plan, done?: [ids], opts?} (replaces the whole plan — only when the '
         + 'student asks); route.task.add {phaseId, task:{id?, text, note?, tags?, critical?, cost?}}; '
+        + 'route.item.update {itemId, patch} edits one task (text, note, tags, critical, cost) or course (name, feeds, '
+        + 'when, core) in place, keeping its tick; '
         + 'read.request {request:{id, kind: notes|worksheet|mark|check, title, subjectId?, targetId?, date?, '
         + 'files?:[{driveId, name?, mime?}], pages?, ask}} and read.page {requestId, n, label?, mime, data: base64} '
         + '(the app queuing work for Claude to read — see read_queue); read.done {requestId, error?, result?} '
@@ -609,6 +613,10 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/app/week' && req.method === 'GET') {
       return send(res, 200, await appWeek(Object.fromEntries(url.searchParams)));
+    }
+    if (path === '/api/app/route' && req.method === 'GET') {
+      const date = url.searchParams.get('date');
+      return send(res, 200, routeFull(await loadState(), /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : undefined));
     }
     if (path === '/api/app/ops' && req.method === 'POST') {
       return send(res, 200, await appApply(await readBody(req)));
