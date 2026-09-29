@@ -186,8 +186,24 @@ node arrow/build.mjs /tmp/aa out/arrow [its artifact link]
 ```
 
 Publish `out/arrow/index.html` as an artifact, with the other files next to it, and give it `db`, `sample` and
-the A Level Dashboard connector's `get_today` and `apply_changes`. Given its own link, the copy puts it on each
-chapter's worksheet, so the companion's **Open Assignment Arrow** goes straight there.
+the A Level Dashboard connector's `get_today` and `apply_changes`.
+
+**As an app of its own.** An artifact lives on claude.ai, so it can't be added to the Dock or the Home Screen by
+itself. The dashboard also serves the same copy at **`/arrow/`**, with its own name, icon and web-app manifest.
+It logs through the dashboard's own API with your login, so no connector is needed there. To add it:
+
+- on a Mac, open `/arrow/` in Safari, then File → Add to Dock;
+- on an iPad or iPhone, Share → Add to Home Screen.
+
+The companion at `/companion` can be added the same way; the two stay separate apps. The copy the site serves
+lives in `arrow/site/`. After Assignment Arrow changes, rebuild it and commit:
+
+```
+node arrow/build.mjs /tmp/aa arrow/site --site
+```
+
+That copy's address goes on each chapter's worksheet, so the companion's **Open Assignment Arrow** opens it.
+Each copy keeps its own saved progress, and the dashboard keeps the higher done count of the two.
 
 **Question packs.** In a Claude Code session opened in this folder, `/question-pack maths`
 (or `fmaths`, `physics`, `cs`) runs the skill in `.claude/skills/question-pack/`. It asks

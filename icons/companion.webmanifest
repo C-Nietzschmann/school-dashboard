@@ -1,8 +1,9 @@
 {
+  "id": "/companion",
   "name": "A Level Companion",
   "short_name": "Companion",
   "start_url": "/companion",
-  "scope": "/",
+  "scope": "/companion",
   "display": "standalone",
   "background_color": "#f7f7f5",
   "theme_color": "#f7f7f5",

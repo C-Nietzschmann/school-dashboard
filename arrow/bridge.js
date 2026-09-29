@@ -8,7 +8,12 @@
    one entry per chapter, growing as you do more of it.
 
    Assignment Arrow is left as it is: every mark it gives goes through its
-   recordResult(qid, marks, max), and this wraps that function. */
+   recordResult(qid, marks, max), and this wraps that function.
+
+   It runs in two places: inside Claude as an artifact, where it reaches the
+   dashboard through the A Level Dashboard connector, and on the dashboard's
+   own site at /arrow/ (an app for your Dock or Home Screen), where it uses
+   the site's API with your dashboard login. */
 (function (root) {
   'use strict';
 
@@ -70,9 +75,10 @@
   // starting when you started.
   function pickPeriod(periods, nowHM, reuseKey, startHM) {
     const now = toMins(nowHM);
+    // the connector's summary says time: "08:55–10:50", chosen: title; the site's payload start, end, chosen: {title}
     const spans = (periods || []).map((p) => {
-      const [s, e] = String(p.time || '').split(/[\u2013-]/);
-      return { key: p.key, s: toMins(s), e: toMins(e), chosen: p.chosen || null };
+      const [s, e] = p.time ? String(p.time).split(/[\u2013-]/) : [p.start, p.end];
+      return { key: p.key, s: toMins(s), e: toMins(e), chosen: (typeof p.chosen === 'string' ? p.chosen : p.chosen?.title) || null };
     }).filter((x) => !Number.isNaN(x.s) && !Number.isNaN(x.e));
     const on = spans.find((x) => now >= x.s - 5 && now <= x.e + 10);
     if (on) return { key: on.key, chosen: on.chosen, own: false };
@@ -161,7 +167,10 @@
   const course = () => picked() || 'a2';
   const sheetsNow = () => chapters(allQuestions(), course());
   // this copy's own link, when the build was given it: the companion's "Open Assignment Arrow"
-  const SELF = typeof root.ARROW_URL === 'string' && /^https:\/\//.test(root.ARROW_URL) ? root.ARROW_URL : null;
+  // On the dashboard's site this copy talks to its API, and its own address is its link.
+  const SITE = !root.claude?.use && /^\/arrow(\/|$)/.test(location.pathname);
+  const SELF = SITE ? location.origin + '/arrow/'
+    : typeof root.ARROW_URL === 'string' && /^https:\/\//.test(root.ARROW_URL) ? root.ARROW_URL : null;
 
   let queue = LS.get('queue', []);
   let actStart = null, mcp = null, DASH = 'A Level Dashboard', flushing = false, timer = null;
@@ -215,9 +224,21 @@
   }
 
   async function dash(tool, input) {
+    if (SITE) return site(tool, input);
     const r = await mcp.callTool(DASH, tool, input, { cache: false });
     const p = r?.payload;
     return p && typeof p === 'object' ? p : r?.structuredContent;
+  }
+  // the same two calls through the site's own API (your login cookie goes with them)
+  async function site(tool, input = {}) {
+    const now = Date.now();
+    const r = tool === 'apply_changes'
+      ? await fetch('/api/app/ops', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ops: input.ops, date: input.date, time: input.time }) })
+      : await fetch('/api/app/today?' + new URLSearchParams({ date: input.date || isoOf(now), time: input.time || hmOf(now) }), { credentials: 'same-origin' });
+    if (r.status === 401) throw { code: 'signin', message: 'Sign in to your dashboard' };
+    if (!r.ok) throw { code: 'http', message: `the dashboard answered ${r.status}` };
+    return r.json();
   }
   async function apply(ops, date, time) {
     const results = [];
@@ -255,14 +276,14 @@
       }
     }
     const sent = LS.get('counts', {});
-    for (const c of counts) if (c.n && sent[c.id] !== c.n) ops.push({ id: `aa-dc-${c.id}-${c.n}`, type: 'worksheet.update', worksheetId: c.id, patch: { doneCount: c.n } });
+    for (const c of counts) if (c.n && sent[c.id] !== c.n) ops.push({ id: `aa-dc-${c.id}-${c.n}`, type: 'worksheet.update', worksheetId: c.id, patch: { doneAtLeast: c.n } });
     if (!ops.length) return;
     const bad = (await apply(ops, isoOf(Date.now()), hmOf(Date.now()))).filter((r) => !r.ok);
     if (!bad.length) { LS.set('sheets', sig); LS.set('sheetIds', sheets.map((s) => s.id)); LS.set('counts', Object.fromEntries(counts.map((c) => [c.id, c.n]))); }
   }
 
   async function flush() {
-    if (flushing || !mcp) return;
+    if (flushing || (!mcp && !SITE)) return;
     flushing = true;
     try {
       const sheets = sheetsNow();
@@ -290,7 +311,8 @@
       await ensureSheets(sheets, topics);                  // the worksheets' done counts, now including these
     } catch (e) {
       const code = e?.code || '';
-      say(/not_connected|not_found|not_in_manifest|not_granted/.test(code)
+      say(code === 'signin' ? 'Sign in to your dashboard (open it in this browser) to log your practice.'
+        : /not_connected|not_found|not_in_manifest|not_granted/.test(code)
         ? 'Connect the A Level Dashboard connector to log your practice.'
         : `Not logged yet \u2014 ${e?.message || 'the dashboard did not answer'}. Tap to try again.`, true);
       showQueue();
@@ -299,8 +321,15 @@
     }
   }
 
+  const start = () => {
+    showQueue();
+    flush();
+    setInterval(() => { if (queue.length) flush(); }, 60e3);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && queue.length) flush(); });
+  };
   (async () => {
-    if (!root.claude?.use) return;                       // not inside Claude: nothing to log to
+    if (SITE) return start();                            // on the dashboard's site: its API, no connector
+    if (!root.claude?.use) return;                       // anywhere else (the school's site): nothing to log to
     mcp = await root.claude.use('mcp').catch(() => null);
     if (!mcp) { say('Connectors are off in this view \u2014 practice is not logged.', true); return; }
     try {
@@ -308,9 +337,6 @@
       const mine = servers.find((s) => String(s.server).toLowerCase().replace(/\s+/g, ' ').trim() === 'a level dashboard');
       if (mine) DASH = mine.server;
     } catch { /* the listing is advisory */ }
-    showQueue();
-    flush();
-    setInterval(() => { if (queue.length) flush(); }, 60e3);
-    document.addEventListener('visibilitychange', () => { if (document.hidden && queue.length) flush(); });
+    start();
   })();
 })(typeof window !== 'undefined' ? window : globalThis);

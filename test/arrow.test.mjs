@@ -50,6 +50,10 @@ test('where the time goes: the period on now, the session from before, or a new 
   assert.deepEqual((B.pickPeriod(periods, '15:08', null, '14:30')), { key: '14:05', chosen: 'Worksheet: X', own: false });
   assert.deepEqual((B.pickPeriod(periods, '17:40', null, '17:03')), { key: 'x17:00', chosen: null, own: true, start: '17:00', minutes: 45 });
   assert.equal(B.pickPeriod(periods, '18:20', 'x17:00', '18:10').key, 'x17:00');
+  // on the dashboard's own site the periods come as the app payload: start, end and the chosen option
+  const sitePeriods = [{ key: '14:05', start: '14:05', end: '15:00', chosen: { title: 'Worksheet: X' } }, { key: 'x17:00', start: '17:00', end: '18:00', chosen: null }];
+  assert.deepEqual((B.pickPeriod(sitePeriods, '14:30', null, '14:10')), { key: '14:05', chosen: 'Worksheet: X', own: false });
+  assert.deepEqual((B.pickPeriod(sitePeriods, '17:20', null, '17:01')), { key: 'x17:00', chosen: null, own: false });
 });
 
 test('one entry per chapter per period, growing as you finish more', () => {
@@ -109,8 +113,14 @@ test('on the dashboard: chapter worksheets, study logged once per chapter, one s
   const p = todayPayload(S, { date: MONDAY });
   assert.deepEqual((({ done, left }) => [done, left])(p.worksheets.find((w) => w.id === 'aa-arrays')), [1, 1]);
 
+  // two copies each report what they know: a smaller count never lowers what is there
+  await applyOps(S, [{ id: 'dl1', type: 'worksheet.update', worksheetId: 'aa-arrays', patch: { doneAtLeast: 2 } },
+    { id: 'dl2', type: 'worksheet.update', worksheetId: 'aa-arrays', patch: { doneAtLeast: 1 } }], { date: MONDAY, store });
+  assert.equal(S.worksheets.find((w) => w.id === 'aa-arrays').doneCount, 2);
+
   // suggestions: one Assignment Arrow chapter at most, the one you are in the middle of
   const P = createPlanner(() => S, () => new Date(2026, 8, 28, 8, 0));
-  const ws = P.studyOptions(MONDAY).flatMap((s) => s.options).filter((o) => o.worksheetId?.startsWith('aa-'));
+  const ws = P.studyOptions(MONDAY).flatMap((s) => s.options.filter((o) => o.id !== s.chosen?.id))   // what is suggested, not what is chosen
+    .filter((o) => o.worksheetId?.startsWith('aa-'));
   assert.ok(new Set(ws.map((o) => o.worksheetId)).size <= 1);
 });
