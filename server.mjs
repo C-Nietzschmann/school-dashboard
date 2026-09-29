@@ -518,21 +518,26 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
-const COMPANION_HEAD = `<!doctype html>
+// The skeleton claude.ai gives an artifact page, plus what Safari needs to put
+// it in the Dock or on the Home Screen as an app of its own.
+const appHead = (title, icon, manifest) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Companion">
+<meta name="apple-mobile-web-app-title" content="${title}">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
-<link rel="manifest" href="/icons/companion.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="${icon}">
+<link rel="manifest" href="${manifest}">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
 `;
+const COMPANION_HEAD = appHead('Companion', '/icons/icon-180.png', '/icons/companion.webmanifest');
+// Assignment Arrow, your copy (arrow/site, built by arrow/build.mjs --site): an app of its own at /arrow/
+const ARROW_HEAD = appHead('Arrow', '/icons/arrow-180.png', '/icons/arrow.webmanifest');
 
 const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
@@ -580,7 +585,7 @@ const server = createServer(async (req, res) => {
       && equalish(bearer, APP_KEY.token);
     if (authRequired() && !publicPath && !appKey && !validCookie(req.headers.cookie)) {
       if (path.startsWith('/api/')) return send(res, 401, { error: 'sign in' });
-      if (path === '/' || path.endsWith('.html') || path === '/companion') {
+      if (path === '/' || path.endsWith('.html') || path === '/companion' || path === '/arrow' || path === '/arrow/') {
         return send(res, 200, await readFile(join(ROOT, 'login.html')), 'text/html');
       }
     }
@@ -728,7 +733,11 @@ const server = createServer(async (req, res) => {
        serve anything under the checkout, which included data.json back when the
        data lived here. Dot-segments are refused outright so .git and .cache
        cannot be walked. */
-    const rel = path === '/' ? '/app.html' : path === '/companion' ? '/companion.html' : path;
+    // /arrow/ is Assignment Arrow: its files live in arrow/site, its bridge in arrow/
+    if (path === '/arrow') { res.writeHead(301, { Location: '/arrow/' }); return res.end(); }
+    const rel = path === '/' ? '/app.html' : path === '/companion' ? '/companion.html'
+      : path === '/arrow/' ? '/arrow/site/index.html' : path === '/arrow/bridge.js' ? '/arrow/bridge.js'
+      : path.startsWith('/arrow/') ? '/arrow/site/' + path.slice('/arrow/'.length) : path;
     if (rel.split('/').some((seg) => seg.startsWith('.'))) return send(res, 403, { error: 'nope' });
     const ext = rel.slice(rel.lastIndexOf('.'));
     if (!MIME[ext]) return send(res, 404, { error: 'not found' });
@@ -740,6 +749,7 @@ const server = createServer(async (req, res) => {
     // skeleton there); served from here it gets the same skeleton, plus what an
     // iPhone needs to put it on the Home Screen
     if (rel === '/companion.html') return send(res, 200, COMPANION_HEAD + await readFile(file, 'utf8') + '\n</body>\n</html>\n', 'text/html');
+    if (rel === '/arrow/site/index.html') return send(res, 200, ARROW_HEAD + await readFile(file, 'utf8') + '\n</body>\n</html>\n', 'text/html');
     if (existsSync(file)) return send(res, 200, await readFile(file), MIME[ext]);
     return send(res, 404, { error: 'not found' });
   } catch (e) {

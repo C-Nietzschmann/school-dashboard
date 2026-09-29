@@ -1,0 +1,2543 @@
+<title>Assignment Arrow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* ============================================================
+   ASSIGNMENT ARROW — Cambridge 9618 pseudocode trainer
+   Visual system: school exercise book + examiner's red pen.
+   Every colour is declared on bare :root first, then redefined
+   for dark. Nothing gets its only definition inside a media
+   query — that is the classic unreadable-artifact bug.
+   ============================================================ */
+
+:root{
+  /* --- ground & surfaces: cool photocopy grey, biased toward the ink --- */
+  --paper:      #E9EDF1;
+  --surface:    #FBFCFD;
+  --surface-2:  #F1F4F7;
+  --code-bg:    #F4F6F9;
+
+  /* --- ink --- */
+  --ink:        #141C27;
+  --ink-2:      #4E5A69;
+  --ink-3:      #7A8695;
+
+  /* --- ruling --- */
+  --rule:       #CCD5DF;
+  --rule-soft:  #DFE5EC;
+
+  /* --- the examiner's pen: the single bold spend --- */
+  --pen:        #BE3A2B;
+  --pen-soft:   #F3DDD9;
+  --pen-ink:    #8E2A1E;
+
+  /* --- semantic (separate from the accent) --- */
+  --ok:         #256B4E;
+  --ok-soft:    #DCEDE4;
+  --warn:       #9A6413;
+  --warn-soft:  #F6E9D2;
+
+  /* --- syntax colours --- */
+  --syn-kw:     #9A2B8C;
+  --syn-type:   #1F5F8B;
+  --syn-fn:     #1C6A55;
+  --syn-str:    #A8531A;
+  --syn-num:    #2C4FA0;
+  --syn-com:    #7A8695;
+  --syn-arrow:  #BE3A2B;
+
+  --shadow:     0 1px 2px rgba(20,28,39,.06), 0 6px 18px -10px rgba(20,28,39,.22);
+
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --prose:   "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --step--1: clamp(.76rem, .74rem + .1vw, .82rem);
+  --step-0:  clamp(.95rem, .92rem + .15vw, 1.02rem);
+  --step-1:  clamp(1.1rem, 1.05rem + .25vw, 1.25rem);
+  --step-2:  clamp(1.35rem, 1.25rem + .5vw, 1.7rem);
+  --step-3:  clamp(1.7rem, 1.5rem + .9vw, 2.3rem);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:     #10151B;
+    --surface:   #181E26;
+    --surface-2: #1F2731;
+    --code-bg:   #141A22;
+    --ink:       #E3E9F0;
+    --ink-2:     #A2AEBC;
+    --ink-3:     #76838F;
+    --rule:      #2B3541;
+    --rule-soft: #222B36;
+    --pen:       #E8705C;
+    --pen-soft:  #3A211C;
+    --pen-ink:   #F3A192;
+    --ok:        #63C39A;
+    --ok-soft:   #16302A;
+    --warn:      #DDA45C;
+    --warn-soft: #33280F;
+    --syn-kw:    #DD8FD0;
+    --syn-type:  #7CC1EC;
+    --syn-fn:    #6FCFB2;
+    --syn-str:   #E7A56E;
+    --syn-num:   #93AEF0;
+    --syn-com:   #6E7B89;
+    --syn-arrow: #E8705C;
+    --shadow:    0 1px 2px rgba(0,0,0,.35), 0 8px 22px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:     #10151B;
+  --surface:   #181E26;
+  --surface-2: #1F2731;
+  --code-bg:   #141A22;
+  --ink:       #E3E9F0;
+  --ink-2:     #A2AEBC;
+  --ink-3:     #76838F;
+  --rule:      #2B3541;
+  --rule-soft: #222B36;
+  --pen:       #E8705C;
+  --pen-soft:  #3A211C;
+  --pen-ink:   #F3A192;
+  --ok:        #63C39A;
+  --ok-soft:   #16302A;
+  --warn:      #DDA45C;
+  --warn-soft: #33280F;
+  --syn-kw:    #DD8FD0;
+  --syn-type:  #7CC1EC;
+  --syn-fn:    #6FCFB2;
+  --syn-str:   #E7A56E;
+  --syn-num:   #93AEF0;
+  --syn-com:   #6E7B89;
+  --syn-arrow: #E8705C;
+  --shadow:    0 1px 2px rgba(0,0,0,.35), 0 8px 22px -12px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--display);
+  font-size:var(--step-0);
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+:focus-visible{ outline:2px solid var(--pen); outline-offset:2px; border-radius:3px; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
+
+/* ---------- shared type roles ---------- */
+.label{
+  font-family:var(--display);
+  font-size:var(--step--1);
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+}
+.prose{ font-family:var(--prose); font-size:1.02rem; line-height:1.68; color:var(--ink); max-width:66ch; }
+.prose p{ margin:0 0 .85em; }
+.prose strong{ font-weight:600; }
+.prose em.term{ font-style:normal; font-family:var(--mono); font-size:.9em; background:var(--surface-2); padding:.08em .32em; border-radius:3px; border:1px solid var(--rule-soft); }
+.prose ul,.prose ol{ margin:0 0 .9em; padding-left:1.3em; }
+.prose li{ margin:.3em 0; }
+
+/* ---------- app shell ---------- */
+.app{
+  display:grid;
+  grid-template-columns:clamp(230px,22vw,280px) minmax(0,1fr);
+  min-height:100vh;
+}
+
+/* ---------- left rail: a syllabus contents page ---------- */
+.rail{
+  background:var(--surface);
+  border-right:1px solid var(--rule);
+  display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.brand{ padding:22px 20px 16px; border-bottom:1px solid var(--rule); }
+.brand-mark{
+  display:flex; align-items:baseline; gap:.5rem;
+  font-family:var(--mono); font-size:1.35rem; font-weight:600; color:var(--ink);
+  letter-spacing:-.01em;
+}
+.brand-mark .arrow{ color:var(--pen); font-size:1.5rem; line-height:1; }
+.brand-sub{ margin-top:6px; font-size:var(--step--1); color:var(--ink-3); letter-spacing:.04em; }
+
+.nav{ padding:14px 12px; display:flex; flex-direction:column; gap:2px; }
+.nav-head{ padding:10px 8px 6px; }
+.nav-btn{
+  display:flex; align-items:center; gap:10px;
+  width:100%; text-align:left;
+  background:none; border:0; border-radius:6px;
+  padding:9px 10px;
+  font-family:var(--display); font-size:.94rem; font-weight:500;
+  color:var(--ink-2); cursor:pointer;
+}
+.nav-btn:hover{ background:var(--surface-2); color:var(--ink); }
+.nav-btn[aria-current="true"]{ background:var(--pen-soft); color:var(--pen-ink); font-weight:600; }
+.nav-btn .n{
+  font-family:var(--mono); font-size:.76rem; color:var(--ink-3);
+  min-width:1.6em; font-variant-numeric:tabular-nums;
+}
+.nav-btn[aria-current="true"] .n{ color:var(--pen); }
+
+.rail-foot{ margin-top:auto; padding:14px; border-top:1px solid var(--rule); display:flex; flex-direction:column; gap:10px; }
+.streak{ display:flex; justify-content:space-between; align-items:baseline; font-size:var(--step--1); color:var(--ink-2); }
+.streak b{ font-family:var(--mono); font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+/* ---------- mobile tab bar ---------- */
+.tabbar{ display:none; }
+
+/* ---------- main column ---------- */
+.main{ min-width:0; padding:0 0 80px; }
+.view{ display:none; }
+.view.is-active{ display:block; }
+.wrap{ max-width:940px; margin:0 auto; padding:34px 26px 0; }
+
+.page-head{ border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:26px; }
+.page-head h1{
+  font-family:var(--display); font-weight:700; font-size:var(--step-3);
+  margin:.25rem 0 .3rem; letter-spacing:-.02em; text-wrap:balance; line-height:1.1;
+}
+.page-head p{ margin:0; color:var(--ink-2); max-width:62ch; font-family:var(--prose); font-size:1rem; }
+
+/* ---------- pseudocode block: exercise-book ruling ---------- */
+.code{
+  display:flex;
+  background:var(--code-bg);
+  border:1px solid var(--rule);
+  border-radius:4px;
+  overflow:hidden;
+  margin:0 0 1rem;
+  font-family:var(--mono);
+  font-size:.86rem;
+  line-height:1.72;
+}
+.code-gutter{
+  flex:0 0 auto;
+  padding:12px 10px 12px 12px;
+  text-align:right;
+  color:var(--ink-3);
+  background:transparent;
+  border-right:2px solid var(--pen);
+  user-select:none;
+  font-variant-numeric:tabular-nums;
+  font-size:.78rem;
+  opacity:.75;
+  white-space:pre;
+}
+.code-body{
+  margin:0; padding:12px 14px;
+  overflow-x:auto; flex:1 1 auto; min-width:0;
+  white-space:pre;
+  tab-size:4;
+}
+.code-body code{ font:inherit; }
+
+.tok-kw{ color:var(--syn-kw); font-weight:600; }
+.tok-type{ color:var(--syn-type); font-weight:500; }
+.tok-fn{ color:var(--syn-fn); font-weight:500; }
+.tok-str{ color:var(--syn-str); }
+.tok-num{ color:var(--syn-num); }
+.tok-com{ color:var(--syn-com); font-style:italic; }
+.tok-arrow{ color:var(--syn-arrow); font-weight:600; }
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:6px;
+  padding:22px;
+  margin-bottom:20px;
+  box-shadow:var(--shadow);
+}
+.panel-flat{ background:var(--surface); border:1px solid var(--rule); border-radius:6px; padding:20px; margin-bottom:18px; }
+
+/* Note blocks: role-coded, not uniformly carded */
+.note{
+  border-left:3px solid var(--rule);
+  padding:2px 0 2px 16px;
+  margin:0 0 1.1rem;
+}
+.note .note-label{
+  font-family:var(--display); font-size:var(--step--1); font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; display:block; margin-bottom:.3rem;
+}
+.note-exam{ border-left-color:var(--pen); }
+.note-exam .note-label{ color:var(--pen); }
+.note-tip{ border-left-color:var(--ok); }
+.note-tip .note-label{ color:var(--ok); }
+.note-warn{ border-left-color:var(--warn); }
+.note-warn .note-label{ color:var(--warn); }
+.note p{ margin:0 0 .5em; font-family:var(--prose); font-size:.98rem; color:var(--ink); }
+.note p:last-child{ margin-bottom:0; }
+
+/* ---------- buttons ---------- */
+.btn{
+  font-family:var(--display); font-size:.88rem; font-weight:600;
+  letter-spacing:.01em;
+  padding:9px 15px; border-radius:5px; cursor:pointer;
+  border:1px solid var(--rule); background:var(--surface-2); color:var(--ink);
+  transition:background .12s ease, border-color .12s ease;
+}
+.btn:hover{ background:var(--surface); border-color:var(--ink-3); }
+.btn-primary{ background:var(--pen); border-color:var(--pen); color:#fff; }
+.btn-primary:hover{ background:var(--pen-ink); border-color:var(--pen-ink); }
+:root[data-theme="dark"] .btn-primary, :root:not([data-theme="light"]) .btn-primary{ color:#1A1012; }
+.btn-ghost{ background:transparent; }
+.btn-sm{ padding:6px 11px; font-size:.8rem; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+.btn-row{ display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+
+/* ---------- marks badge, exactly as a paper prints it ---------- */
+.marks{
+  font-family:var(--display); font-weight:600; font-size:.85rem;
+  color:var(--ink-2); font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.qnum{
+  font-family:var(--mono); font-weight:600; font-size:.95rem;
+  color:var(--pen); font-variant-numeric:tabular-nums;
+}
+
+/* ---------- chips ---------- */
+.chips{ display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.chip{
+  font-family:var(--display); font-size:.74rem; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase;
+  padding:3px 8px; border-radius:3px;
+  border:1px solid var(--rule); color:var(--ink-2); background:var(--surface-2);
+  cursor:pointer;
+}
+.chip[aria-pressed="true"]{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.tag{
+  font-family:var(--display); font-size:.7rem; font-weight:600;
+  letter-spacing:.07em; text-transform:uppercase;
+  padding:2px 7px; border-radius:3px;
+  border:1px solid var(--rule); color:var(--ink-3); background:transparent;
+}
+.tag-p2{ border-color:var(--syn-type); color:var(--syn-type); }
+.tag-p4{ border-color:var(--syn-kw); color:var(--syn-kw); }
+.tag-done{ border-color:var(--ok); color:var(--ok); background:var(--ok-soft); }
+
+/* ---------- answer editor ---------- */
+.editor-wrap{ border:1px solid var(--rule); border-radius:5px; overflow:hidden; background:var(--code-bg); }
+.editor-bar{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:6px 8px; background:var(--surface-2); border-bottom:1px solid var(--rule);
+}
+.editor-bar .hint{ margin-left:auto; font-size:.74rem; color:var(--ink-3); font-family:var(--display); }
+.ins{
+  font-family:var(--mono); font-size:.8rem; font-weight:500;
+  padding:3px 8px; border-radius:3px; cursor:pointer;
+  border:1px solid var(--rule); background:var(--surface); color:var(--ink-2);
+}
+.ins:hover{ color:var(--pen); border-color:var(--pen); }
+/* The editor is a transparent textarea sitting exactly on top of a
+   highlighted copy of the same text. Every metric below must match in
+   both rules or the caret drifts away from the letters. */
+.editor-stack{ position:relative; background:var(--code-bg); }
+.editor-stack.focused{ box-shadow:inset 0 0 0 2px var(--pen); }
+
+pre.editor-hl, textarea.editor{
+  margin:0; border:0;
+  padding:12px 14px;
+  font-family:var(--mono); font-size:.86rem; line-height:1.72;
+  tab-size:4; white-space:pre; overflow-wrap:normal;
+  letter-spacing:normal;
+}
+pre.editor-hl{
+  position:absolute; inset:0; overflow:hidden;
+  pointer-events:none; color:var(--ink);
+}
+pre.editor-hl code{ font:inherit; }
+textarea.editor{
+  position:relative; display:block; width:100%; min-height:190px; resize:vertical;
+  background:transparent;
+  color:transparent;                 /* the overlay supplies the colour */
+  caret-color:var(--ink);
+  overflow-x:auto;
+}
+textarea.editor::selection{ background:var(--pen-soft); }
+textarea.editor:focus{ outline:none; }
+.editor-bar .hint.match{ color:var(--pen); font-family:var(--mono); font-size:.76rem; }
+
+/* ---------- tips ---------- */
+.tip{
+  border-left:3px solid var(--ok);
+  background:var(--ok-soft);
+  padding:11px 14px; border-radius:0 4px 4px 0;
+  margin-bottom:9px;
+  font-family:var(--prose); font-size:.97rem; color:var(--ink);
+}
+.tip .tip-n{
+  display:block; font-family:var(--display); font-size:.72rem; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ok); margin-bottom:3px;
+}
+
+/* ---------- mark scheme ---------- */
+.ms-item{
+  display:flex; gap:11px; align-items:flex-start;
+  padding:9px 0; border-bottom:1px dashed var(--rule-soft);
+}
+.ms-item:last-child{ border-bottom:0; }
+.ms-item input[type=checkbox]{ margin-top:4px; width:16px; height:16px; accent-color:var(--ok); flex:0 0 auto; cursor:pointer; }
+.ms-item label{ flex:1; font-family:var(--prose); font-size:.97rem; cursor:pointer; }
+.ms-item .m{ font-family:var(--display); font-weight:600; font-size:.8rem; color:var(--ink-3); flex:0 0 auto; font-variant-numeric:tabular-nums; }
+
+/* ---------- trace tables ---------- */
+.trace-scroll{ overflow-x:auto; margin-bottom:14px; }
+table.trace{ border-collapse:collapse; font-family:var(--mono); font-size:.82rem; min-width:100%; }
+table.trace th{
+  background:var(--surface-2); border:1px solid var(--rule);
+  padding:7px 10px; text-align:left; font-weight:600;
+  font-family:var(--display); font-size:.78rem; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-2); white-space:nowrap;
+}
+table.trace td{ border:1px solid var(--rule); padding:0; }
+table.trace input{
+  width:100%; min-width:72px; border:0; background:transparent; color:var(--ink);
+  font-family:var(--mono); font-size:.82rem; padding:7px 9px;
+  font-variant-numeric:tabular-nums;
+}
+table.trace input:focus{ outline:none; background:var(--surface-2); box-shadow:inset 0 0 0 2px var(--pen); }
+table.trace td.right{ background:var(--ok-soft); }
+table.trace td.right input{ color:var(--ok); font-weight:600; }
+table.trace td.wrong{ background:var(--pen-soft); }
+table.trace td.wrong input{ color:var(--pen-ink); }
+.trace-key{ font-family:var(--mono); font-size:.78rem; color:var(--ink-3); }
+
+/* ---------- MCQ ---------- */
+.opt{
+  display:flex; gap:11px; align-items:flex-start;
+  border:1px solid var(--rule); border-radius:5px;
+  padding:11px 13px; margin-bottom:8px; cursor:pointer;
+  background:var(--surface-2);
+}
+.opt:hover{ border-color:var(--ink-3); }
+.opt input{ margin-top:3px; accent-color:var(--pen); flex:0 0 auto; }
+.opt span{ font-family:var(--mono); font-size:.86rem; }
+.opt.correct{ border-color:var(--ok); background:var(--ok-soft); }
+.opt.incorrect{ border-color:var(--pen); background:var(--pen-soft); }
+
+/* ---------- progress / stats ---------- */
+.stat-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:6px; overflow:hidden; margin-bottom:22px; }
+.stat{ background:var(--surface); padding:16px 18px; }
+.stat .v{ font-family:var(--mono); font-size:1.7rem; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums; display:block; }
+.stat .k{ font-size:var(--step--1); color:var(--ink-3); letter-spacing:.08em; text-transform:uppercase; font-weight:600; }
+
+.bar-row{ display:grid; grid-template-columns:minmax(130px,1fr) 2.2fr auto; gap:12px; align-items:center; padding:7px 0; }
+.bar-row .bn{ font-size:.88rem; color:var(--ink-2); }
+.bar-track{ height:9px; background:var(--surface-2); border:1px solid var(--rule-soft); border-radius:5px; overflow:hidden; }
+.bar-fill{ height:100%; background:var(--pen); border-radius:4px 0 0 4px; }
+.bar-fill.good{ background:var(--ok); }
+.bar-fill.mid{ background:var(--warn); }
+.bar-row .bv{ font-family:var(--mono); font-size:.8rem; color:var(--ink-2); font-variant-numeric:tabular-nums; min-width:4.5em; text-align:right; }
+
+/* ---------- exam ---------- */
+.exam-bar{
+  position:sticky; top:0; z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--rule);
+  padding:11px 26px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  box-shadow:var(--shadow);
+}
+.timer{ font-family:var(--mono); font-size:1.25rem; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.timer.low{ color:var(--pen); }
+.exam-bar .spacer{ margin-left:auto; }
+
+.q-card{ border:1px solid var(--rule); border-radius:6px; background:var(--surface); padding:22px; margin-bottom:18px; }
+.q-head{ display:flex; gap:14px; align-items:baseline; border-bottom:1px solid var(--rule-soft); padding-bottom:11px; margin-bottom:15px; }
+.q-head .q-title{ flex:1; font-family:var(--display); font-weight:600; font-size:1.02rem; }
+.q-stem{ font-family:var(--prose); font-size:1.01rem; line-height:1.65; margin-bottom:15px; }
+.q-stem p{ margin:0 0 .7em; }
+.q-stem ul{ margin:.2em 0 .8em; padding-left:1.3em; }
+.q-stem code{ font-family:var(--mono); font-size:.9em; background:var(--surface-2); padding:.08em .3em; border-radius:3px; }
+
+details.disclose{ border-top:1px solid var(--rule-soft); padding-top:12px; margin-top:14px; }
+details.disclose > summary{
+  cursor:pointer; list-style:none;
+  font-family:var(--display); font-size:.8rem; font-weight:700;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--ink-2);
+  display:flex; align-items:center; gap:8px;
+}
+details.disclose > summary::-webkit-details-marker{ display:none; }
+details.disclose > summary::before{ content:"+"; font-family:var(--mono); color:var(--pen); font-size:1rem; }
+details.disclose[open] > summary::before{ content:"\2212"; }
+details.disclose > summary:hover{ color:var(--ink); }
+.disclose-body{ padding-top:14px; }
+
+.score-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:20px; }
+.score-big{ font-family:var(--mono); font-size:3rem; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
+
+/* ---------- reference tables ---------- */
+.ref-scroll{ overflow-x:auto; border:1px solid var(--rule); border-radius:5px; margin-bottom:22px; }
+table.ref{ border-collapse:collapse; width:100%; min-width:520px; }
+table.ref th{
+  text-align:left; padding:9px 13px; background:var(--surface-2);
+  font-family:var(--display); font-size:.76rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2);
+  border-bottom:1px solid var(--rule);
+}
+table.ref td{ padding:9px 13px; border-bottom:1px solid var(--rule-soft); vertical-align:top; font-size:.92rem; }
+table.ref tr:last-child td{ border-bottom:0; }
+table.ref td.c{ font-family:var(--mono); font-size:.84rem; color:var(--ink); white-space:nowrap; }
+table.ref td.d{ font-family:var(--prose); color:var(--ink-2); }
+
+/* ---------- misc ---------- */
+.divider{ height:1px; background:var(--rule); margin:26px 0; border:0; }
+.empty{ text-align:center; padding:38px 20px; color:var(--ink-3); font-family:var(--prose); font-size:1rem; border:1px dashed var(--rule); border-radius:6px; }
+.q-list{ display:flex; flex-direction:column; gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:6px; overflow:hidden; }
+.q-item{
+  background:var(--surface); border:0; width:100%; text-align:left; cursor:pointer;
+  padding:13px 16px; display:flex; gap:13px; align-items:center; font-family:var(--display);
+}
+.q-item:hover{ background:var(--surface-2); }
+.q-item .qi-t{ flex:1; min-width:0; font-size:.94rem; color:var(--ink); }
+.q-item .qi-t small{ display:block; color:var(--ink-3); font-size:.78rem; margin-top:2px; }
+.sel{
+  font-family:var(--display); font-size:.86rem; padding:7px 10px;
+  border:1px solid var(--rule); border-radius:5px;
+  background:var(--surface-2); color:var(--ink);
+}
+.feedback{ border:1px solid var(--rule); border-radius:5px; padding:14px 16px; margin-top:12px; background:var(--surface-2); font-family:var(--prose); font-size:.97rem; }
+.feedback h4{ font-family:var(--display); font-size:.78rem; letter-spacing:.09em; text-transform:uppercase; margin:0 0 8px; color:var(--ink-2); }
+.spin{ display:inline-block; width:12px; height:12px; border:2px solid var(--rule); border-top-color:var(--pen); border-radius:50%; animation:sp .7s linear infinite; vertical-align:-1px; }
+@keyframes sp{ to{ transform:rotate(360deg); } }
+
+.foot{ max-width:940px; margin:40px auto 0; padding:22px 26px 0; border-top:1px solid var(--rule); color:var(--ink-3); font-size:.82rem; font-family:var(--display); }
+.foot a{ color:var(--ink-2); }
+
+/* ---------- automatic marking ---------- */
+.mark-result{ border:1px solid var(--rule); border-radius:6px; overflow:hidden; margin-top:12px; }
+.mark-score{ display:flex; align-items:baseline; gap:10px; padding:14px 16px; border-bottom:1px solid var(--rule); }
+.mark-score .ms-big{ font-family:var(--mono); font-size:2.1rem; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
+.mark-score .ms-of{ font-family:var(--mono); font-size:1rem; color:var(--ink-3); }
+.mark-score .label{ margin-left:auto; }
+.mark-result.full .mark-score{ background:var(--ok-soft); }
+.mark-result.full .ms-big{ color:var(--ok); }
+.mark-result.part .mark-score{ background:var(--warn-soft); }
+.mark-result.part .ms-big{ color:var(--warn); }
+.mark-result.none .mark-score{ background:var(--pen-soft); }
+.mark-result.none .ms-big{ color:var(--pen); }
+.mark-band{ display:flex; align-items:baseline; gap:10px; padding:10px 16px 6px; background:var(--surface-2); }
+.mark-band .k{ font-family:var(--display); font-size:.72rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-2); }
+.mark-band b{ font-family:var(--mono); font-size:.9rem; font-variant-numeric:tabular-nums; }
+.mark-band .d{ margin-left:auto; font-family:var(--prose); font-size:.85rem; color:var(--ink-3); }
+.case{ display:flex; gap:9px; align-items:baseline; padding:5px 16px; font-family:var(--prose); font-size:.93rem; background:var(--surface); }
+.case .cm{ font-weight:700; flex:0 0 auto; font-family:var(--mono); }
+.case.ok .cm{ color:var(--ok); }
+.case.bad .cm{ color:var(--pen); }
+.case.bad{ color:var(--ink); }
+.case-detail{ padding:12px 16px; background:var(--surface); border-top:1px dashed var(--rule-soft); }
+.case-detail b{ font-family:var(--display); font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2); }
+.case-detail .wg{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+.case-detail .wg .k{ font-family:var(--display); font-size:.68rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); display:block; margin-bottom:3px; }
+.case-detail .wg pre{ margin:0; padding:8px 10px; background:var(--code-bg); border:1px solid var(--rule-soft); border-radius:4px; font-family:var(--mono); font-size:.8rem; white-space:pre-wrap; overflow-x:auto; }
+.case-detail .note-small{ font-family:var(--prose); font-size:.86rem; color:var(--ink-3); margin:10px 0 0; }
+@media (max-width:640px){ .case-detail .wg{ grid-template-columns:1fr; } }
+
+/* ---------- run console ---------- */
+.runbar{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; }
+.runbar .runinfo{ font-size:.78rem; color:var(--ink-3); font-family:var(--display); }
+.inputs-wrap{ margin-top:10px; border:1px solid var(--rule); border-radius:5px; overflow:hidden; }
+.inputs-wrap > summary{
+  cursor:pointer; list-style:none; padding:7px 11px; background:var(--surface-2);
+  font-family:var(--display); font-size:.76rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2);
+}
+.inputs-wrap > summary::-webkit-details-marker{ display:none; }
+.inputs-wrap textarea{
+  display:block; width:100%; min-height:76px; resize:vertical; border:0;
+  padding:9px 11px; background:var(--code-bg); color:var(--ink);
+  font-family:var(--mono); font-size:.82rem; line-height:1.6;
+}
+.inputs-wrap textarea:focus{ outline:none; box-shadow:inset 0 0 0 2px var(--pen); }
+.console{ margin-top:11px; border:1px solid var(--rule); border-radius:5px; overflow:hidden; }
+.console-head{
+  display:flex; align-items:center; gap:8px; padding:6px 11px;
+  background:var(--surface-2); border-bottom:1px solid var(--rule);
+  font-family:var(--display); font-size:.74rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2);
+}
+.console-head .dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-3); flex:0 0 auto; }
+.console-head.ok .dot{ background:var(--ok); }
+.console-head.bad .dot{ background:var(--pen); }
+.console-body{
+  margin:0; padding:11px 13px; background:var(--code-bg);
+  font-family:var(--mono); font-size:.83rem; line-height:1.62;
+  white-space:pre-wrap; overflow-x:auto; max-height:320px; overflow-y:auto;
+  color:var(--ink);
+}
+.console-body .muted{ color:var(--ink-3); font-style:italic; }
+.run-problem{ border-left:3px solid var(--pen); background:var(--pen-soft); padding:11px 14px; }
+.run-problem .rp-line{
+  font-family:var(--display); font-size:.72rem; font-weight:700; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--pen); display:block; margin-bottom:4px;
+}
+.run-problem .rp-msg{ font-family:var(--prose); font-size:.99rem; color:var(--ink); display:block; }
+.run-problem .rp-hint{ font-family:var(--prose); font-size:.93rem; color:var(--ink-2); display:block; margin-top:6px; }
+.run-note{
+  border-left:3px solid var(--warn); background:var(--warn-soft);
+  padding:9px 13px; font-family:var(--prose); font-size:.92rem; color:var(--ink);
+}
+.run-note b{ font-family:var(--display); font-size:.72rem; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--warn); display:block; margin-bottom:3px; }
+.verdict{ display:flex; gap:10px; align-items:flex-start; padding:11px 14px; border-radius:5px; margin-bottom:12px; }
+.verdict.pass{ background:var(--ok-soft); border-left:3px solid var(--ok); }
+.verdict.fail{ background:var(--pen-soft); border-left:3px solid var(--pen); }
+.verdict .vmark{ font-weight:700; font-size:1rem; flex:0 0 auto; }
+.verdict.pass .vmark{ color:var(--ok); }
+.verdict.fail .vmark{ color:var(--pen); }
+.verdict .vtext{ font-family:var(--prose); font-size:.97rem; }
+
+/* ---------- library ---------- */
+.lib-group{ margin:30px 0 8px; display:flex; align-items:baseline; gap:10px; }
+.lib-group h2{ font-family:var(--display); font-size:1.05rem; font-weight:700;
+  letter-spacing:-.01em; margin:0; }
+.lib-group .n{ font-family:var(--mono); font-size:.76rem; color:var(--ink-3); }
+.lib-entry{ border:1px solid var(--rule); border-radius:6px; background:var(--surface);
+  padding:17px 19px; margin-bottom:10px; }
+.lib-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.lib-name{ font-family:var(--mono); font-size:1rem; font-weight:600; color:var(--pen); }
+.lib-sig{ font-family:var(--mono); font-size:.82rem; color:var(--ink-2); background:var(--surface-2);
+  border:1px solid var(--rule-soft); border-radius:4px; padding:7px 10px; margin-bottom:10px;
+  white-space:pre-wrap; overflow-x:auto; }
+.lib-what{ font-family:var(--prose); font-size:.98rem; line-height:1.6; margin:0 0 12px; }
+.lib-miss{ border-left:3px solid var(--warn); background:var(--warn-soft); padding:8px 12px;
+  font-family:var(--prose); font-size:.93rem; margin-top:10px; border-radius:0 4px 4px 0; }
+.lib-miss b{ font-family:var(--display); font-size:.7rem; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--warn); display:block; margin-bottom:2px; }
+.lib-out{ display:flex; gap:10px; align-items:flex-start; margin-top:-4px; }
+.lib-out .k{ font-family:var(--display); font-size:.7rem; font-weight:700; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3); flex:0 0 auto; padding-top:3px; }
+.lib-out pre{ margin:0; font-family:var(--mono); font-size:.83rem; color:var(--ok);
+  white-space:pre-wrap; flex:1; }
+.dialect-table td.a{ font-family:var(--mono); font-size:.82rem; color:var(--syn-kw); white-space:nowrap; }
+.dialect-table td.b{ font-family:var(--mono); font-size:.82rem; color:var(--syn-type); white-space:nowrap; }
+.snip{ border:1px solid var(--rule); border-radius:6px; background:var(--surface);
+  padding:16px 18px; margin-bottom:10px; }
+.snip h3{ font-family:var(--display); font-size:.98rem; font-weight:700; margin:0 0 3px; }
+.snip p{ font-family:var(--prose); font-size:.93rem; color:var(--ink-2); margin:0 0 10px; }
+
+/* ---------- syllabus level ---------- */
+.levelbar{ padding:13px 20px; border-bottom:1px solid var(--rule); }
+.levelbar .label{ margin-bottom:7px; }
+.levelpick{ display:flex; gap:4px; }
+.levelpick button{
+  flex:1; padding:6px 4px; border:1px solid var(--rule); background:var(--surface-2);
+  color:var(--ink-2); border-radius:4px; cursor:pointer;
+  font-family:var(--display); font-size:.74rem; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase;
+}
+.levelpick button:hover{ border-color:var(--ink-3); color:var(--ink); }
+.levelpick button[aria-pressed="true"]{ background:var(--pen); border-color:var(--pen); color:#fff; }
+:root[data-theme="dark"] .levelpick button[aria-pressed="true"],
+:root:not([data-theme="light"]) .levelpick button[aria-pressed="true"]{ color:#1A1012; }
+
+.gate{
+  position:fixed; inset:0; z-index:100; background:var(--paper);
+  display:flex; align-items:center; justify-content:center; padding:24px; overflow-y:auto;
+}
+.gate[hidden]{ display:none !important; }
+.gate-inner{ max-width:640px; width:100%; }
+.gate h1{ font-family:var(--display); font-weight:700; font-size:var(--step-3);
+  margin:.4rem 0 .5rem; letter-spacing:-.02em; text-wrap:balance; }
+.gate p.lead{ font-family:var(--prose); font-size:1.05rem; color:var(--ink-2); margin:0 0 26px; max-width:52ch; }
+.gate-opts{ display:flex; flex-direction:column; gap:10px; }
+.gate-opt{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  border:1px solid var(--rule); border-radius:6px; background:var(--surface);
+  padding:16px 18px; box-shadow:var(--shadow);
+}
+.gate-opt:hover{ border-color:var(--pen); }
+.gate-opt .go-t{ font-family:var(--display); font-weight:700; font-size:1.05rem; color:var(--ink); }
+.gate-opt .go-s{ font-family:var(--prose); font-size:.95rem; color:var(--ink-2); margin-top:3px; display:block; }
+.gate-note{ margin-top:20px; font-family:var(--prose); font-size:.9rem; color:var(--ink-3); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px){
+  .app{ grid-template-columns:1fr; }
+  .rail{ position:static; height:auto; border-right:0; border-bottom:1px solid var(--rule); }
+  .nav{ flex-direction:row; overflow-x:auto; padding:10px; gap:6px; }
+  .nav-head, .rail-foot{ display:none; }
+  .nav-btn{ white-space:nowrap; width:auto; }
+  .wrap{ padding:24px 16px 0; }
+  .panel{ padding:17px; }
+  .q-card{ padding:16px; }
+  .exam-bar{ padding:10px 16px; }
+}
+</style>
+
+<div class="gate" id="levelGate" hidden>
+  <div class="gate-inner">
+    <div class="label">Assignment Arrow</div>
+    <h1>Which course are you sitting?</h1>
+    <p class="lead">This sets the notation you are taught, the questions you get and the syntax the checker expects. You can change it later from the sidebar.</p>
+    <div class="gate-opts">
+      <button class="gate-opt" data-setlevel="igcse">
+        <span class="go-t">IGCSE &mdash; Computer Science 0478</span>
+        <span class="go-s">Uses SUBSTRING, UCASE and LCASE. No records, classes or recursion.</span>
+      </button>
+      <button class="gate-opt" data-setlevel="as">
+        <span class="go-t">AS Level &mdash; Computer Science 9618</span>
+        <span class="go-s">Paper 2. Uses MID, TO_UPPER and TO_LOWER, plus procedures with BYVAL and BYREF.</span>
+      </button>
+      <button class="gate-opt" data-setlevel="a2">
+        <span class="go-t">Full A Level &mdash; Computer Science 9618</span>
+        <span class="go-s">Everything in AS, plus records, classes, recursion, files and data structures.</span>
+      </button>
+    </div>
+    <p class="gate-note">Not sure? Pick the one your exam certificate will say. Nothing is lost if you switch &mdash; your scores are kept per course.</p>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark"><span class="arrow">&#8592;</span><span>Assignment Arrow</span></div>
+      <div class="brand-sub">Pseudocode trainer &middot; 9618</div>
+    </div>
+
+    <div class="levelbar">
+      <div class="label">Syllabus</div>
+      <div class="levelpick" id="levelPick">
+        <button data-setlevel="igcse" aria-pressed="false" title="Cambridge IGCSE 0478">IGCSE</button>
+        <button data-setlevel="as" aria-pressed="false" title="Cambridge AS Level 9618">AS</button>
+        <button data-setlevel="a2" aria-pressed="false" title="Cambridge A Level 9618">A Level</button>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <div class="nav-head label">Sections</div>
+      <button class="nav-btn" data-view="start"  aria-current="true"><span class="n">00</span> How to use this</button>
+      <button class="nav-btn" data-view="course"><span class="n">01</span> Course</button>
+      <button class="nav-btn" data-view="practice"><span class="n">02</span> Practice</button>
+      <button class="nav-btn" data-view="exam"><span class="n">03</span> Exam mode</button>
+      <button class="nav-btn" data-view="reference"><span class="n">04</span> Syntax reference</button>
+      <button class="nav-btn" data-view="progress"><span class="n">05</span> Progress</button>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="streak"><span>Marks banked</span><b id="railMarks">0</b></div>
+      <div class="streak"><span>Questions done</span><b id="railDone">0</b></div>
+      <button class="btn btn-sm btn-ghost" id="themeBtn">Switch theme</button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- ---------- 00 START ---------- -->
+    <section class="view is-active" id="view-start">
+      <div class="wrap">
+        <header class="page-head">
+          <div class="label">Section 00</div>
+          <h1>How to use this</h1>
+          <p>An unofficial practice tool for the pseudocode used in Cambridge International AS &amp; A Level Computer Science (9618). Every question here is original, written in the style of the syllabus.</p>
+        </header>
+
+        <div class="panel">
+          <div class="prose">
+            <p><strong>The problem this solves.</strong> Pseudocode marks are lost on mechanics, not on ideas. You know a loop is needed; you write <em class="term">FOR i = 1 TO 10</em> instead of <em class="term">FOR i &#8592; 1 TO 10</em>, forget the <em class="term">NEXT i</em>, and drop two marks you had earned. This app drills the mechanics until they are automatic.</p>
+          </div>
+
+          <hr class="divider">
+
+          <div class="prose">
+            <p><strong>Work through it in this order:</strong></p>
+            <ul>
+              <li><strong>Course (01)</strong> &mdash; twelve lessons from assignment through to OOP. Each ends with a check question. Start here even if you think you know the syntax; Lesson 1 is where most marks leak.</li>
+              <li><strong>Practice (02)</strong> &mdash; the question bank. Write an answer, then use the tips ladder if you are stuck. Tips go from a nudge to a near-answer, so take only as many as you need.</li>
+              <li><strong>Exam mode (03)</strong> &mdash; a timed set with tips switched off. Mark yourself against the mark scheme at the end.</li>
+              <li><strong>Reference (04)</strong> &mdash; the whole syntax on one page, for when you are mid-question and cannot remember whether it is <em class="term">ENDWHILE</em> or <em class="term">END WHILE</em>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="label" style="margin-bottom:10px">Your pseudocode actually runs</div>
+          <div class="prose">
+            <p>This app contains a real interpreter for 9618 pseudocode. Press <strong>Run it</strong> under any practice question and your answer is executed &mdash; loops loop, arrays fill up, files are read, classes are instantiated. You get the output, or you get told exactly what is wrong and on which line.</p>
+            <p>The errors are the point. It knows the mistakes that cost marks and names them the way a teacher would:</p>
+            <ul>
+              <li><em class="term">'=' cannot be used to store a value in a variable.</em></li>
+              <li><em class="term">NEXT names 'j' but this FOR loop counts with 'i'.</em></li>
+              <li><em class="term">'Total' has been declared but nothing has been put in it yet.</em></li>
+              <li><em class="term">Index 6 is outside 'Scores', which runs from 1 to 5.</em></li>
+              <li><em class="term">You cannot divide by zero. A count that is still 0 is the usual cause.</em></li>
+            </ul>
+            <p>Where a question says data already exists &mdash; &ldquo;an array that already holds the monthly rainfall&rdquo; &mdash; that data is really there when you run it, so the output means something.</p>
+          </div>
+          <div class="note note-exam">
+            <span class="note-label">Practice and exam behave differently on purpose</span>
+            <p>In <strong>Practice</strong> you can run your answer as often as you like, read the error, fix it and run again. That is how you learn where your syntax leaks.</p>
+            <p>In <strong>Exam mode</strong> the Run button is gone. When the timer stops, every executable answer is run <strong>once</strong>. If it does not run, that question scores <strong>zero</strong> and its mark scheme is locked &mdash; the same way an algorithm that does not work earns nothing. You still see the error afterwards, so you know what to drill.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="label" style="margin-bottom:10px">The editor</div>
+          <div class="prose">
+            <p>Every answer box is a pseudocode editor with three conveniences built in:</p>
+            <ul>
+              <li>Type <em class="term">&lt;-</em> and it becomes <em class="term">&#8592;</em> automatically. In the real exam you write the arrow by hand, so get used to seeing it.</li>
+              <li><strong>Tab</strong> indents by four spaces, <strong>Shift+Tab</strong> outdents. Indentation is worth marks.</li>
+              <li>Press <strong>Enter</strong> after a line ending in <em class="term">THEN</em>, <em class="term">DO</em>, <em class="term">REPEAT</em> and it auto-indents the next line.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="label" style="margin-bottom:10px">How marks are awarded</div>
+          <div class="prose">
+            <p>Pseudocode answers are marked on <strong>logic, not spelling</strong>. An examiner reading your answer asks: could I follow this and get the right result? You are not required to match the syllabus keywords exactly &mdash; but matching them removes all doubt, and doubt costs marks.</p>
+          </div>
+          <div class="note note-exam">
+            <span class="note-label">Examiner note</span>
+            <p>Mark schemes award a mark per identifiable step. If you write nothing you score nothing, but a partially correct algorithm with a clear structure usually picks up half the marks. <strong>Never leave a pseudocode question blank.</strong> Write the declarations, the loop, and the output even if the middle is wrong.</p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" data-goto="course">Start Lesson 1</button>
+          <button class="btn" data-goto="practice">Jump to practice</button>
+        </div>
+
+        <div id="syncNote" style="margin-top:18px"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 01 COURSE ---------- -->
+    <section class="view" id="view-course">
+      <div class="wrap">
+        <header class="page-head">
+          <div class="label">Section 01</div>
+          <h1>The course</h1>
+          <p>Twelve lessons, in order. Each one teaches the syntax, shows it working, names the mistake that loses marks, and ends with a question you answer before moving on.</p>
+        </header>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
+          <label class="label" for="lessonSel">Lesson</label>
+          <select class="sel" id="lessonSel" style="flex:1;min-width:230px"></select>
+        </div>
+        <div id="lessonBody"></div>
+        <div class="btn-row" style="margin-top:22px">
+          <button class="btn" id="prevLesson">&#8592; Previous</button>
+          <button class="btn btn-primary" id="nextLesson">Next lesson &#8594;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 02 PRACTICE ---------- -->
+    <section class="view" id="view-practice">
+      <div class="wrap">
+        <header class="page-head">
+          <div class="label">Section 02</div>
+          <h1>Practice bank</h1>
+          <p>Pick a question, write your answer, then reveal tips one at a time only when you are stuck. Mark yourself honestly against the mark scheme &mdash; the score is only useful if it is true.</p>
+        </header>
+
+        <div class="panel-flat">
+          <div style="display:flex;gap:18px;flex-wrap:wrap">
+            <div>
+              <div class="label" style="margin-bottom:7px">Topic</div>
+              <div class="chips" id="topicChips"></div>
+            </div>
+            <div>
+              <div class="label" style="margin-bottom:7px">Paper</div>
+              <div class="chips" id="paperChips">
+                <button class="chip" data-paper="all" aria-pressed="true">All</button>
+                <button class="chip" data-paper="2" aria-pressed="false">Paper 2 (AS)</button>
+                <button class="chip" data-paper="4" aria-pressed="false">Paper 4 (A2)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="practiceList" class="q-list"></div>
+        <div id="practiceQ" style="margin-top:20px"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 03 EXAM ---------- -->
+    <section class="view" id="view-exam">
+      <div id="examBarSlot"></div>
+      <div class="wrap">
+        <div id="examBody"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 04 LIBRARY ---------- -->
+    <section class="view" id="view-reference">
+      <div class="wrap">
+        <header class="page-head">
+          <div class="label">Section 04</div>
+          <h1>The library</h1>
+          <p>Every keyword and every built-in function for your course, each with an example you can run and edit. Nothing here is a claim you have to take on trust &mdash; press Run and watch it work.</p>
+        </header>
+        <input type="search" id="refSearch" class="sel" placeholder="Filter &mdash; try WHILE, substring, file, class&hellip;" style="width:100%;margin-bottom:8px;padding:11px 13px">
+        <div class="chips" id="libScope" style="margin-bottom:20px">
+          <button class="chip" data-libscope="mine" aria-pressed="true">My course only</button>
+          <button class="chip" data-libscope="all" aria-pressed="false">Show every course</button>
+        </div>
+        <div id="refBody"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 05 PROGRESS ---------- -->
+    <section class="view" id="view-progress">
+      <div class="wrap">
+        <header class="page-head">
+          <div class="label">Section 05</div>
+          <h1>Progress</h1>
+          <p>Self-marked totals per topic. Weak topics sort to the top, because that is where the next hour of revision should go.</p>
+        </header>
+        <div id="progressBody"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Assignment Arrow is an independent study tool. It is not affiliated with, endorsed by, or connected to Cambridge Assessment International Education. All questions are original and written for practice; no past-paper material is reproduced. Syllabus conventions follow the 9618 pseudocode guide.</p>
+    </footer>
+  </main>
+</div>
+
+<script src="interpreter.js"></script>
+<script src="lessons.js"></script>
+<script src="lessons-igcse.js"></script>
+<script src="bank.js"></script>
+<script src="bank-igcse.js"></script>
+<script src="bank-extra.js"></script>
+<script src="library.js"></script>
+<script src="tests.js"></script>
+
+<script>
+"use strict";
+
+/* Data arrives from the files above. */
+const LESSONS    = (window.LESSONS_ALEVEL   || []).concat(window.LESSONS_IGCSE   || []);
+const QUESTIONS  = (window.QUESTIONS_ALEVEL || []).concat(window.QUESTIONS_IGCSE || [], window.QUESTIONS_EXTRA || []);
+const DIFFICULTY = Object.assign({}, window.DIFFICULTY_ALEVEL || {}, window.DIFFICULTY_IGCSE || {});
+const RUNSPECS   = Object.assign({}, window.RUNSPECS_ALEVEL   || {}, window.RUNSPECS_IGCSE   || {});
+
+/* ---- syllabus levels ------------------------------------------------- */
+const LEVELS = {
+  igcse:{ id:"igcse", short:"IGCSE",   name:"IGCSE 0478",      note:"Cambridge IGCSE Computer Science",
+          papers:[{v:"2", label:"Paper 2 style"}] },
+  as:   { id:"as",    short:"AS",      name:"AS Level 9618",   note:"Cambridge International AS Level",
+          papers:[{v:"2", label:"Paper 2 style"}] },
+  a2:   { id:"a2",    short:"A Level", name:"A Level 9618",    note:"Cambridge International A Level",
+          papers:[{v:"2", label:"Paper 2 style (AS)"},{v:"4", label:"Paper 4 style (A2)"}] }
+};
+/* An A Level candidate sits on top of the AS content, so a2 sees both. */
+const LEVEL_SEES = { igcse:["igcse"], as:["as"], a2:["as","a2"] };
+function levelSees(lv){ return LEVEL_SEES[lv] || ["as"]; }
+function activeLessons(){
+  const seen = levelSees(STATE.level);
+  return LESSONS.filter(l => (l.levels || ["as","a2"]).some(x => seen.indexOf(x) !== -1));
+}
+function inLevel(q){ return levelSees(STATE.level).indexOf(q.level || "as") !== -1; }
+QUESTIONS.forEach(q => { q.diff = DIFFICULTY[q.id] || q.diff || 3; });
+Object.keys(RUNSPECS).forEach(function(id){
+  const q = QUESTIONS.filter(x => x.id === id)[0];
+  if (q) q.run = RUNSPECS[id];
+});
+
+const DIFF_NAMES = {1:"Foundation",2:"Standard",3:"Exam standard",4:"Stretch",5:"Hardest"};
+const DIFF_BRIEF = {
+  1:"a single construct, 2-4 marks, the instruction is direct and there is no hidden requirement",
+  2:"two constructs combined, 4-5 marks, one small decision for the candidate to make",
+  3:"a typical 9618 question, 5-6 marks, the candidate must choose the right construct themselves and handle one edge case",
+  4:"a demanding question, 6-8 marks, several constructs combined, efficiency or edge cases explicitly credited",
+  5:"the hardest band, 8-10 marks, the sort that separates the top grades: multiple subroutines or data structures, and marks specifically for efficiency, validation and boundary handling"
+};
+
+
+/* ============================================================================
+   ENGINE
+   ========================================================================== */
+
+const KEYWORDS = new Set(["DECLARE","CONSTANT","IF","THEN","ELSE","ENDIF","CASE","OF","OTHERWISE",
+  "ENDCASE","FOR","TO","STEP","NEXT","WHILE","DO","ENDWHILE","REPEAT","UNTIL","PROCEDURE",
+  "ENDPROCEDURE","FUNCTION","RETURNS","RETURN","ENDFUNCTION","CALL","BYVAL","BYREF","INPUT",
+  "OUTPUT","ARRAY","TYPE","ENDTYPE","CLASS","ENDCLASS","INHERITS","PRIVATE","PUBLIC","NEW",
+  "SUPER","OPENFILE","READFILE","WRITEFILE","CLOSEFILE","SEEK","GETRECORD","PUTRECORD",
+  "READ","WRITE","APPEND","RANDOM","AND","OR","NOT","TRUE","FALSE"]);
+const TYPENAMES = new Set(["INTEGER","REAL","CHAR","STRING","BOOLEAN","DATE"]);
+const BUILTINS = new Set(["LEFT","RIGHT","MID","LENGTH","TO_UPPER","TO_LOWER","NUM_TO_STRING",
+  "STRING_TO_NUM","IS_NUM","ASC","CHR","INT","RAND","DIV","MOD","EOF",
+  "SUBSTRING","UCASE","LCASE","ROUND","RANDOM"]);
+
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+/* Tokenise the RAW source, then escape each token as it is emitted.
+   Escaping first would break string matching on the quote characters. */
+function hl(src){
+  const re = /(\/\/[^\n]*)|("[^"\n]*")|('[^'\n]*')|([A-Za-z_][A-Za-z0-9_]*)|(\d+\.\d+|\d+)|(<-|←)/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(src)) !== null){
+    out += esc(src.slice(last, m.index));
+    last = re.lastIndex;
+    if (m[1])       out += '<span class="tok-com">' + esc(m[1]) + "</span>";
+    else if (m[2])  out += '<span class="tok-str">' + esc(m[2]) + "</span>";
+    else if (m[3])  out += '<span class="tok-str">' + esc(m[3]) + "</span>";
+    else if (m[4]){
+      const w = m[4], up = w.toUpperCase();
+      if (KEYWORDS.has(w))       out += '<span class="tok-kw">'   + esc(w) + "</span>";
+      else if (TYPENAMES.has(w)) out += '<span class="tok-type">' + esc(w) + "</span>";
+      else if (BUILTINS.has(w))  out += '<span class="tok-fn">'   + esc(w) + "</span>";
+      else if (KEYWORDS.has(up) && w === up) out += '<span class="tok-kw">' + esc(w) + "</span>";
+      else out += esc(w);
+    }
+    else if (m[5])  out += '<span class="tok-num">' + esc(m[5]) + "</span>";
+    else if (m[6])  out += '<span class="tok-arrow">&#8592;</span>';
+  }
+  out += esc(src.slice(last));
+  return out;
+}
+
+function codeBlock(src){
+  const text = String(src).replace(/\r/g,"").replace(/\s+$/,"");
+  const n = text.split("\n").length;
+  let gutter = "";
+  for (let i = 1; i <= n; i++) gutter += i + (i < n ? "\n" : "");
+  return '<div class="code"><div class="code-gutter">' + gutter +
+         '</div><pre class="code-body"><code>' + hl(text) + "</code></pre></div>";
+}
+
+/* Generated content is model output: allow only a small set of tags. */
+function safeHtml(dirty){
+  const allowed = /^(P|UL|OL|LI|CODE|STRONG|EM|BR|B|I)$/;
+  const box = document.createElement("div");
+  box.innerHTML = String(dirty == null ? "" : dirty);
+  (function walk(node){
+    const kids = Array.prototype.slice.call(node.childNodes);
+    kids.forEach(function(c){
+      if (c.nodeType === 1){
+        if (!allowed.test(c.tagName)){
+          const t = document.createTextNode(c.textContent || "");
+          node.replaceChild(t, c);
+          return;
+        }
+        Array.prototype.slice.call(c.attributes).forEach(function(a){ c.removeAttribute(a.name); });
+        walk(c);
+      } else if (c.nodeType !== 3){
+        node.removeChild(c);
+      }
+    });
+  })(box);
+  return box.innerHTML;
+}
+
+const el = (id) => document.getElementById(id);
+const esc_ = esc;
+
+/* ---------------- persistence ---------------- */
+const STORE_KEY = "assignmentArrow.v1";
+let STATE = { done:{}, lesson:0, lessonAt:{}, level:null, exams:[], generated:[] };
+let cloud = null;
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw){
+      const p = JSON.parse(raw);
+      STATE = Object.assign({ done:{}, lesson:0, lessonAt:{}, level:null, exams:[], generated:[] }, p);
+    }
+  }catch(e){ /* private window, blocked storage: carry on with defaults */ }
+}
+function saveLocal(){
+  STATE.updated = Date.now();
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); }catch(e){}
+  renderRail();
+  if (cloud) queueCloud();
+}
+let cloudTimer = null;
+function queueCloud(){
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(function(){
+    try{ cloud.doc("progress/main").set(JSON.parse(JSON.stringify(STATE))); }catch(e){}
+  }, 1200);
+}
+
+function recordResult(qid, marks, max){
+  const prev = STATE.done[qid];
+  if (!prev || marks > prev.marks) STATE.done[qid] = { marks:marks, max:max, ts:Date.now() };
+  saveLocal();
+}
+
+function totals(){
+  let m = 0, mx = 0, n = 0;
+  for (const k in STATE.done){ m += STATE.done[k].marks; mx += STATE.done[k].max; n++; }
+  return { marks:m, max:mx, count:n };
+}
+function renderRail(){
+  const t = totals();
+  el("railMarks").textContent = t.marks + " / " + t.max;
+  el("railDone").textContent  = t.count;
+}
+
+/* ---------------- navigation ---------------- */
+function show(view){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("is-active"));
+  const target = el("view-" + view);
+  if (target) target.classList.add("is-active");
+  document.querySelectorAll(".nav-btn").forEach(b =>
+    b.setAttribute("aria-current", b.dataset.view === view ? "true" : "false"));
+  window.scrollTo(0,0);
+  if (view === "progress") renderProgress();
+}
+document.querySelectorAll(".nav-btn").forEach(b =>
+  b.addEventListener("click", () => show(b.dataset.view)));
+document.querySelectorAll("[data-goto]").forEach(b =>
+  b.addEventListener("click", () => show(b.dataset.goto)));
+
+el("themeBtn").addEventListener("click", function(){
+  const root = document.documentElement;
+  const now = root.getAttribute("data-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = now ? now === "dark" : prefersDark;
+  root.setAttribute("data-theme", isDark ? "light" : "dark");
+  try{ localStorage.setItem("assignmentArrow.theme", isDark ? "light" : "dark"); }catch(e){}
+});
+try{
+  const savedTheme = localStorage.getItem("assignmentArrow.theme");
+  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+}catch(e){}
+
+/* ---------------- pseudocode editor behaviour ---------------- */
+/* ============================================================================
+   THE EDITOR
+   A transparent textarea over a highlighted copy of the same text, plus
+   Tab completion of the words you type most.
+   ========================================================================== */
+
+/* Typing the trigger and pressing Tab drops in the whole skeleton, indented
+   to match the line you are on. "|" marks where the caret lands. */
+const SNIPPETS_TAB = {
+  IF:        "IF | THEN\n    \nENDIF",
+  IFELSE:    "IF | THEN\n    \nELSE\n    \nENDIF",
+  FOR:       "FOR i \u2190 1 TO |\n    \nNEXT i",
+  WHILE:     "WHILE | DO\n    \nENDWHILE",
+  REPEAT:    "REPEAT\n    |\nUNTIL ",
+  CASE:      "CASE OF |\n    1        : \n    OTHERWISE: \nENDCASE",
+  PROCEDURE: "PROCEDURE |()\n    \nENDPROCEDURE",
+  FUNCTION:  "FUNCTION |() RETURNS INTEGER\n    RETURN \nENDFUNCTION",
+  DECLARE:   "DECLARE | : INTEGER",
+  CONSTANT:  "CONSTANT | = ",
+  OPENFILE:  "OPENFILE \"|\" FOR READ",
+  TYPE:      "TYPE |\n    DECLARE Field : INTEGER\nENDTYPE",
+  CLASS:     "CLASS |\n    PRIVATE Attr : INTEGER\n\n    PUBLIC PROCEDURE NEW()\n    ENDPROCEDURE\nENDCLASS"
+};
+
+const BUILTIN_IGCSE  = ["LENGTH","SUBSTRING","UCASE","LCASE","ROUND","RANDOM","DIV","MOD","EOF"];
+const BUILTIN_ALEVEL = ["LENGTH","MID","LEFT","RIGHT","TO_UPPER","TO_LOWER","NUM_TO_STRING",
+                        "STRING_TO_NUM","IS_NUM","ASC","CHR","INT","RAND","DIV","MOD","EOF"];
+
+/* Keywords, the library for the course being sat, and every identifier the
+   student has already typed in this answer - so their own variable names
+   complete too, which is where most of the typing actually goes. */
+function completionPool(ta){
+  const words = [];
+  const add = w => { if (words.indexOf(w) === -1) words.push(w); };
+  (STATE.level === "igcse" ? BUILTIN_IGCSE : BUILTIN_ALEVEL).forEach(add);
+  KEYWORDS.forEach(add);
+  TYPENAMES.forEach(add);
+  const own = ta.value.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+  own.forEach(w => { if (w.length > 2 && !KEYWORDS.has(w.toUpperCase())) add(w); });
+  return words;
+}
+
+function syncHighlight(ta){
+  const pre = document.getElementById("hl_" + ta.id.slice(3));
+  if (!pre) return;
+  pre.firstChild.innerHTML = hl(ta.value + "\n");   // trailing NL keeps the last line visible
+  pre.scrollTop = ta.scrollTop;
+  pre.scrollLeft = ta.scrollLeft;
+}
+
+/* Arrow conversion + repaint. Programmatic edits must call this too, because
+   setting .value does not fire an input event. */
+function refreshEditor(ta){
+  if (ta.value.indexOf("<-") !== -1){
+    const p = ta.selectionStart;
+    const hits = (ta.value.slice(0, p).match(/<-/g) || []).length;
+    ta.value = ta.value.replace(/<-/g, "\u2190");
+    ta.selectionStart = ta.selectionEnd = p - hits;
+  }
+  syncHighlight(ta);
+}
+
+function editorHint(ta, text, isMatch){
+  const bar = ta.closest(".editor-wrap");
+  const h = bar && bar.querySelector(".hint");
+  if (!h) return;
+  if (text === null){
+    h.textContent = h.dataset.rest || "Tab completes \u00b7 type <- for the arrow";
+    h.classList.remove("match");
+  } else {
+    if (!h.dataset.rest) h.dataset.rest = h.textContent;
+    h.textContent = text;
+    h.classList.toggle("match", !!isMatch);
+  }
+}
+
+function expandSnippet(ta, prefix, body){
+  const s = ta.selectionStart;
+  const lineStart = ta.value.lastIndexOf("\n", s - 1) + 1;
+  const indent = (ta.value.slice(lineStart, s).match(/^\s*/) || [""])[0];
+  const text = body.split("\n").join("\n" + indent);
+  const caret = text.indexOf("|");
+  const out = text.replace("|", "");
+  ta.value = ta.value.slice(0, s - prefix.length) + out + ta.value.slice(s);
+  const at = s - prefix.length + (caret === -1 ? out.length : caret);
+  ta.selectionStart = ta.selectionEnd = at;
+  refreshEditor(ta);
+}
+
+function wireEditor(ta){
+  const stack = ta.closest(".editor-stack");
+  ta.addEventListener("focus", () => stack && stack.classList.add("focused"));
+  ta.addEventListener("blur",  () => { if (stack) stack.classList.remove("focused"); editorHint(ta, null); });
+  ta.addEventListener("input",  () => { refreshEditor(ta); ta._comp = null; });
+  ta.addEventListener("scroll", () => syncHighlight(ta));
+
+  ta.addEventListener("keydown", function(e){
+    if (e.key !== "Tab") ta._comp = null;
+
+    if (e.key === "Tab"){
+      e.preventDefault();
+      const s = ta.selectionStart, en = ta.selectionEnd, v = ta.value;
+
+      if (e.shiftKey){                                   // outdent
+        const lineStart = v.lastIndexOf("\n", s - 1) + 1;
+        if (v.slice(lineStart, lineStart + 4) === "    "){
+          ta.value = v.slice(0, lineStart) + v.slice(lineStart + 4);
+          ta.selectionStart = ta.selectionEnd = Math.max(lineStart, s - 4);
+          refreshEditor(ta);
+        }
+        return;
+      }
+
+      /* still cycling through the matches from the last Tab */
+      if (ta._comp && ta._comp.at === s){
+        const c = ta._comp;
+        c.idx = (c.idx + 1) % c.matches.length;
+        const word = c.matches[c.idx];
+        ta.value = v.slice(0, c.start) + word + v.slice(s);
+        ta.selectionStart = ta.selectionEnd = c.start + word.length;
+        ta._comp = { start:c.start, at:c.start + word.length, matches:c.matches, idx:c.idx };
+        editorHint(ta, (c.idx + 1) + "/" + c.matches.length + "  " + c.matches.join("  "), true);
+        refreshEditor(ta);
+        return;
+      }
+
+      const before = v.slice(0, s);
+      const m = (s === en) && before.match(/[A-Za-z_][A-Za-z0-9_]*$/);
+
+      if (m){
+        const prefix = m[0];
+        const snip = SNIPPETS_TAB[prefix.toUpperCase()];
+        if (snip && before.slice(0, s - prefix.length).match(/(^|\n)\s*$/)){
+          expandSnippet(ta, prefix, snip);               // whole-line trigger
+          editorHint(ta, null);
+          return;
+        }
+        const up = prefix.toUpperCase();
+        const matches = completionPool(ta)
+          .filter(w => w.toUpperCase().startsWith(up) && w.toUpperCase() !== up)
+          .sort((a,b) => a.length - b.length)
+          .slice(0, 8);
+        if (matches.length){
+          const word = matches[0];
+          ta.value = v.slice(0, s - prefix.length) + word + v.slice(s);
+          const at = s - prefix.length + word.length;
+          ta.selectionStart = ta.selectionEnd = at;
+          ta._comp = { start:s - prefix.length, at:at, matches:matches, idx:0 };
+          editorHint(ta, matches.length > 1
+            ? "1/" + matches.length + "  " + matches.join("  ") + "   (Tab for the next)"
+            : word, true);
+          refreshEditor(ta);
+          return;
+        }
+        editorHint(ta, "no completion for " + prefix, false);
+      }
+
+      ta.value = v.slice(0, s) + "    " + v.slice(en);   // plain indent
+      ta.selectionStart = ta.selectionEnd = s + 4;
+      refreshEditor(ta);
+      return;
+    }
+
+    if (e.key === "Enter"){
+      const s = ta.selectionStart, v = ta.value;
+      const lineStart = v.lastIndexOf("\n", s - 1) + 1;
+      const line = v.slice(lineStart, s);
+      const indent = (line.match(/^\s*/) || [""])[0];
+      const opens = /\b(THEN|DO|REPEAT|OF)\s*$|\bPROCEDURE\b.*\)\s*$|\bFUNCTION\b.*\bRETURNS\b.*$|\bFOR\b.*\bTO\b.*$|\bTYPE\b\s+\w+\s*$|\bCLASS\b.*$/i.test(line.trim());
+      e.preventDefault();
+      const add = "\n" + indent + (opens ? "    " : "");
+      ta.value = v.slice(0, s) + add + v.slice(ta.selectionEnd);
+      ta.selectionStart = ta.selectionEnd = s + add.length;
+      refreshEditor(ta);
+    }
+  });
+
+  syncHighlight(ta);
+}
+
+function insertAt(ta, text){
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.slice(0,s) + text + ta.value.slice(e);
+  ta.selectionStart = ta.selectionEnd = s + text.length;
+  refreshEditor(ta);
+  ta.focus();
+}
+
+/* ============================================================================
+   COURSE
+   ========================================================================== */
+function renderLessonOptions(){
+  const sel = el("lessonSel");
+  const list = activeLessons();
+  sel.innerHTML = list.map((l,i) =>
+    '<option value="' + i + '">' + (i+1) + ". " + esc(l.title) + "</option>").join("");
+  sel.value = lessonPos();
+}
+function lessonPos(){
+  const n = activeLessons().length;
+  const v = Number((STATE.lessonAt || {})[STATE.level] || 0);
+  return (v >= 0 && v < n) ? v : 0;
+}
+function renderLesson(i){
+  const list = activeLessons();
+  if (!list.length){ el("lessonBody").innerHTML = '<div class="empty">No lessons for this level yet.</div>'; return; }
+  if (i < 0 || i >= list.length) i = 0;
+  STATE.lessonAt = STATE.lessonAt || {};
+  STATE.lessonAt[STATE.level] = i;
+  saveLocal();
+  el("lessonSel").value = i;
+  const L = list[i];
+  let h = '<div class="panel"><div class="label">Lesson ' + (i+1) + " of " + LESSONS.length + "</div>";
+  h += '<h2 style="font-size:var(--step-2);margin:.3rem 0 .5rem;letter-spacing:-.015em;text-wrap:balance">' + esc(L.title) + "</h2>";
+  h += '<p style="margin:0 0 4px;color:var(--ink-2);font-family:var(--prose);max-width:62ch">' + esc(L.blurb) + "</p></div>";
+
+  h += '<div class="panel">';
+  L.blocks.forEach(function(b){
+    if (b.t === "h") h += '<h3 style="font-family:var(--display);font-size:1.08rem;font-weight:700;margin:26px 0 10px;letter-spacing:-.01em">' + b.text + "</h3>";
+    else if (b.t === "p") h += '<div class="prose"><p>' + b.html + "</p></div>";
+    else if (b.t === "list") h += '<div class="prose"><ul>' + b.items.map(x => "<li>" + x + "</li>").join("") + "</ul></div>";
+    else if (b.t === "code") h += codeBlock(b.src);
+    else if (b.t === "note") h += '<div class="note note-' + b.kind + '"><span class="note-label">' + esc(b.label) + "</span>" + b.html + "</div>";
+    else if (b.t === "check"){
+      h += '<hr class="divider">';
+      h += '<div class="q-head"><span class="qnum">Check</span><span class="q-title">' + b.q + '</span><span class="marks">[' + b.marks + "]</span></div>";
+      if (b.code) h += codeBlock(b.code);
+      h += '<details class="disclose"><summary>Show the answer</summary><div class="disclose-body">';
+      h += '<div class="prose">' + b.a + "</div>";
+      if (b.acode) h += codeBlock(b.acode);
+      h += "</div></details>";
+    }
+  });
+  h += "</div>";
+  el("lessonBody").innerHTML = h;
+}
+el("lessonSel").addEventListener("change", e => renderLesson(Number(e.target.value)));
+el("prevLesson").addEventListener("click", () => renderLesson(Math.max(0, lessonPos() - 1)));
+el("nextLesson").addEventListener("click", () => renderLesson(Math.min(activeLessons().length-1, lessonPos() + 1)));
+
+/* ============================================================================
+   REFERENCE
+   ========================================================================== */
+let libScope = "mine";
+const LIB_INDEX = {};
+let PENDING_SNIPPET = null;
+
+function levelBadges(levels){
+  const names = { igcse:"IGCSE", as:"AS", a2:"A Level" };
+  return (levels || []).map(l => '<span class="tag">' + names[l] + "</span>").join(" ");
+}
+function libVisible(levels){
+  if (libScope === "all") return true;
+  const seen = levelSees(STATE.level);
+  return (levels || []).some(l => seen.indexOf(l) !== -1);
+}
+
+function renderReference(filter){
+  const f = (filter || "").trim().toLowerCase();
+  const hit = (txt) => !f || String(txt).toLowerCase().indexOf(f) !== -1;
+  let h = "";
+
+  const showDialect = (STATE.level === "igcse" || libScope === "all") && !f;
+  if (showDialect){
+    h += '<details class="disclose" style="border-top:0;padding-top:0;margin-top:0;margin-bottom:18px">';
+    h += "<summary>IGCSE and A Level write some things differently &mdash; see the map</summary>";
+    h += '<div class="disclose-body"><div class="ref-scroll"><table class="ref dialect-table"><thead><tr>';
+    h += "<th>What you want</th><th>IGCSE 0478</th><th>AS / A Level 9618</th><th>Note</th></tr></thead><tbody>";
+    (window.DIALECT_MAP || []).forEach(r => {
+      h += '<tr><td class="d">' + esc(r[0]) + '</td><td class="a">' + esc(r[1]) +
+           '</td><td class="b">' + esc(r[2]) + '</td><td class="d">' + esc(r[3]) + "</td></tr>";
+    });
+    h += "</tbody></table></div></div></details>";
+  }
+
+  let shown = 0;
+  (window.LIBRARY || []).forEach(function(g){
+    const entries = g.entries.filter(e =>
+      libVisible(e.levels) && (hit(e.name) || hit(e.what) || hit(e.sig) || hit(g.group) || hit(e.ex)));
+    if (!entries.length) return;
+    h += '<div class="lib-group"><h2>' + esc(g.group) + '</h2><span class="n">' + entries.length + "</span></div>";
+    entries.forEach(function(e){
+      shown++;
+      const eid = "lib" + shown;
+      LIB_INDEX[eid] = e;
+      h += '<div class="lib-entry">';
+      h += '<div class="lib-head"><span class="lib-name">' + esc(e.name) + "</span>" + levelBadges(e.levels) + "</div>";
+      h += '<div class="lib-sig">' + hl(e.sig) + "</div>";
+      h += '<p class="lib-what">' + esc(e.what) + "</p>";
+      h += codeBlock(e.ex);
+      if (e.inputs) h += '<p class="trace-key" style="margin:-6px 0 10px">Reading this input: ' +
+                         esc(String(e.inputs).split("\n").join(" then ")) + "</p>";
+      h += '<div class="lib-out"><span class="k">Outputs</span><pre>' + esc(e.out) + "</pre></div>";
+      h += '<div class="btn-row" style="margin-top:12px">';
+      h += '<button class="btn btn-sm" data-libtry="' + eid + '">Run it</button>';
+      h += '<button class="btn btn-sm btn-ghost" data-libcopy="' + eid + '">Send to the editor</button>';
+      h += '<span class="label" id="libmsg_' + eid + '"></span></div>';
+      h += '<div id="libout_' + eid + '"></div>';
+      if (e.miss) h += '<div class="lib-miss"><b>Watch out</b>' + esc(e.miss) + "</div>";
+      h += "</div>";
+    });
+  });
+
+  const snips = (window.SNIPPETS || []).filter(sn =>
+    libVisible(sn.levels) && (hit(sn.name) || hit(sn.what) || hit(sn.code)));
+  if (snips.length){
+    h += '<div class="lib-group"><h2>Patterns worth knowing by heart</h2><span class="n">' + snips.length + "</span></div>";
+    snips.forEach(function(sn){
+      h += '<div class="snip"><h3>' + esc(sn.name) + "</h3><p>" + esc(sn.what) + "</p>" + codeBlock(sn.code) + "</div>";
+    });
+    shown += snips.length;
+  }
+
+  el("refBody").innerHTML = shown
+    ? h
+    : '<div class="empty">Nothing matches that. Try a keyword such as WHILE, array or file &mdash; or switch to &ldquo;Show every course&rdquo; above.</div>';
+
+  el("refBody").querySelectorAll("[data-libtry]").forEach(b => b.addEventListener("click", function(){
+    const e = LIB_INDEX[b.dataset.libtry];
+    const r = runAnswer({ run:{ inputs:e.inputs, files:e.files } }, e.ex, e.inputs);
+    el("libout_" + b.dataset.libtry).innerHTML = consoleHtml(r);
+  }));
+  el("refBody").querySelectorAll("[data-libcopy]").forEach(b => b.addEventListener("click", function(){
+    PENDING_SNIPPET = LIB_INDEX[b.dataset.libcopy].ex;
+    el("libmsg_" + b.dataset.libcopy).textContent = "Ready - open any practice question and press Paste";
+  }));
+}
+
+el("refSearch").addEventListener("input", e => renderReference(e.target.value));
+el("libScope").querySelectorAll("[data-libscope]").forEach(b => b.addEventListener("click", function(){
+  libScope = b.dataset.libscope;
+  el("libScope").querySelectorAll("[data-libscope]").forEach(x =>
+    x.setAttribute("aria-pressed", x.dataset.libscope === libScope ? "true" : "false"));
+  renderReference(el("refSearch").value);
+}));
+
+/* ============================================================================
+   AI LAYER — lights up inside claude.ai, absent everywhere else.
+   The whole app works without it.
+   ========================================================================== */
+const AI = { sample:null, ready:false };
+
+(async function initAI(){
+  if (!window.claude || typeof window.claude.use !== "function") { showSyncNote(false); return; }
+  try{
+    AI.sample = await window.claude.use("sample");
+    cloud     = await window.claude.use("db");
+  }catch(e){}
+  AI.ready = !!AI.sample;
+
+  if (cloud){
+    try{
+      const snap = await cloud.doc("progress/main").get();
+      const remote = snap && snap.data ? (snap.data() || snap.data) : null;
+      if (remote && remote.updated && remote.updated > (STATE.updated || 0)){
+        STATE = Object.assign(STATE, remote);
+        renderRail(); renderLessonOptions(); renderLesson(lessonPos());
+      }
+    }catch(e){}
+  }
+  showSyncNote(AI.ready);
+  renderGenerator();
+  document.querySelectorAll("[data-aimark]").forEach(b => b.hidden = !AI.ready);
+})();
+
+function showSyncNote(on){
+  el("syncNote").innerHTML = on
+    ? '<div class="note note-tip"><span class="note-label">Claude features are on</span><p>This copy can generate unlimited new questions at any difficulty, and mark your written answers against the mark scheme. Look for the generator at the top of the Practice section.</p></div>'
+    : '<div class="note note-warn"><span class="note-label">Running offline</span><p>Question generation and AI marking need the claude.ai version of this page. Everything else &mdash; the course, the question bank, exam mode and your saved progress &mdash; works exactly as it does here.</p></div>';
+}
+
+/* ============================================================================
+   QUESTION RENDERING — shared by practice and exam
+   ========================================================================== */
+let RUNTIME = [];                       // AI-generated questions this session
+const allQuestions = () => QUESTIONS.concat(RUNTIME);
+
+function qTags(q){
+  let h = '<span class="tag tag-p' + q.paper + '">Paper ' + q.paper + "</span> ";
+  h += '<span class="tag">' + esc(q.topic) + "</span> ";
+  h += '<span class="tag">' + esc(DIFF_NAMES[q.diff] || "") + "</span>";
+  if (q.gen) h += ' <span class="tag" style="border-color:var(--pen);color:var(--pen)">Generated</span>';
+  const d = STATE.done[q.id];
+  if (d) h += ' <span class="tag tag-done">' + d.marks + "/" + d.max + "</span>";
+  return h;
+}
+
+function renderQuestionCard(q, mode){
+  const idp = "q_" + q.id;
+  let h = '<div class="q-card" id="card_' + idp + '" data-qid="' + esc(q.id) + '">';
+  h += '<div class="q-head"><span class="qnum">' + esc(q.id) + '</span>';
+  h += '<span class="q-title">' + esc(q.title) + '<div class="chips" style="margin-top:6px">' + qTags(q) + "</div></span>";
+  h += '<span class="marks">[' + q.marks + "]</span></div>";
+  h += '<div class="q-stem">' + (q.gen ? safeHtml(q.stem) : q.stem) + "</div>";
+  if (q.stemCode) h += codeBlock(q.stemCode);
+
+  if (q.kind === "code"){
+    h += '<div class="editor-wrap"><div class="editor-bar">';
+    h += '<button class="ins" data-ins="←" data-for="' + idp + '">&#8592;</button>';
+    h += '<button class="ins" data-ins="<>" data-for="' + idp + '">&lt;&gt;</button>';
+    h += '<button class="ins" data-ins="IF  THEN\n    \nENDIF" data-for="' + idp + '">IF</button>';
+    h += '<button class="ins" data-ins="FOR i ← 1 TO n\n    \nNEXT i" data-for="' + idp + '">FOR</button>';
+    h += '<button class="ins" data-ins="WHILE  DO\n    \nENDWHILE" data-for="' + idp + '">WHILE</button>';
+    h += '<button class="ins" data-ins="REPEAT\n    \nUNTIL " data-for="' + idp + '">REPEAT</button>';
+    h += '<button class="ins" data-paste="' + idp + '" title="Paste what you sent from the library">Paste</button>';
+    h += '<span class="hint">Tab completes &middot; type &lt;- for the arrow</span>';
+    h += '</div><div class="editor-stack"><pre class="editor-hl" aria-hidden="true" id="hl_' + idp + '"><code></code></pre>';
+    h += '<textarea class="editor" id="ta_' + idp + '" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Write your pseudocode here. Declarations first, then the structure, then the detail."></textarea></div></div>';
+
+    if (mode === "practice"){
+      h += '<div class="runbar">';
+      h += '<button class="btn btn-primary btn-sm" data-run="' + idp + '">Run it</button>';
+      h += '<button class="btn btn-sm" data-clearrun="' + idp + '">Clear</button>';
+      h += '<span class="runinfo">Run it as many times as you like. Fix what it tells you.</span></div>';
+      if (q.run && (q.run.inputs !== undefined)){
+        h += '<details class="inputs-wrap"><summary>Input box &mdash; the values INPUT will read, one per line</summary>';
+        h += '<textarea id="in_' + idp + '" spellcheck="false">' + esc(q.run.inputs || "") + "</textarea></details>";
+      } else {
+        h += '<details class="inputs-wrap"><summary>Input box &mdash; the values INPUT will read, one per line</summary>';
+        h += '<textarea id="in_' + idp + '" spellcheck="false"></textarea></details>';
+      }
+      h += '<div id="con_' + idp + '"></div>';
+    } else {
+      h += '<div id="mk_' + idp + '"></div>';
+      h += '<div class="runbar"><span class="runinfo">Running code is switched off in exam mode. ' +
+           (q.run ? 'Your answer will be run once when the paper is marked - if it does not run, the question scores zero.'
+                  : 'This question is marked by the scheme only.') + "</span></div>";
+      h += '<div id="con_' + idp + '"></div>';
+    }
+  }
+
+  if (q.kind === "trace"){
+    h += '<div class="trace-scroll"><table class="trace" id="tt_' + idp + '"><thead><tr>';
+    q.cols.forEach(c => { h += "<th>" + esc(c) + "</th>"; });
+    h += "</tr></thead><tbody>";
+    q.rows.forEach(function(r, ri){
+      h += "<tr>";
+      r.forEach(function(_, ci){
+        h += '<td><input type="text" data-r="' + ri + '" data-c="' + ci + '" spellcheck="false" aria-label="row ' + (ri+1) + ' column ' + esc(q.cols[ci]) + '"></td>';
+      });
+      h += "</tr>";
+    });
+    h += "</tbody></table></div>";
+    h += '<p class="trace-key">Leave a cell empty when the value does not change on that pass, or when nothing is output.</p>';
+    h += '<div class="btn-row"><button class="btn btn-primary btn-sm" data-check-trace="' + idp + '">Check the table</button></div>';
+    h += '<div id="tr_' + idp + '"></div>';
+  }
+
+  if (q.kind === "mcq"){
+    q.options.forEach(function(o, i){
+      h += '<label class="opt" data-opt="' + i + '" data-for="' + idp + '"><input type="radio" name="mcq_' + idp + '" value="' + i + '"><span>' + esc(o) + "</span></label>";
+    });
+    h += '<div class="btn-row" style="margin-top:6px"><button class="btn btn-primary btn-sm" data-check-mcq="' + idp + '">Check answer</button></div>';
+    h += '<div id="mr_' + idp + '"></div>';
+  }
+
+  /* ---- tips ladder: practice only ---- */
+  if (mode === "practice" && q.tips && q.tips.length){
+    h += '<div style="margin-top:18px;border-top:1px solid var(--rule-soft);padding-top:14px">';
+    h += '<div class="btn-row"><button class="btn btn-sm" data-tip="' + idp + '">Give me a tip</button>';
+    h += '<span class="label" id="tipc_' + idp + '">3 tips available</span></div>';
+    h += '<div id="tips_' + idp + '" style="margin-top:11px"></div></div>';
+  }
+
+  /* ---- marking ---- */
+  const auto = canAutoMark(q);
+  if (auto && mode === "practice"){
+    h += '<div class="btn-row" style="margin-top:14px">';
+    h += '<button class="btn btn-primary btn-sm" data-mark="' + idp + '">Mark my answer</button>';
+    h += '<span class="runinfo">Run against several hidden cases. The score is worked out, not claimed.</span></div>';
+    h += '<div id="mk_' + idp + '"></div>';
+  }
+
+  /* ---- model answer + mark scheme ---- */
+  if (q.kind !== "mcq"){
+    h += '<details class="disclose"><summary>Model answer and mark scheme</summary><div class="disclose-body">';
+    if (q.model) h += codeBlock(q.model);
+    if (q.modelNote) h += '<div class="prose">' + (q.gen ? safeHtml(q.modelNote) : q.modelNote) + "</div>";
+    if (auto){
+      h += '<div class="label" style="margin:18px 0 6px">What the marks are for</div>';
+      q.ms.forEach(function(p){
+        h += '<div class="ms-item" style="padding-left:2px"><span class="m" style="color:var(--ink-3)">&bull;</span>';
+        h += '<label style="cursor:default">' + esc(p.t) + '</label><span class="m">[' + p.m + "]</span></div>";
+      });
+    }
+    if (!auto){
+      h += '<div class="label" style="margin:14px 0 6px">This one cannot be marked automatically &mdash; tick what you actually did</div>';
+      q.ms.forEach(function(p, i){
+        h += '<div class="ms-item"><input type="checkbox" id="ms_' + idp + "_" + i + '" data-ms="' + idp + '" data-m="' + p.m + '">';
+        h += '<label for="ms_' + idp + "_" + i + '">' + esc(p.t) + '</label><span class="m">[' + p.m + "]</span></div>";
+      });
+      h += '<div class="btn-row" style="margin-top:12px">';
+      h += '<button class="btn btn-primary btn-sm" data-save="' + idp + '" data-qid="' + esc(q.id) + '" data-max="' + q.marks + '">Save that score</button>';
+      h += '<span class="label" id="sv_' + idp + '"></span></div>';
+    }
+    h += '<div id="fb_' + idp + '"></div>';
+    h += "</div></details>";
+  }
+
+  h += "</div>";
+  return h;
+}
+
+/* ---------------- running a candidate's answer ---------------- */
+function buildProgram(q, answer){
+  const spec = q.run || {};
+  const setup = spec.setup ? spec.setup + "\n" : "";
+  const harness = spec.harness ? "\n" + spec.harness : "";
+  return {
+    src: setup + answer + harness,
+    offset: setup ? setup.split("\n").length - 1 : 0,
+    inputs: spec.inputs,
+    files: spec.files
+  };
+}
+function runAnswer(q, answer, inputText){
+  if (typeof window.PseudoRun !== "function")
+    return { ok:false, output:[], warnings:[], error:{ line:0, msg:"The runner did not load.", hint:"" } };
+  const prog = buildProgram(q, answer);
+  const raw = (inputText !== undefined && inputText !== null) ? inputText : (prog.inputs || "");
+  const lines = String(raw).replace(/\r/g,"").split("\n");
+  while (lines.length && lines[lines.length-1] === "") lines.pop();
+  return window.PseudoRun(prog.src, { inputs:lines, files:prog.files, offset:prog.offset, level:STATE.level });
+}
+function consoleHtml(res){
+  let h = '<div class="console"><div class="console-head ' + (res.ok ? "ok" : "bad") + '">' +
+          '<span class="dot"></span>' + (res.ok ? "Output" : "It did not run") + "</div>";
+  if (!res.ok){
+    h += '<div class="run-problem"><span class="rp-line">' +
+         (res.error.line ? "Line " + res.error.line : "Problem") + "</span>";
+    h += '<span class="rp-msg">' + esc(res.error.msg) + "</span>";
+    if (res.error.hint) h += '<span class="rp-hint">' + esc(res.error.hint) + "</span>";
+    h += "</div>";
+  }
+  const out = res.output && res.output.length
+    ? esc(res.output.join("\n"))
+    : '<span class="muted">' + (res.ok ? "It ran, but nothing was output." : "Nothing was output before it stopped.") + "</span>";
+  h += '<pre class="console-body">' + out + "</pre>";
+  if (res.warnings && res.warnings.length){
+    h += '<div class="run-note"><b>Worth fixing</b>' + res.warnings.map(w => esc(w)).join("<br>") + "</div>";
+  }
+  return h + "</div>";
+}
+
+function wireQuestionCard(q, root){
+  const idp = "q_" + q.id;
+  const ta = root.querySelector("#ta_" + idp);
+  if (ta) wireEditor(ta);
+
+  const runBtn = root.querySelector('[data-run="' + idp + '"]');
+  if (runBtn) runBtn.addEventListener("click", function(){
+    const box = root.querySelector("#con_" + idp);
+    const answer = ta ? ta.value : "";
+    if (!answer.trim()){
+      box.innerHTML = '<div class="console"><div class="console-head bad"><span class="dot"></span>Nothing to run</div>' +
+        '<pre class="console-body"><span class="muted">Write some pseudocode in the box above first.</span></pre></div>';
+      return;
+    }
+    const inp = root.querySelector("#in_" + idp);
+    box.innerHTML = consoleHtml(runAnswer(q, answer, inp ? inp.value : ""));
+  });
+  const clearBtn = root.querySelector('[data-clearrun="' + idp + '"]');
+  if (clearBtn) clearBtn.addEventListener("click", function(){
+    root.querySelector("#con_" + idp).innerHTML = "";
+  });
+
+  const pasteBtn = root.querySelector('[data-paste="' + idp + '"]');
+  if (pasteBtn) pasteBtn.addEventListener("click", function(){
+    if (!PENDING_SNIPPET){
+      pasteBtn.textContent = "nothing sent yet";
+      setTimeout(() => { pasteBtn.textContent = "Paste"; }, 1600);
+      return;
+    }
+    insertAt(root.querySelector("#ta_" + idp), PENDING_SNIPPET);
+  });
+
+  root.querySelectorAll('[data-ins][data-for="' + idp + '"]').forEach(function(b){
+    b.addEventListener("click", () => insertAt(root.querySelector("#ta_" + idp), b.dataset.ins));
+  });
+
+  const tipBtn = root.querySelector('[data-tip="' + idp + '"]');
+  if (tipBtn){
+    let shown = 0;
+    tipBtn.addEventListener("click", function(){
+      if (shown >= q.tips.length) return;
+      const box = root.querySelector("#tips_" + idp);
+      const d = document.createElement("div");
+      d.className = "tip";
+      d.innerHTML = '<span class="tip-n">Tip ' + (shown+1) + " of " + q.tips.length + "</span>" +
+                    (q.gen ? safeHtml(q.tips[shown]) : q.tips[shown]);
+      box.appendChild(d);
+      shown++;
+      const left = q.tips.length - shown;
+      root.querySelector("#tipc_" + idp).textContent =
+        left ? left + (left === 1 ? " tip left" : " tips left") : "no tips left";
+      if (!left) tipBtn.disabled = true;
+    });
+  }
+
+  const markBtn = root.querySelector('[data-mark="' + idp + '"]');
+  if (markBtn) markBtn.addEventListener("click", function(){
+    const answer = ta ? ta.value.trim() : "";
+    const box = root.querySelector("#mk_" + idp);
+    if (!answer){
+      box.innerHTML = '<div class="feedback">Write an answer above first.</div>';
+      return;
+    }
+    const res = autoMark(q, answer);
+    box.innerHTML = markReportHtml(res);
+    recordResult(q.id, res.awarded, res.max);
+  });
+
+  const saveBtn = root.querySelector('[data-save="' + idp + '"]');
+  if (saveBtn){
+    saveBtn.addEventListener("click", function(){
+      let got = 0;
+      root.querySelectorAll('[data-ms="' + idp + '"]').forEach(function(c){
+        if (c.checked) got += Number(c.dataset.m);
+      });
+      recordResult(saveBtn.dataset.qid, got, Number(saveBtn.dataset.max));
+      root.querySelector("#sv_" + idp).textContent = "Saved: " + got + " / " + saveBtn.dataset.max;
+    });
+  }
+
+  const aiBtn = root.querySelector('[data-aimark="' + idp + '"]');
+  if (aiBtn){
+    aiBtn.hidden = !AI.ready;
+    aiBtn.addEventListener("click", () => aiMark(q, root, idp, aiBtn));
+  }
+
+  const tBtn = root.querySelector('[data-check-trace="' + idp + '"]');
+  if (tBtn) tBtn.addEventListener("click", () => checkTrace(q, root, idp));
+
+  const mBtn = root.querySelector('[data-check-mcq="' + idp + '"]');
+  if (mBtn) mBtn.addEventListener("click", () => checkMcq(q, root, idp));
+}
+
+/* ---------------- trace marking ---------------- */
+function normCell(v){
+  return String(v == null ? "" : v).trim().toLowerCase()
+    .replace(/^["']|["']$/g,"").replace(/\s+/g," ").replace(/[–—]/g,"-");
+}
+function checkTrace(q, root, idp){
+  const table = root.querySelector("#tt_" + idp);
+  let right = 0, total = 0;
+  q.rows.forEach(function(r, ri){
+    r.forEach(function(expected, ci){
+      total++;
+      const input = table.querySelector('input[data-r="' + ri + '"][data-c="' + ci + '"]');
+      const cell = input.parentNode;
+      const got = normCell(input.value);
+      const want = normCell(expected);
+      const blankOk = (want === "" && (got === "" || got === "-"));
+      const ok = blankOk || got === want;
+      cell.className = ok ? "right" : "wrong";
+      if (ok) right++;
+    });
+  });
+  const awarded = Math.round((right / total) * q.marks);
+  recordResult(q.id, awarded, q.marks);
+  root.querySelector("#tr_" + idp).innerHTML =
+    '<div class="feedback"><h4>Result</h4>' + right + " of " + total +
+    " cells correct, which works out at <strong>" + awarded + " / " + q.marks +
+    " marks</strong>. Cells shaded red do not match the expected value. Re-trace those rows one line at a time rather than guessing.</div>";
+}
+
+/* ---------------- mcq marking ---------------- */
+function checkMcq(q, root, idp){
+  const picked = root.querySelector('input[name="mcq_' + idp + '"]:checked');
+  if (!picked){
+    root.querySelector("#mr_" + idp).innerHTML = '<div class="feedback">Choose an option first.</div>';
+    return;
+  }
+  const v = Number(picked.value);
+  root.querySelectorAll('[data-opt][data-for="' + idp + '"]').forEach(function(o){
+    const i = Number(o.dataset.opt);
+    o.classList.remove("correct","incorrect");
+    if (i === q.correct) o.classList.add("correct");
+    else if (i === v) o.classList.add("incorrect");
+  });
+  const ok = v === q.correct;
+  recordResult(q.id, ok ? q.marks : 0, q.marks);
+  root.querySelector("#mr_" + idp).innerHTML =
+    '<div class="feedback"><h4>' + (ok ? "Correct" : "Not quite") + "</h4>" + q.explain + "</div>";
+}
+
+/* ---------------- AI marking ---------------- */
+async function aiMark(q, root, idp, btn){
+  const ta = root.querySelector("#ta_" + idp);
+  const answer = ta ? ta.value.trim() : "";
+  const box = root.querySelector("#fb_" + idp);
+  if (!answer){
+    box.innerHTML = '<div class="feedback">Write an answer in the box above first, then ask for it to be marked.</div>';
+    return;
+  }
+  btn.disabled = true;
+  box.innerHTML = '<div class="feedback"><span class="spin"></span> Marking against the mark scheme&hellip;</div>';
+
+  const prompt =
+    "You are an experienced Cambridge International A Level Computer Science (9618) examiner marking a pseudocode answer.\n\n" +
+    "QUESTION (" + q.marks + " marks):\n" + q.title + "\n" + q.stem.replace(/<[^>]+>/g," ") + "\n\n" +
+    (q.stemCode ? "CODE GIVEN IN THE QUESTION:\n" + q.stemCode + "\n\n" : "") +
+    "MARK SCHEME (one point per line, with its mark value):\n" +
+    q.ms.map((p,i) => (i+1) + ". [" + p.m + "] " + p.t).join("\n") + "\n\n" +
+    "MODEL ANSWER:\n" + (q.model || "") + "\n\n" +
+    "THE CANDIDATE'S ANSWER:\n" + answer + "\n\n" +
+    "Mark it exactly as the real mark scheme would. Award a point if the candidate's logic achieves it, " +
+    "even when their wording or spacing differs from the model - pseudocode is marked on logic, not on " +
+    "matching the model character for character. Do not award a point that is genuinely absent. " +
+    "Be encouraging but never inflate the mark.\n\n" +
+    "Reply with JSON only, in exactly this shape:\n" +
+    '{"awarded": <integer total>, "points": [{"n": <mark scheme number>, "hit": <true|false>, "why": "<one short sentence>"}], ' +
+    '"strength": "<one sentence on what the candidate did well>", ' +
+    '"fix": "<the single most valuable correction, one or two sentences>"}';
+
+  try{
+    const res = await AI.sample.json(prompt, { modelTier:"default" });
+    const awarded = Math.max(0, Math.min(q.marks, Number(res.awarded) || 0));
+    let h = '<div class="feedback"><h4>Claude\'s marking &mdash; ' + awarded + " / " + q.marks + "</h4>";
+    if (Array.isArray(res.points)){
+      h += '<div style="margin:10px 0">';
+      res.points.forEach(function(p){
+        const idx = Number(p.n) - 1;
+        const label = (q.ms[idx] ? q.ms[idx].t : ("Point " + p.n));
+        h += '<div class="ms-item"><span style="color:' + (p.hit ? "var(--ok)" : "var(--pen)") +
+             ';font-weight:700;flex:0 0 auto">' + (p.hit ? "✓" : "✗") + "</span>";
+        h += "<label>" + esc(label) + (p.why ? ' <span style="color:var(--ink-3)">&mdash; ' + esc(p.why) + "</span>" : "") + "</label>";
+        h += '<span class="m">[' + (q.ms[idx] ? q.ms[idx].m : "?") + "]</span></div>";
+      });
+      h += "</div>";
+    }
+    if (res.strength) h += "<p><strong>What worked:</strong> " + esc(res.strength) + "</p>";
+    if (res.fix)      h += "<p><strong>Fix this next:</strong> " + esc(res.fix) + "</p>";
+    h += "</div>";
+    box.innerHTML = h;
+    recordResult(q.id, awarded, q.marks);
+    const sv = root.querySelector("#sv_" + idp);
+    if (sv) sv.textContent = "Saved: " + awarded + " / " + q.marks;
+  }catch(e){
+    const msg = e && e.code === "rate_limited"
+      ? "Too many requests just now. Wait a moment and try again."
+      : "Marking is unavailable at the moment. Mark yourself against the scheme above instead.";
+    box.innerHTML = '<div class="feedback">' + msg + "</div>";
+  }
+  btn.disabled = false;
+}
+
+/* ============================================================================
+   AUTOMATIC MARKING
+   The score is not self-declared. The answer is executed against several
+   hidden cases whose expected output came from running the verified model
+   answer, and it is checked for the constructs the question requires.
+   Printing the right answer as a literal fails the other cases.
+   ========================================================================== */
+function canAutoMark(q){
+  return q.kind === "code" && window.TESTS && window.TESTS[q.id];
+}
+function markSplit(q){
+  const behaviour = Math.max(1, Math.round(q.marks * 0.6));
+  return { behaviour: behaviour, structure: q.marks - behaviour };
+}
+function stripComments(src){ return src.replace(/\/\/[^\n]*/g, "").toUpperCase(); }
+
+function autoMark(q, answer){
+  const spec = window.TESTS[q.id];
+  const base = q.run || {};
+  const split = markSplit(q);
+  const cases = [];
+
+  for (const t of spec.tests){
+    const setup   = (t.setup   !== undefined && t.setup   !== null) ? t.setup   : base.setup;
+    const harness = (t.harness !== undefined && t.harness !== null) ? t.harness : base.harness;
+    const src = (setup ? setup + "\n" : "") + answer + (harness ? "\n" + harness : "");
+    const lines = String(t.inputs || "").replace(/\r/g, "").split("\n");
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    const r = window.PseudoRun(src, {
+      inputs: lines, files: t.files !== undefined ? t.files : base.files,
+      level: STATE.level, offset: setup ? setup.split("\n").length - 1 : 0
+    });
+    const got = r.ok ? r.output.join("\n") : null;
+    cases.push({ ok: r.ok && got === t.out, ran: r.ok, error: r.error,
+                 inputs: t.inputs, want: t.out, got: got });
+  }
+
+  const passed = cases.filter(c => c.ok).length;
+  const bMarks = cases.length ? Math.round(split.behaviour * passed / cases.length) : 0;
+
+  const src = stripComments(answer);
+  const reqs = (spec.require || []).map(rq => ({ t: rq.t, ok: new RegExp(rq.re).test(src) }));
+  const met = reqs.filter(r => r.ok).length;
+  const sMarks = reqs.length ? Math.round(split.structure * met / reqs.length) : split.structure;
+
+  // nothing runs at all, nothing is earned
+  const anyRan = cases.some(c => c.ran);
+  const awarded = anyRan ? Math.min(q.marks, bMarks + sMarks) : 0;
+
+  return { awarded: awarded, max: q.marks, cases: cases, passed: passed,
+           reqs: reqs, split: split, bMarks: anyRan ? bMarks : 0,
+           sMarks: anyRan ? sMarks : 0, anyRan: anyRan };
+}
+
+function markReportHtml(res){
+  let h = '<div class="mark-result ' + (res.awarded === res.max ? "full" : res.awarded ? "part" : "none") + '">';
+  h += '<div class="mark-score"><span class="ms-big">' + res.awarded + "</span><span class=\"ms-of\">/ " + res.max + "</span>";
+  h += '<span class="label">' + (res.awarded === res.max ? "full marks"
+        : res.anyRan ? "partial credit" : "it did not run, so nothing is earned") + "</span></div>";
+
+  h += '<div class="mark-band"><span class="k">Does it work</span><b>' + res.bMarks + " / " + res.split.behaviour +
+       '</b><span class="d">' + res.passed + " of " + res.cases.length + " hidden test cases passed</span></div>";
+
+  res.cases.forEach(function(c, i){
+    h += '<div class="case ' + (c.ok ? "ok" : "bad") + '"><span class="cm">' + (c.ok ? "\u2713" : "\u2717") +
+         "</span><span>Case " + (i + 1) + (c.inputs ? " \u00b7 input " + esc(String(c.inputs).split("\n").join(", ")) : "") + "</span></div>";
+  });
+
+  const firstBad = res.cases.find(c => !c.ok);
+  if (firstBad){
+    h += '<div class="case-detail">';
+    if (!firstBad.ran){
+      h += "<b>Case " + (res.cases.indexOf(firstBad) + 1) + " stopped with an error</b>";
+      h += '<div class="run-problem" style="margin-top:8px"><span class="rp-line">Line ' + firstBad.error.line +
+           '</span><span class="rp-msg">' + esc(firstBad.error.msg) + "</span></div>";
+    } else {
+      h += "<b>The first case that gave the wrong answer</b>";
+      h += '<div class="wg"><div><span class="k">Expected</span><pre>' + esc(firstBad.want) + "</pre></div>";
+      h += '<div><span class="k">Yours gave</span><pre>' + esc(firstBad.got || "(nothing)") + "</pre></div></div>";
+    }
+    h += '<p class="note-small">The other cases stay hidden. Fix the logic rather than the output \u2014 they use different data.</p></div>';
+  }
+
+  if (res.reqs.length){
+    h += '<div class="mark-band"><span class="k">Is it written properly</span><b>' + res.sMarks + " / " + res.split.structure +
+         '</b><span class="d">the question needs these</span></div>';
+    res.reqs.forEach(function(r){
+      h += '<div class="case ' + (r.ok ? "ok" : "bad") + '"><span class="cm">' + (r.ok ? "\u2713" : "\u2717") +
+           "</span><span>" + esc(r.t) + "</span></div>";
+    });
+  }
+  return h + "</div>";
+}
+
+/* ============================================================================
+   PRACTICE
+   ========================================================================== */
+let filterTopic = "all", filterPaper = "all", filterDiff = "all";
+
+function topicList(){
+  const set = [];
+  allQuestions().forEach(q => { if (inLevel(q) && set.indexOf(q.topic) === -1) set.push(q.topic); });
+  return set;
+}
+function renderTopicChips(){
+  const wrap = el("topicChips");
+  let h = '<button class="chip" data-topic="all" aria-pressed="' + (filterTopic==="all") + '">All</button>';
+  topicList().forEach(t => {
+    h += '<button class="chip" data-topic="' + esc(t) + '" aria-pressed="' + (filterTopic===t) + '">' + esc(t) + "</button>";
+  });
+  wrap.innerHTML = h;
+  wrap.querySelectorAll("[data-topic]").forEach(b => b.addEventListener("click", function(){
+    filterTopic = b.dataset.topic; renderTopicChips(); renderPracticeList();
+  }));
+}
+el("paperChips").querySelectorAll("[data-paper]").forEach(b => b.addEventListener("click", function(){
+  filterPaper = b.dataset.paper;
+  el("paperChips").querySelectorAll("[data-paper]").forEach(x =>
+    x.setAttribute("aria-pressed", x.dataset.paper === filterPaper ? "true" : "false"));
+  renderPracticeList();
+}));
+
+function matches(q){
+  if (!inLevel(q)) return false;
+  if (filterTopic !== "all" && q.topic !== filterTopic) return false;
+  if (filterPaper !== "all" && String(q.paper) !== filterPaper) return false;
+  if (filterDiff  !== "all" && String(q.diff)  !== filterDiff)  return false;
+  return true;
+}
+function renderPracticeList(){
+  const list = allQuestions().filter(matches);
+  if (!list.length){
+    el("practiceList").innerHTML = '<div class="empty">No questions match those filters. Widen them, or generate a new question above.</div>';
+    return;
+  }
+  el("practiceList").innerHTML = list.map(function(q){
+    const d = STATE.done[q.id];
+    return '<button class="q-item" data-open="' + esc(q.id) + '">' +
+      '<span class="qnum">' + esc(q.id) + "</span>" +
+      '<span class="qi-t">' + esc(q.title) + "<small>" + esc(q.topic) + " &middot; " +
+        esc(DIFF_NAMES[q.diff]) + " &middot; Paper " + q.paper + (q.gen ? " &middot; generated" : "") + "</small></span>" +
+      (d ? '<span class="tag tag-done">' + d.marks + "/" + d.max + "</span>" : "") +
+      '<span class="marks">[' + q.marks + "]</span></button>";
+  }).join("");
+  el("practiceList").querySelectorAll("[data-open]").forEach(b =>
+    b.addEventListener("click", () => openPractice(b.dataset.open)));
+}
+function openPractice(qid){
+  const q = allQuestions().filter(x => x.id === qid)[0];
+  if (!q) return;
+  const host = el("practiceQ");
+  host.innerHTML = renderQuestionCard(q, "practice");
+  wireQuestionCard(q, host);
+  host.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+/* ---------------- the generator ---------------- */
+function renderGenerator(){
+  let panel = el("genPanel");
+  if (!panel){
+    panel = document.createElement("div");
+    panel.id = "genPanel";
+    panel.className = "panel";
+    el("practiceList").parentNode.insertBefore(panel, el("practiceList"));
+  }
+  if (!AI.ready){
+    panel.innerHTML = '<div class="label" style="margin-bottom:8px">Question generator</div>' +
+      '<div class="prose"><p>Unlimited new exam-style questions can be generated at any difficulty, but that needs the claude.ai version of this page. The ' +
+      QUESTIONS.length + ' questions in the bank below work offline.</p></div>';
+    return;
+  }
+  panel.innerHTML =
+    '<div class="label" style="margin-bottom:10px">Question generator &mdash; unlimited, exam style</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">' +
+      '<div><div class="label" style="margin-bottom:5px">Topic</div><select class="sel" id="genTopic" style="width:100%"></select></div>' +
+      '<div><div class="label" style="margin-bottom:5px">Difficulty</div><select class="sel" id="genDiff" style="width:100%">' +
+        '<option value="1">1 &mdash; Foundation</option><option value="2">2 &mdash; Standard</option>' +
+        '<option value="3" selected>3 &mdash; Exam standard</option><option value="4">4 &mdash; Stretch</option>' +
+        '<option value="5">5 &mdash; Hardest</option></select></div>' +
+      '<div><div class="label" style="margin-bottom:5px">Paper</div><select class="sel" id="genPaper" style="width:100%">' +
+        '<option value="2">Paper 2 (AS)</option><option value="4">Paper 4 (A2)</option></select></div>' +
+      '<div><div class="label" style="margin-bottom:5px">Type</div><select class="sel" id="genKind" style="width:100%">' +
+        '<option value="code">Write pseudocode</option><option value="trace">Trace table</option>' +
+        '<option value="mcq">Quick syntax check</option></select></div>' +
+    "</div>" +
+    '<div class="btn-row"><button class="btn btn-primary" id="genBtn">Generate a question</button>' +
+    '<span class="label" id="genStatus"></span></div><div id="genOut" style="margin-top:16px"></div>';
+
+  const topicSel = el("genTopic");
+  const topics = ["Variables","Operators","Selection","Iteration","Arrays","Strings","Subroutines",
+                  "Tracing","Debugging","Files","Records","OOP","Algorithms"];
+  topicSel.innerHTML = topics.map(t => '<option value="' + esc(t) + '">' + esc(t) + "</option>").join("");
+  el("genBtn").addEventListener("click", generateQuestion);
+}
+
+let genCount = 0;
+async function generateQuestion(){
+  const topic = el("genTopic").value;
+  const diff  = Number(el("genDiff").value);
+  const paper = Number(el("genPaper").value);
+  const kind  = el("genKind").value;
+  const btn = el("genBtn"), status = el("genStatus"), out = el("genOut");
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spin"></span> Writing a question&hellip;';
+  out.innerHTML = "";
+
+  const seen = allQuestions().filter(q => q.topic === topic).map(q => q.title).join("; ");
+
+  let shapeSpec;
+  if (kind === "trace"){
+    shapeSpec =
+      '"kind":"trace", plus "stemCode" holding the algorithm to be traced, ' +
+      '"cols" as an array of column headings (variable names, with "OUTPUT" last if the algorithm outputs anything), ' +
+      'and "rows" as an array of rows, each an array of strings, one per column, giving the EXACT expected cell contents. ' +
+      "Use an empty string for a cell where the value does not change on that pass. " +
+      "Trace the algorithm yourself with total care before writing the rows - every value must be arithmetically correct, " +
+      "and the number of rows must equal the number of times the loop body actually runs. " +
+      'Do not include a "model" field.';
+  } else if (kind === "mcq"){
+    shapeSpec =
+      '"kind":"mcq", plus "options" as an array of exactly 4 short strings, ' +
+      '"correct" as the 0-based index of the right one, and "explain" as one or two sentences of HTML saying why. ' +
+      'Set "marks" to 1. Wrong options must be plausible - typically syntax borrowed from real programming languages. ' +
+      'Do not include "model" or "ms".';
+  } else {
+    shapeSpec =
+      '"kind":"code", plus "model" holding a complete, correct, well-indented pseudocode answer with a few short ' +
+      "// comments explaining the decisions that earn marks, and " +
+      '"ms" as an array of {"m": <marks, normally 1>, "t": "<what earns it>"} whose m values sum to exactly the "marks" total. ' +
+      'Include "stemCode" only if the question needs code shown to the candidate, otherwise set it to "".';
+  }
+
+  const prompt =
+    "You write practice questions for Cambridge International AS & A Level Computer Science 9618, " +
+    "in the exact style and register of the exam papers. Write ONE new question.\n\n" +
+    "Topic: " + topic + "\n" +
+    "Paper: " + paper + (paper === 2 ? " (AS - fundamental problem solving and programming)" : " (A2 - further programming, including OOP, files, recursion and data structures)") + "\n" +
+    "Difficulty band " + diff + " of 5 - " + DIFF_BRIEF[diff] + "\n\n" +
+    "Rules you must follow:\n" +
+    "- Use ONLY the 9618 pseudocode conventions: <- for assignment, <> for not equal, DIV(x,y) and MOD(x,y) as functions, " +
+    "keywords in capitals, IF/ENDIF, CASE OF/ENDCASE, FOR/NEXT counter, WHILE/ENDWHILE, REPEAT/UNTIL, " +
+    "PROCEDURE/ENDPROCEDURE with CALL, FUNCTION/RETURNS/RETURN/ENDFUNCTION, BYVAL and BYREF, " +
+    "DECLARE x : TYPE, ARRAY[1:n] OF TYPE, TYPE/ENDTYPE, CLASS/ENDCLASS with PRIVATE attributes and a NEW constructor, " +
+    "OPENFILE/READFILE/WRITEFILE/CLOSEFILE/EOF, and the built-in functions LENGTH, LEFT, RIGHT, MID, TO_UPPER, TO_LOWER, " +
+    "NUM_TO_STRING, STRING_TO_NUM, IS_NUM, ASC, CHR, INT, RAND.\n" +
+    "- The question must be ORIGINAL. Never reproduce a real past-paper question. Invent a fresh, concrete, " +
+    "realistic scenario - a specific business, school, device or dataset, not an abstract one.\n" +
+    "- Avoid repeating these scenarios already in the bank: " + (seen || "none yet") + "\n" +
+    "- Write exactly 3 tips that form a ladder: tip 1 is a nudge towards the right approach and gives nothing away, " +
+    "tip 2 names the structure or technique needed, tip 3 is close to the answer without being the whole answer.\n" +
+    "- Marks must match the difficulty band stated above.\n\n" +
+    "Reply with JSON only, with these fields:\n" +
+    '{"title": "<a short specific name, 3-6 words>", ' +
+    '"stem": "<the question, as simple HTML using only <p>, <ul>, <li>, <code> and <strong>>", ' +
+    '"marks": <integer>, "tips": ["<tip 1>","<tip 2>","<tip 3>"], ' + shapeSpec + "}";
+
+  try{
+    const r = await AI.sample.json(prompt, { modelTier:"complex", cache:false });
+    genCount++;
+    const q = {
+      id: "G" + String(genCount).padStart(2,"0"),
+      topic: topic, paper: paper, diff: diff, gen: true,
+      kind: r.kind || kind,
+      title: String(r.title || (topic + " question")),
+      stem: r.stem || "",
+      stemCode: r.stemCode || "",
+      marks: Math.max(1, Number(r.marks) || 5),
+      tips: Array.isArray(r.tips) ? r.tips.slice(0,3) : [],
+      model: r.model || "",
+      ms: Array.isArray(r.ms) ? r.ms.map(p => ({ m:Number(p.m)||1, t:String(p.t||"") })) : [],
+      cols: r.cols, rows: r.rows,
+      options: r.options, correct: Number(r.correct), explain: r.explain || ""
+    };
+    if (q.kind === "code" && !q.ms.length) q.ms = [{ m:q.marks, t:"A correct and clearly structured algorithm." }];
+    if (q.kind === "trace" && (!q.cols || !q.rows)) throw new Error("bad trace");
+    if (q.kind === "trace" && !q.ms.length) q.ms = [{ m:q.marks, t:"All cells traced correctly." }];
+
+    RUNTIME.push(q);
+    STATE.generated = (STATE.generated || 0);
+    renderTopicChips();
+    renderPracticeList();
+    out.innerHTML = renderQuestionCard(q, "practice");
+    wireQuestionCard(q, out);
+    status.textContent = "Question " + q.id + " ready. Generate another whenever you want.";
+  }catch(e){
+    status.textContent = "";
+    out.innerHTML = '<div class="feedback">That did not come back cleanly. Press generate again &mdash; it usually works on the next attempt. If it keeps failing, try a different topic or a lower difficulty.</div>';
+  }
+  btn.disabled = false;
+}
+
+/* ============================================================================
+   EXAM MODE
+   ========================================================================== */
+let EXAM = null;
+let examTimer = null;
+
+function renderExamSetup(){
+  el("examBarSlot").innerHTML = "";
+  el("examBody").innerHTML =
+    '<header class="page-head"><div class="label">Section 03</div><h1>Exam mode</h1>' +
+    '<p>A timed set built from the bank, with tips switched off and the mark schemes hidden until you finish. Mark yourself honestly at the end &mdash; an inflated score tells you nothing useful.</p></header>' +
+    '<div class="panel">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px">' +
+        '<div><div class="label" style="margin-bottom:5px">Paper</div><select class="sel" id="exPaper" style="width:100%">' +
+          '<option value="2">Paper 2 style (AS)</option><option value="4">Paper 4 style (A2)</option>' +
+          '<option value="all">Mixed</option></select></div>' +
+        '<div><div class="label" style="margin-bottom:5px">Length</div><select class="sel" id="exTime" style="width:100%">' +
+          '<option value="20">20 minutes</option><option value="40" selected>40 minutes</option>' +
+          '<option value="60">60 minutes</option><option value="90">90 minutes</option></select></div>' +
+        '<div><div class="label" style="margin-bottom:5px">Difficulty</div><select class="sel" id="exDiff" style="width:100%">' +
+          '<option value="all" selected>Any</option><option value="low">Foundation and standard</option>' +
+          '<option value="mid">Exam standard</option><option value="high">Stretch and hardest</option></select></div>' +
+      "</div>" +
+      '<div class="note note-exam"><span class="note-label">Before you start</span>' +
+      '<p>You cannot run your code in here. When the timer stops, every answer that can be executed is run <strong>once</strong>; anything that fails to run scores zero and its mark scheme is locked. Check your own work instead: every loop closed, every assignment an arrow, every counter initialised.</p>' +
+      '<p>Do not open the mark schemes until the timer stops.</p></div>' +
+      '<div class="btn-row"><button class="btn btn-primary" id="exStart">Start the paper</button></div>' +
+    "</div>" +
+    (STATE.exams && STATE.exams.length ? examHistory() : "");
+  el("exStart").addEventListener("click", startExam);
+  renderExamPaperOptions();
+}
+
+function examHistory(){
+  let h = '<div class="panel"><div class="label" style="margin-bottom:12px">Previous attempts</div>';
+  STATE.exams.slice().reverse().slice(0,8).forEach(function(a){
+    const pct = a.max ? Math.round(a.score / a.max * 100) : 0;
+    const cls = pct >= 70 ? "good" : pct >= 45 ? "mid" : "";
+    h += '<div class="bar-row"><span class="bn">' + new Date(a.ts).toLocaleDateString() +
+         " &middot; Paper " + esc(a.paper) + '</span>' +
+         '<span class="bar-track"><span class="bar-fill ' + cls + '" style="width:' + pct + '%"></span></span>' +
+         '<span class="bv">' + a.score + "/" + a.max + "</span></div>";
+  });
+  return h + "</div>";
+}
+
+function startExam(){
+  const paper = el("exPaper").value;
+  const mins  = Number(el("exTime").value);
+  const band  = el("exDiff").value;
+
+  let pool = QUESTIONS.filter(function(q){
+    if (!inLevel(q)) return false;
+    if (paper !== "all" && String(q.paper) !== paper) return false;
+    if (band === "low"  && q.diff > 2) return false;
+    if (band === "mid"  && q.diff !== 3) return false;
+    if (band === "high" && q.diff < 4) return false;
+    return true;
+  });
+
+  if (pool.length < 3){
+    alert("Not enough questions match that combination. Widen the difficulty or choose a mixed paper.");
+    return;
+  }
+
+  // shuffle, then take questions until the mark target is met (~0.6 marks/min)
+  pool = pool.slice();
+  for (let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+  }
+  const target = Math.round(mins * 0.6);
+  const chosen = [];
+  let sum = 0;
+  for (let i = 0; i < pool.length && sum < target; i++){ chosen.push(pool[i]); sum += pool[i].marks; }
+  chosen.sort((a,b) => a.diff - b.diff || a.marks - b.marks);
+
+  EXAM = { qs:chosen, max:sum, paper:paper === "all" ? "mixed" : paper,
+           endsAt: Date.now() + mins*60000, finished:false };
+  renderExamPaper();
+}
+
+function fmt(ms){
+  if (ms < 0) ms = 0;
+  const s = Math.floor(ms/1000);
+  return String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
+}
+
+function renderExamPaper(){
+  el("examBarSlot").innerHTML =
+    '<div class="exam-bar"><span class="timer" id="exClock">--:--</span>' +
+    '<span class="label">' + EXAM.qs.length + " questions &middot; " + EXAM.max + " marks</span>" +
+    '<span class="spacer"></span><button class="btn btn-sm" id="exFinish">Finish and mark</button></div>';
+
+  let h = '<header class="page-head" style="margin-top:26px"><div class="label">Paper ' +
+          (EXAM.paper === "mixed" ? "&mdash; mixed" : EXAM.paper) + "</div>" +
+          "<h1>Answer all questions</h1><p>The total for this paper is <strong>" + EXAM.max +
+          " marks</strong>. The number of marks is given in brackets at the end of each question.</p></header>";
+  EXAM.qs.forEach(q => { h += renderQuestionCard(q, "exam"); });
+  h += '<div class="btn-row" style="margin:22px 0 40px"><button class="btn btn-primary" id="exFinish2">Finish and mark</button></div>';
+  el("examBody").innerHTML = h;
+
+  EXAM.qs.forEach(q => wireQuestionCard(q, el("examBody")));
+  // mark schemes stay shut during the paper
+  el("examBody").querySelectorAll("details.disclose").forEach(d => { d.open = false; d.style.display = "none"; });
+
+  el("exFinish").addEventListener("click", finishExam);
+  el("exFinish2").addEventListener("click", finishExam);
+
+  clearInterval(examTimer);
+  examTimer = setInterval(tick, 250);
+  tick();
+}
+
+function tick(){
+  if (!EXAM || EXAM.finished) return;
+  const left = EXAM.endsAt - Date.now();
+  const c = el("exClock");
+  if (!c) return;
+  c.textContent = fmt(left);
+  if (left < 5*60000) c.classList.add("low");
+  if (left <= 0){ finishExam(true); }
+}
+
+function finishExam(auto){
+  if (!EXAM || EXAM.finished) return;
+  if (auto !== true && !confirm("Finish the paper and open the mark schemes?")) return;
+  EXAM.finished = true;
+  clearInterval(examTimer);
+
+  el("examBarSlot").innerHTML = "";
+  const body = el("examBody");
+  body.querySelectorAll("details.disclose").forEach(d => { d.style.display = ""; d.open = true; });
+
+  /* One compulsory run per executable question. Code that does not run
+     scores zero, exactly as an algorithm that does not work would. */
+  EXAM.failed = {};
+  let ranCount = 0, failCount = 0;
+  EXAM.qs.forEach(function(q){
+    if (q.kind !== "code" || !q.run) return;
+    const idp = "q_" + q.id;
+    const ta = body.querySelector("#ta_" + idp);
+    const box = body.querySelector("#con_" + idp);
+    const answer = ta ? ta.value.trim() : "";
+    ranCount++;
+    if (!answer){
+      EXAM.failed[q.id] = "blank";
+      failCount++;
+      if (box) box.innerHTML = '<div class="verdict fail"><span class="vmark">&#10007;</span>' +
+        '<span class="vtext">Left blank, so it scores zero. Never leave a pseudocode question empty &mdash; the declarations, the loop skeleton and the output lines alone usually pick up marks.</span></div>';
+      return;
+    }
+    const res = runAnswer(q, answer, undefined);
+    if (!res.ok){
+      EXAM.failed[q.id] = "error";
+      failCount++;
+      if (box) box.innerHTML =
+        '<div class="verdict fail"><span class="vmark">&#10007;</span><span class="vtext">' +
+        "<strong>This did not run, so it scores zero for this paper.</strong> In practice mode you could have fixed it and run it again. Read the problem below, then redo this question in Practice until it runs first time." +
+        "</span></div>" + consoleHtml(res);
+    } else {
+      if (box) box.innerHTML =
+        '<div class="verdict pass"><span class="vmark">&#10003;</span><span class="vtext">' +
+        "It ran. Now mark it against the scheme &mdash; running is not the same as being right, and the mark scheme is what counts." +
+        "</span></div>" + consoleHtml(res);
+    }
+  });
+
+  /* A failed question cannot be self-marked. */
+  Object.keys(EXAM.failed).forEach(function(qid){
+    body.querySelectorAll('[data-ms="q_' + qid + '"]').forEach(function(c){
+      c.checked = false; c.disabled = true;
+    });
+  });
+
+  const head = document.createElement("div");
+  head.className = "panel";
+  let runLine = "";
+  if (ranCount && failCount){
+    runLine = "<p><strong>" + failCount + " of the " + ranCount + " executable question" +
+      (ranCount === 1 ? "" : "s") + " did not run, so " + (failCount === 1 ? "it scores" : "they score") +
+      " zero.</strong> Those mark schemes are locked. The exact problem is shown on each question " +
+      "so you can see what went wrong, then redo it in Practice where you can run it as often as you like.</p>";
+  } else if (ranCount){
+    runLine = "<p><strong>All " + ranCount + " executable question" + (ranCount === 1 ? "" : "s") +
+      " ran.</strong> Running is not the same as being correct, so mark them honestly against the schemes below.</p>";
+  }
+  head.innerHTML =
+    '<div class="label">Time ' + (auto === true ? "is up" : "stopped") + "</div>" +
+    '<h2 style="font-size:var(--step-2);margin:.3rem 0 .6rem">Mark your paper</h2>' +
+    '<div class="prose">' + runLine +
+    "<p>Press the button to mark the paper. Answers that can be run are marked by machine against hidden test cases, so the score is worked out rather than claimed. A handful of questions still need you to tick honestly \u2014 they are labelled.</p></div>" +
+    '<div class="btn-row"><button class="btn btn-primary" id="exTotal">Mark my paper</button>' +
+    '<button class="btn" id="exAgain">New paper</button></div><div id="exResult" style="margin-top:18px"></div>';
+  body.insertBefore(head, body.firstChild);
+  window.scrollTo(0,0);
+
+  el("exAgain").addEventListener("click", function(){ EXAM = null; renderExamSetup(); });
+  el("exTotal").addEventListener("click", function(){
+    let score = 0;
+    const byTopic = {};
+    EXAM.qs.forEach(function(q){
+      const idp = "q_" + q.id;
+      let got = 0;
+      body.querySelectorAll('[data-ms="' + idp + '"]').forEach(function(c){
+        if (c.checked) got += Number(c.dataset.m);
+      });
+      if (q.kind === "mcq"){
+        const picked = body.querySelector('input[name="mcq_' + idp + '"]:checked');
+        got = (picked && Number(picked.value) === q.correct) ? q.marks : 0;
+      }
+      if (canAutoMark(q)){                       // marked by machine, not by claim
+        const ta = body.querySelector("#ta_" + idp);
+        const answer = ta ? ta.value.trim() : "";
+        if (answer){
+          const res = autoMark(q, answer);
+          got = res.awarded;
+          const slot = body.querySelector("#mk_" + idp);
+          if (slot) slot.innerHTML = markReportHtml(res);
+        } else got = 0;
+      }
+      if (EXAM.failed && EXAM.failed[q.id]) got = 0;   // it did not run: no marks
+      score += got;
+      if (!byTopic[q.topic]) byTopic[q.topic] = { got:0, max:0 };
+      byTopic[q.topic].got += got;
+      byTopic[q.topic].max += q.marks;
+      recordResult(q.id, got, q.marks);
+    });
+
+    const pct = EXAM.max ? Math.round(score / EXAM.max * 100) : 0;
+    let verdict;
+    if (pct >= 80)      verdict = "Strong. At this level the marks you drop are detail, not understanding. Keep drilling the Stretch band.";
+    else if (pct >= 60) verdict = "Solid. The structures are there. Most of the gap is boundary conditions and closing keywords.";
+    else if (pct >= 40) verdict = "The ideas are forming but the mechanics are leaking marks. Go back to Lesson 1 and the topic sitting lowest below.";
+    else                verdict = "Work through the course in order before doing more timed papers. Timed practice only pays off once the syntax is automatic.";
+
+    let h = '<div class="score-head"><span class="score-big">' + score + "<span style=\"font-size:1.3rem;color:var(--ink-3)\"> / " + EXAM.max + "</span></span>";
+    h += '<span class="label">' + pct + "% &middot; " + EXAM.qs.length + " questions</span></div>";
+    h += '<div class="prose" style="margin-bottom:18px"><p>' + verdict + "</p></div>";
+    h += '<div class="label" style="margin-bottom:8px">By topic</div>';
+    Object.keys(byTopic).sort(function(a,b){
+      return (byTopic[a].got/byTopic[a].max) - (byTopic[b].got/byTopic[b].max);
+    }).forEach(function(t){
+      const p = Math.round(byTopic[t].got / byTopic[t].max * 100);
+      const cls = p >= 70 ? "good" : p >= 45 ? "mid" : "";
+      h += '<div class="bar-row"><span class="bn">' + esc(t) + '</span><span class="bar-track">' +
+           '<span class="bar-fill ' + cls + '" style="width:' + p + '%"></span></span>' +
+           '<span class="bv">' + byTopic[t].got + "/" + byTopic[t].max + "</span></div>";
+    });
+
+    el("exResult").innerHTML = h;
+    STATE.exams = STATE.exams || [];
+    STATE.exams.push({ ts:Date.now(), score:score, max:EXAM.max, paper:EXAM.paper, topics:byTopic });
+    saveLocal();
+  });
+}
+
+/* ============================================================================
+   PROGRESS
+   ========================================================================== */
+function renderProgress(){
+  const t = totals();
+  const pct = t.max ? Math.round(t.marks / t.max * 100) : 0;
+
+  let h = '<div class="stat-row">' +
+    '<div class="stat"><span class="v">' + t.count + '</span><span class="k">Questions attempted</span></div>' +
+    '<div class="stat"><span class="v">' + t.marks + "/" + t.max + '</span><span class="k">Marks banked</span></div>' +
+    '<div class="stat"><span class="v">' + pct + '%</span><span class="k">Accuracy</span></div>' +
+    '<div class="stat"><span class="v">' + (STATE.exams ? STATE.exams.length : 0) + '</span><span class="k">Papers sat</span></div>' +
+    "</div>";
+
+  const byTopic = {};
+  allQuestions().forEach(function(q){
+    const d = STATE.done[q.id];
+    if (!d) return;
+    if (!byTopic[q.topic]) byTopic[q.topic] = { got:0, max:0, n:0 };
+    byTopic[q.topic].got += d.marks;
+    byTopic[q.topic].max += d.max;
+    byTopic[q.topic].n++;
+  });
+
+  const topics = Object.keys(byTopic);
+  if (!topics.length){
+    h += '<div class="empty">Nothing marked yet. Answer a few questions in the Practice section and this fills in, weakest topic first.</div>';
+  } else {
+    h += '<div class="panel"><div class="label" style="margin-bottom:12px">Weakest topics first &mdash; revise from the top</div>';
+    topics.sort((a,b) => (byTopic[a].got/byTopic[a].max) - (byTopic[b].got/byTopic[b].max)).forEach(function(k){
+      const p = Math.round(byTopic[k].got / byTopic[k].max * 100);
+      const cls = p >= 70 ? "good" : p >= 45 ? "mid" : "";
+      h += '<div class="bar-row"><span class="bn">' + esc(k) + " <small style=\"color:var(--ink-3)\">(" + byTopic[k].n + ")</small></span>" +
+           '<span class="bar-track"><span class="bar-fill ' + cls + '" style="width:' + p + '%"></span></span>' +
+           '<span class="bv">' + byTopic[k].got + "/" + byTopic[k].max + "</span></div>";
+    });
+    h += "</div>";
+  }
+
+  const untouched = QUESTIONS.filter(q => !STATE.done[q.id]);
+  if (untouched.length){
+    h += '<div class="panel"><div class="label" style="margin-bottom:10px">Not attempted yet &mdash; ' + untouched.length + " of " + QUESTIONS.length + "</div>";
+    h += '<div class="q-list">' + untouched.slice(0,8).map(q =>
+      '<button class="q-item" data-jump="' + esc(q.id) + '"><span class="qnum">' + esc(q.id) + "</span>" +
+      '<span class="qi-t">' + esc(q.title) + "<small>" + esc(q.topic) + " &middot; " + esc(DIFF_NAMES[q.diff]) + "</small></span>" +
+      '<span class="marks">[' + q.marks + "]</span></button>").join("") + "</div></div>";
+  }
+
+  if (STATE.exams && STATE.exams.length) h += examHistory();
+
+  h += '<div class="panel"><div class="label" style="margin-bottom:10px">Saved data</div>' +
+       '<div class="prose"><p>Progress is stored in this browser' + (cloud ? ", and synced to your claude.ai account so it follows you between devices" : "") +
+       '. Clearing it cannot be undone.</p></div>' +
+       '<div class="btn-row"><button class="btn btn-sm" id="wipeBtn">Clear all progress</button></div></div>';
+
+  el("progressBody").innerHTML = h;
+
+  el("progressBody").querySelectorAll("[data-jump]").forEach(b =>
+    b.addEventListener("click", function(){ show("practice"); openPractice(b.dataset.jump); }));
+  const wipe = el("wipeBtn");
+  if (wipe) wipe.addEventListener("click", function(){
+    if (!confirm("Delete every saved score and start again? This cannot be undone.")) return;
+    STATE = { done:{}, lesson:0, lessonAt:{}, level:STATE.level, exams:[], generated:[] };
+    saveLocal(); renderProgress(); renderPracticeList();
+  });
+}
+
+/* ============================================================================
+   SYLLABUS LEVEL
+   ========================================================================== */
+function setLevel(lv, firstTime){
+  if (!LEVELS[lv]) lv = "as";
+  STATE.level = lv;
+  saveLocal();
+  document.querySelectorAll("[data-setlevel]").forEach(b =>
+    b.setAttribute("aria-pressed", b.dataset.setlevel === lv ? "true" : "false"));
+  el("levelGate").hidden = true;
+
+  filterTopic = "all"; filterPaper = "all";
+  renderLessonOptions();
+  renderLesson(lessonPos());
+  renderTopicChips();
+  renderPracticeList();
+  renderReference(el("refSearch") ? el("refSearch").value : "");
+  el("practiceQ").innerHTML = "";
+  renderRail();
+  if (!EXAM) renderExamSetup();
+  if (el("view-progress").classList.contains("is-active")) renderProgress();
+}
+function renderExamPaperOptions(){
+  const sel = el("exPaper");
+  if (!sel) return;
+  const L = LEVELS[STATE.level] || LEVELS.as;
+  let h = L.papers.map(p => '<option value="' + p.v + '">' + esc(p.label) + "</option>").join("");
+  if (L.papers.length > 1) h += '<option value="all">Mixed</option>';
+  sel.innerHTML = h;
+}
+document.querySelectorAll("[data-setlevel]").forEach(b =>
+  b.addEventListener("click", () => setLevel(b.dataset.setlevel, false)));
+
+/* ============================================================================
+   BOOT
+   ========================================================================== */
+loadLocal();
+const firstVisit = !STATE.level;
+if (firstVisit){ STATE.level = "as"; el("levelGate").hidden = false; }
+document.querySelectorAll("[data-setlevel]").forEach(b =>
+  b.setAttribute("aria-pressed", b.dataset.setlevel === STATE.level ? "true" : "false"));
+renderRail();
+renderLessonOptions();
+renderLesson(lessonPos());
+renderTopicChips();
+renderPracticeList();
+renderReference("");
+renderExamSetup();
+renderExamPaperOptions();
+renderGenerator();
+showSyncNote(false);
+</script>
+
+<!-- your A Level dashboard: logs each question you finish (arrow/bridge.js) -->
+<script src="bridge.js"></script>
