@@ -69,6 +69,10 @@ test('one entry per chapter per period, growing as you finish more', () => {
     ['study.done', 'aa-variables', '', 5],
   ]);
   assert.deepEqual([r.ops[1].note, r.ops[1].confidence, r.ops[0].option.topicId, r.ops[0].option.worksheetId], ['2 questions · 6/8 marks', 4, 't174', 'aa-arrays']);
+  assert.deepEqual(r.ops[1].evidence, { marks: 6, max: 8, difficulty: 3 });      // counts towards the topic's level
+  const hard = B.buildOps({ date: MONDAY, target, sheets, topics, logs: {}, stamp: 's9',
+    items: [{ qid: 'Q02', marks: 5, max: 5, minutes: 10, diff: 5 }, { qid: 'Q03', marks: 3, max: 3, minutes: 8, diff: 1 }] });
+  assert.equal(hard.ops[1].evidence.difficulty, 3.5);                              // weighted by marks: (5×5 + 1×3) / 8
   // another Arrays question later: the same entry, logged again with the totals
   const again = B.buildOps({ date: MONDAY, target: { ...target, chosen: 'Worksheet: Assignment Arrow · Arrays' }, sheets, topics, logs: r.logs, stamp: 's2',
     items: [{ qid: 'Q03', marks: 3, max: 3, minutes: 6 }] });

@@ -106,14 +106,16 @@
     for (const it of items) {
       const sh = sheets.find((s) => s.questions.some((q) => q.q === it.qid));
       if (!sh) continue;
-      if (!byChapter.has(sh.id)) byChapter.set(sh.id, { sh, n: 0, minutes: 0, marks: 0, max: 0 });
+      if (!byChapter.has(sh.id)) byChapter.set(sh.id, { sh, n: 0, minutes: 0, marks: 0, max: 0, dm: 0 });
       const g = byChapter.get(sh.id);
       g.n++; g.minutes += it.minutes || 1; g.marks += it.marks; g.max += it.max;
+      g.dm += (it.diff || 3) * it.max;                   // how hard, weighted by marks
     }
     for (const { sh, ...add } of byChapter.values()) {
       const k = `${date}|${target.key}|${sh.id}`;
       const rec = next[k];
-      const tot = rec ? { n: rec.n + add.n, minutes: rec.minutes + add.minutes, marks: rec.marks + add.marks, max: rec.max + add.max } : add;
+      const tot = rec ? { n: rec.n + add.n, minutes: rec.minutes + add.minutes, marks: rec.marks + add.marks, max: rec.max + add.max,
+        dm: (rec.dm ?? 3 * rec.max) + add.dm } : add;
       const topicId = topics[topicName(sh.topic)] || null;
       const option = { id: 'ws:' + sh.id, kind: 'worksheet', title: 'Worksheet: ' + sh.title, why: 'Assignment Arrow',
         subjectId: 'cs', topicId, worksheetId: sh.id, mins: tot.minutes };
@@ -131,6 +133,8 @@
       }
       ops.push({ id: `${base}-d${seq}`, type: 'study.done', date, key: target.key, ...(slot === 'main' ? {} : { item: slot }),
         minutes: tot.minutes, confidence: tot.max ? Math.round(5 * tot.marks / tot.max) : undefined,
+        // the marks and how hard the questions were: they count towards the topic's level on the dashboard
+        ...(tot.max ? { evidence: { marks: tot.marks, max: tot.max, difficulty: +(tot.dm / tot.max).toFixed(1) } } : {}),
         note: `${tot.n} question${tot.n === 1 ? '' : 's'} \u00b7 ${tot.marks}/${tot.max} marks` });
       next[k] = { slot, seq, ...tot };
     }
@@ -209,13 +213,14 @@
 
   function noted(qid, marks, max) {
     if (!sheetsNow().some((s) => s.questions.some((q) => q.q === qid))) return;   // a generated question: no chapter
+    const diff = Number(allQuestions().find((q) => q.id === qid)?.diff) || 3;        // Assignment Arrow's own 1–5
     const now = Date.now(), date = isoOf(now);
     const seen = LS.get('seen', {});
     if (seen.date !== date) { seen.date = date; seen.ids = []; }
     if (seen.ids.includes(qid)) return;                   // once a day per question
     seen.ids.push(qid);
     LS.set('seen', seen);
-    queue.push({ date, time: hmOf(now), at: now, start: actStart ?? now, qid, marks, max });
+    queue.push({ date, time: hmOf(now), at: now, start: actStart ?? now, qid, marks, max, diff });
     actStart = null;
     LS.set('queue', queue);
     showQueue();

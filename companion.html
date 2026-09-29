@@ -2105,7 +2105,7 @@ Then save what they cover to my A Level dashboard: call apply_changes on ${conn}
   const attachment = a ? JSON.stringify({ ...a, topicIds: [`<${topics}>`] }) + studyJson(x)
     : `{"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}`;
   return `${q ? 'These pictures are' : "I've attached"} ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. ${q ? 'Then save' : 'Show me the marking, then save'} it with apply_changes on ${conn} —
-{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}${a ? '' : studyJson(x)}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
+{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}${a ? '' : studyJson(x)}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "difficulty": "<1 recall … 3 exam standard … 5 A* stretch>", "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
 }
 function chatCard(text, what = 'it') {
   return `<div class="card chatcard">
@@ -2779,10 +2779,13 @@ For every part that loses marks, set errorType to one of:
    timing    — left blank or unfinished
    explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
    correction: the correct working and final answer, at most five short lines.
-If you cannot read something, say so in its explanation instead of guessing.`;
+If you cannot read something, say so in its explanation instead of guessing.
+For every part also give difficulty, 1–5, for a Year 12 student on this syllabus: 1 recall of a fact or definition,
+2 a routine one-step method, 3 exam standard, 4 hard (several steps, or an unfamiliar setting), 5 A* stretch.
+Rate the question, not how the student did on it.`;
 const MARK_JSON = (sid) => `Reply with only this JSON:
 {"subjectId":"${sid || 'maths'}","topicIds":["t002"],"homeworkId":null,"kind":"answers","title":"a short name for this work",
- "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"errorType":"method","explanation":"…","correction":"…"}],
+ "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"difficulty":3,"errorType":"method","explanation":"…","correction":"…"}],
  "summary":"one or two sentences for the student","nextSteps":["one concrete next step"]}
 Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks.`;
 
@@ -2950,6 +2953,7 @@ function normalise(a, hint) {
     const marks = Math.min(maxMarks, Math.max(0, Number(q.marks) || 0));
     return { q: String(q.q ?? i + 1).slice(0, 12), topicId: topicOf(q.topicId) ? q.topicId : topicIds[0] || '',
       marks, maxMarks, errorType: ['careless', 'method', 'knowledge', 'timing'].includes(q.errorType) ? q.errorType : (marks < maxMarks ? 'method' : null),
+      difficulty: [1, 2, 3, 4, 5].includes(Math.round(q.difficulty)) ? Math.round(q.difficulty) : null,
       explanation: String(q.explanation || '').slice(0, 1500), correction: String(q.correction || '').slice(0, 2500) };
   });
   for (const q of questions) if (q.topicId && !topicIds.includes(q.topicId)) topicIds.push(q.topicId);
@@ -3564,7 +3568,7 @@ async function saveWork(noDrive = false) {
 
   const questions = r.questions.map((q) => ({ q: q.q, topicId: q.topicId || r.topicIds[0] || null, marks: Number(q.marks) || 0,
     maxMarks: Number(q.maxMarks) || 0, errorType: Number(q.marks) < Number(q.maxMarks) ? q.errorType || 'method' : null,
-    explanation: q.explanation, correction: q.correction }));
+    difficulty: q.difficulty || undefined, explanation: q.explanation, correction: q.correction }));
   const kind = r.mode === 'notes' ? 'notes' : r.mode === 'answers' ? 'answers' : r.kind;
   const attachmentId = newId('f');
   send({
@@ -3946,8 +3950,9 @@ function viewSkills() {
       ${focus.map((o) => `<div class="row" style="padding:5px 0;border-top:1px solid var(--line)"><span class="kind k-${esc(o.kind)}">${esc(KIND_LABEL[o.kind] || o.kind)}</span>${esc(optTitle(o))}</div>`).join('')}
       <div class="opt-why" style="margin-top:6px">Chosen from your level, your tests, your to-dos and what school is teaching now.</div></div>` : ''}
     <div class="skills-grid">${cards}</div>
-    <p class="muted" style="font-size:12.5px;margin:0">Your level in a topic is the share of marks you get on it in marked work and tests, recent work counting most.
-      Your own 0–5 ratings count a little until there are real marks. It moves every time you save marked work.</p>
+    <p class="muted" style="font-size:12.5px;margin:0">Your level in a topic comes from your marks in marked work, tests and Assignment Arrow, recent work counting most,
+      and from how hard the questions were: full marks on easy recall shows less than full marks on a hard or A* question, and
+      a hard question costs you less when you drop marks on it. Your own 0–5 ratings count a little until there are real marks.</p>
   </div>`;
 }
 

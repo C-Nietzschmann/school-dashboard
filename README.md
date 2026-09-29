@@ -161,7 +161,11 @@ app can't show Claude pictures (an artifact in Safari on an iPad), you just save
 the pages wait on the dashboard and a Claude Code session the app starts reads
 them through the connector's `read_queue` tool and saves what it finds. Mistakes stay
 listed in History until you fix them, and every marked page moves your level per
-topic, which the free-period suggestions and the revision queue both use. Add a
+topic, which the free-period suggestions and the revision queue both use. The level
+weighs how hard each question was as well as the marks. Claude rates every part from
+1 (recall) to 5 (A* stretch) when it marks; question packs and Assignment Arrow bring
+their own ratings. Full marks on easy recall shows less than full marks on a hard
+question, and missing an easy question costs more than missing a hard one. Add a
 test and the suggestions shift towards its topics as the date approaches. The
 Route tab shows your whole university plan: each stage with its tasks, courses,
 project and earning steps, then projects, courses, earning, universities and dates,
