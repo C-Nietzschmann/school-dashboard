@@ -688,3 +688,33 @@ test('uploads count: in class marks the topics taught, at home logs study time o
   assert.equal(S.sessions.at(-1).attachmentId, 'fh3');
   assert.deepEqual(S.attachments.find((a) => a.id === 'fh3').sessionIds.length, 1);
 });
+
+test('the skill level weighs how hard the questions were, not only the share of marks', async () => {
+  const level = async (difficulty, marks) => {
+    const S = fixture();
+    Object.assign(S.topics.find((t) => t.id === 't004'), { confidence: 3, lastStudied: '2026-09-01' });   // a rating to start from
+    await applyOps(S, [{ id: 'w', type: 'work.save', attachment: { title: 'Sheet', kind: 'answers', subjectId: 'maths', topicIds: ['t004'] },
+      marking: { questions: [{ q: '1', topicId: 't004', marks, maxMarks: 4, ...(difficulty ? { difficulty } : {}) }] } }], { date: MONDAY });
+    if (difficulty) assert.equal(S.attempts[0].questions[0].diff, difficulty);   // kept with the marks
+    return at(S).mastery(MONDAY).topics.t004.score;
+  };
+  // full marks: easy recall shows less than exam standard, an A* question more; unrated counts as exam standard
+  const [easy, unrated, exam, hard] = [await level(1, 4), await level(null, 4), await level(3, 4), await level(5, 4)];
+  assert.ok(easy < exam && exam < hard, JSON.stringify({ easy, exam, hard }));
+  assert.equal(unrated, exam);
+  // no marks: missing an easy question costs more than missing a hard one
+  const [easyMiss, examMiss, hardMiss] = [await level(1, 0), await level(3, 0), await level(5, 0)];
+  assert.ok(easyMiss < examMiss && examMiss < hardMiss, JSON.stringify({ easyMiss, examMiss, hardMiss }));
+});
+
+test('practice marked elsewhere (Assignment Arrow) counts towards the topic, with its difficulty', async () => {
+  const S = fixture();
+  const before = at(S).mastery(MONDAY).topics.t004;
+  const option = { id: 'ws:aa-arrays', kind: 'worksheet', title: 'Worksheet: Assignment Arrow · Arrays', subjectId: 'maths', topicId: 't004', mins: 20 };
+  await applyOps(S, [{ id: 'sl', type: 'study.slot.add', date: MONDAY, start: '17:00', minutes: 60 },
+    { id: 'c', type: 'study.choose', date: MONDAY, key: 'x17:00', option },
+    { id: 'd', type: 'study.done', date: MONDAY, key: 'x17:00', minutes: 20, evidence: { marks: 9, max: 10, difficulty: 4 } }], { date: MONDAY });
+  assert.deepEqual(S.sessions.at(-1).evidence, { marks: 9, max: 10, diff: 4 });
+  const after = at(S).mastery(MONDAY).topics.t004;
+  assert.ok(after.evidence > before.evidence && after.score > before.score, JSON.stringify({ before, after }));
+});
