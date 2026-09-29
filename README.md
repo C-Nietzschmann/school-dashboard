@@ -172,6 +172,23 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Assignment Arrow, your own copy.** [Assignment Arrow](https://github.com/C-Nietzschmann/assignment-arrow)
+is a pseudocode trainer for Cambridge 9618 and 0478. `arrow/build.mjs` makes a private copy of it with
+`arrow/bridge.js` added; the site itself is not changed. In that copy, each chapter of practice questions is a
+worksheet on the dashboard. A question you finish there moves its chapter on (done and left), and the time you
+spent goes into the study period you are in, or a study session of its own, as one entry per chapter. That
+entry grows as you do more, and the chapter's topic level moves with your marks. Only one chapter at a time is
+suggested for a free period.
+
+```
+git clone --depth 1 https://github.com/C-Nietzschmann/assignment-arrow /tmp/aa
+node arrow/build.mjs /tmp/aa out/arrow [its artifact link]
+```
+
+Publish `out/arrow/index.html` as an artifact, with the other files next to it, and give it `db`, `sample` and
+the A Level Dashboard connector's `get_today` and `apply_changes`. Given its own link, the copy puts it on each
+chapter's worksheet, so the companion's **Open Assignment Arrow** goes straight there.
+
 **Question packs.** In a Claude Code session opened in this folder, `/question-pack maths`
 (or `fmaths`, `physics`, `cs`) runs the skill in `.claude/skills/question-pack/`. It asks
 for the topic, difficulty, size and source — your uploaded notes (listed by the

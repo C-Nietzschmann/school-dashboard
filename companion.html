@@ -1196,8 +1196,9 @@ function chosenCard(o, done, doneText, state, at, item) {
         ? `<button class="btn ghost sm" data-act="study-undo" ${at}${it}>Undo</button>`
         : `${state !== 'later' ? `<button class="btn primary sm" data-act="study-done" ${at}${it}>Done</button>` : ''}
            <button class="btn ghost sm" data-act="study-change" ${at}${it}>${item ? 'Remove' : 'Change'}</button>`}
-        ${o.worksheetId && worksheetOf(o.worksheetId) ? `<button class="btn sm" data-act="ws-answers" data-id="${esc(o.worksheetId)}">Add answers</button>
-          <button class="btn ghost sm" data-act="open-ws" data-id="${esc(o.worksheetId)}">The sheet</button>` : ''}</div>`;
+        ${o.worksheetId && worksheetOf(o.worksheetId) ? (isArrow(worksheetOf(o.worksheetId)) ? arrowLink(worksheetOf(o.worksheetId), 'btn sm')
+          : `<button class="btn sm" data-act="ws-answers" data-id="${esc(o.worksheetId)}">Add answers</button>`)
+          + `<button class="btn ghost sm" data-act="open-ws" data-id="${esc(o.worksheetId)}">The sheet</button>` : ''}</div>`;
 }
 const doneLine = (m, c) => `Done${m ? ` · ${m} min` : ''}${c != null ? ` · felt ${c}/5` : ''}`;
 function studyBlock(sp, state, date) {
@@ -1524,9 +1525,12 @@ const mainQuestion = (label) => {
 const questionTotal = (qs) => new Set((qs || []).map((q) => mainQuestion(q.q ?? q)).filter(Boolean)).size;
 const worksheetOf = (id) => worksheetList().find((w) => w.id === id) || null;
 // Worksheets to answer: unanswered ones first, the ones planned soonest before the rest.
+// A chapter of Assignment Arrow: done and marked there, and logged here by it.
+const isArrow = (w) => w?.source === 'arrow';
+const arrowLink = (w, cls = 'btn sm') => (w?.fileUrl ? `<a class="${cls}" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">Open Assignment Arrow</a>` : '');
 function answerable() {
   const next = (w) => (w.planned || []).find((p) => !p.done)?.date || '9999';
-  return worksheetList().slice().sort((a, b) => (a.attempts?.length ? 1 : 0) - (b.attempts?.length ? 1 : 0)
+  return worksheetList().filter((w) => !isArrow(w)).sort((a, b) => (a.attempts?.length ? 1 : 0) - (b.attempts?.length ? 1 : 0)
     || next(a).localeCompare(next(b)) || String(b.created || b.date).localeCompare(String(a.created || a.date)));
 }
 
@@ -3725,18 +3729,18 @@ function worksheetSheet(w, full, loading = false) {
   return `<div class="sheet-h"><h2>${esc(w.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(w.subjectId)}"></span>${esc(subjectName(w.subjectId))}
       ${w.topicIds?.length ? '· ' + w.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · saved ${esc(fmtDay(w.date))}</div>
-    <div class="row" style="margin-bottom:14px">
+    <div class="row" style="margin-bottom:14px">${isArrow(w) ? `${arrowLink(w)}<span class="muted" style="font-size:13px">A chapter of Assignment Arrow — questions you finish there are logged here by themselves.</span>` : `
       ${w.folderUrl ? `<a class="btn sm" href="${esc(w.folderUrl)}" target="_blank" rel="noopener">Folder in Drive</a>` : '<span class="muted" style="font-size:13px">Not in Drive</span>'}
-      ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}</div>
+      ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}`}</div>
     ${w.questionCount ? `<div class="task-meta" style="margin-bottom:4px">${esc(wsProgress(w))}</div>
       <div class="bar" style="margin-bottom:14px"><span class="lv-high" style="width:${Math.round((w.done || 0) / w.questionCount * 100)}%"></span></div>` : ''}
-    <div class="eyebrow">Your answers</div>
-    ${atts.length ? `<div>${atts.map((a) => `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}" data-from="${esc(w.id)}">
+    ${isArrow(w) && !atts.length ? '' : '<div class="eyebrow">Your answers</div>'}
+    ${isArrow(w) && !atts.length ? '' : atts.length ? `<div>${atts.map((a) => `<button class="attempt" data-act="open-attempt" data-id="${esc(a.id)}" data-from="${esc(w.id)}">
         <span><span class="t">Answers · ${esc(fmtDay(a.date))}</span><span class="task-meta">tap for Claude's corrections</span></span>
         <span class="score">${fmtN(a.score)}/${fmtN(a.max)}</span></button>`).join('')}</div>`
       : '<div class="empty" style="padding:4px 0 8px">Not answered yet.</div>'}
     <div class="row" style="margin:8px 0 16px">
-      <button class="btn primary sm" data-act="ws-answers" data-id="${esc(w.id)}">${atts.length ? 'Add answers again' : 'Add my answers'}</button>
+      ${isArrow(w) ? arrowLink(w, 'btn primary sm') : `<button class="btn primary sm" data-act="ws-answers" data-id="${esc(w.id)}">${atts.length ? 'Add answers again' : 'Add my answers'}</button>`}
       <button class="btn sm" data-act="ws-plan" data-id="${esc(w.id)}">Plan into a study period</button></div>
     ${planned.length ? `<div class="eyebrow">Planned</div><div style="margin:4px 0 14px;font-size:14px">${planned.map((p) =>
       `${esc(fmtDay(p.date))} ${esc(String(p.key).replace(/^x/, ''))}${p.done ? ' ✓' : ''}`).join(' · ')}</div>` : ''}
@@ -3749,7 +3753,7 @@ function worksheetSheet(w, full, loading = false) {
           <button class="btn sm" style="margin-top:6px" data-act="chat-ws" data-id="${esc(w.id)}">Have Claude read them in a chat</button>`}
     </details>
     <div class="row" style="margin-top:18px"><span class="spacer"></span><button class="btn danger sm" data-act="ws-delete" data-armed="0">Delete worksheet</button></div>
-    <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">Deleting keeps its folder in Drive and your marked answers.</div>`;
+    <div class="muted" style="font-size:12px;text-align:right;margin-top:4px">${isArrow(w) ? 'Assignment Arrow puts it back the next time it is opened.' : 'Deleting keeps its folder in Drive and your marked answers.'}</div>`;
 }
 
 function noteSheet(id) {
