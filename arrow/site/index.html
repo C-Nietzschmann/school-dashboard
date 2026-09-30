@@ -924,6 +924,7 @@ table.ref td.d{ font-family:var(--prose); color:var(--ink-2); }
 <script src="bank-extra.js"></script>
 <script src="library.js"></script>
 <script src="tests.js"></script>
+<script src="marking.js"></script>
 
 <script>
 "use strict";
@@ -1876,6 +1877,8 @@ async function aiMark(q, root, idp, btn){
    hidden cases whose expected output came from running the verified model
    answer, and it is checked for the constructs the question requires.
    Printing the right answer as a literal fails the other cases.
+   Each case is compared fairly (marking.js): the values must be right, but a
+   spelling slip or other wording in a prompt does not cost the marks.
    ========================================================================== */
 function canAutoMark(q){
   return q.kind === "code" && window.TESTS && window.TESTS[q.id];
@@ -1885,6 +1888,10 @@ function markSplit(q){
   return { behaviour: behaviour, structure: q.marks - behaviour };
 }
 function stripComments(src){ return src.replace(/\/\/[^\n]*/g, "").toUpperCase(); }
+/* exact output, or the same values with only the wording different (marking.js) */
+function fairMatch(got, want){
+  return window.ArrowMarking ? window.ArrowMarking.sameOutput(got, want) : { ok: got === want, loose:false };
+}
 
 function autoMark(q, answer){
   const spec = window.TESTS[q.id];
@@ -1903,7 +1910,8 @@ function autoMark(q, answer){
       level: STATE.level, offset: setup ? setup.split("\n").length - 1 : 0
     });
     const got = r.ok ? r.output.join("\n") : null;
-    cases.push({ ok: r.ok && got === t.out, ran: r.ok, error: r.error,
+    const same = r.ok ? fairMatch(got, t.out) : { ok:false, loose:false };
+    cases.push({ ok: same.ok, loose: same.loose, ran: r.ok, error: r.error,
                  inputs: t.inputs, want: t.out, got: got });
   }
 
@@ -1921,7 +1929,8 @@ function autoMark(q, answer){
 
   return { awarded: awarded, max: q.marks, cases: cases, passed: passed,
            reqs: reqs, split: split, bMarks: anyRan ? bMarks : 0,
-           sMarks: anyRan ? sMarks : 0, anyRan: anyRan };
+           sMarks: anyRan ? sMarks : 0, anyRan: anyRan,
+           loose: cases.filter(c => c.loose).length };
 }
 
 function markReportHtml(res){
@@ -1937,6 +1946,10 @@ function markReportHtml(res){
     h += '<div class="case ' + (c.ok ? "ok" : "bad") + '"><span class="cm">' + (c.ok ? "\u2713" : "\u2717") +
          "</span><span>Case " + (i + 1) + (c.inputs ? " \u00b7 input " + esc(String(c.inputs).split("\n").join(", ")) : "") + "</span></div>";
   });
+  if (res.loose){
+    h += '<p class="note-small">' + res.loose + (res.loose === 1 ? " case" : " cases") +
+         " passed with different wording or spelling \u2014 the values were right, and a spelling slip or your own prompt is not marked.</p>";
+  }
 
   const firstBad = res.cases.find(c => !c.ok);
   if (firstBad){

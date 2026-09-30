@@ -15,7 +15,7 @@
 
    Use a fresh checkout of its main branch — that is what the school's site
    serves. Publish <out dir>/index.html with the other files next to it. */
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,7 +28,9 @@ if (!src || !out) {
   console.error('usage: node arrow/build.mjs <assignment-arrow checkout> <out dir>');
   process.exit(1);
 }
-const SCRIPTS = ['interpreter.js', 'lessons.js', 'lessons-igcse.js', 'bank.js', 'bank-igcse.js', 'bank-extra.js', 'library.js', 'tests.js'];
+// marking.js (its fair marking) is only in Assignment Arrow from Sept 2026 on; lab.js marks the same way without it
+const SCRIPTS = ['interpreter.js', 'lessons.js', 'lessons-igcse.js', 'bank.js', 'bank-igcse.js', 'bank-extra.js', 'library.js', 'tests.js', 'marking.js']
+  .filter((f) => f !== 'marking.js' || existsSync(join(src, f)));
 
 let html = readFileSync(join(src, 'index.html'), 'utf8');
 // the bridge wraps this one function; without it nothing would be logged

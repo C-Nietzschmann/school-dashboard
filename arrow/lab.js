@@ -43,9 +43,14 @@
     }
     return { nums, words, values };
   };
-  const closeWord = (a, b) => lev(a, b) <= (Math.max(a.length, b.length) <= 4 ? 1 : 2);
+  // a spelling slip: same first letter and only a letter or two out, so "Valid" is not "Invalid"
+  const closeWord = (a, b) => a === b || (a[0] === b[0] && lev(a, b) <= (Math.max(a.length, b.length) <= 4 ? 1 : 2));
+  const NEGATIONS = ['not', 'no', 'never', 'none', 'cannot', 'nothing', 'nobody', 'neither', 'nor'];
+  const negations = (words) => words.filter((w) => NEGATIONS.includes(w)).length;
   /* Does the program's output match what the model answer printed? Exactly, or
-     with the values right and the words close. { ok, loose } */
+     with the values right and every word there, allowing spelling slips; "not"
+     must match, so "found" is not "not found". { ok, loose }. The same rule as
+     the school's site (its marking.js), which is used instead when it is here. */
   function sameOutput(got, want) {
     if (got === want) return { ok: true, loose: false };
     if (got == null) return { ok: false, loose: false };
@@ -56,14 +61,13 @@
       const a = tokens(g[i]), b = tokens(w[i]);
       if (a.nums.length !== b.nums.length || a.nums.some((x, k) => Math.abs(x - b.nums[k]) > 1e-9)) return { ok: false, loose: false };
       if (a.values.join() !== b.values.join()) return { ok: false, loose: false };
-      if (b.words.length) {
-        const hit = b.words.filter((x) => a.words.some((y) => closeWord(x, y))).length;
-        // with its numbers right, a line's words are only labels ("3 pound 45 p"): half will do
-        if (hit / b.words.length < (b.nums.length || b.values.length ? 0.5 : 0.75)) return { ok: false, loose: false };
-      }
+      if (!b.words.every((x) => a.words.some((y) => closeWord(x, y)))) return { ok: false, loose: false };
+      if (negations(a.words) !== negations(b.words)) return { ok: false, loose: false };
     }
     return { ok: true, loose: true };
   }
+  // the school's own marking when the page has it (marking.js), so there is one set of rules
+  const fair = (got, want) => (root.ArrowMarking?.sameOutput || sameOutput)(got, want);
 
   // the same run every time for one terminal session: RANDOM repeats while you type
   function seeded(seed) {
@@ -126,7 +130,7 @@
       const m = run(setup + ex.model + harness, opts());
       const y = run(setup + code + harness, { ...opts(), offset });
       const want = m.ok ? m.output.join('\n') : null, got = y.ok ? y.output.join('\n') : null;
-      return { inputs: t.inputs || [], want, got, ran: y.ok, error: y.error, ...sameOutput(got, want) };
+      return { inputs: t.inputs || [], want, got, ran: y.ok, error: y.error, ...fair(got, want) };
     });
     const src = String(code).replace(/\/\/[^\n]*/g, '').replace(/\u2190/g, '<-').toUpperCase();
     const reqs = (ex.require || []).map((r) => ({ t: r.t, ok: new RegExp(r.re).test(src) }));
@@ -313,8 +317,9 @@
   // the terminal asks for input itself, so the separate Input box goes
   const tidy = (node) => node.querySelectorAll?.('.q-card .inputs-wrap').forEach((d) => { d.hidden = true; });
 
-  /* ---- marking that doesn't count spelling ---- */
-  if (typeof root.autoMark === 'function') {
+  /* ---- marking that doesn't count spelling (built from a copy of Assignment
+     Arrow older than its own fair marking; a newer one marks this way itself) ---- */
+  if (typeof root.autoMark === 'function' && !root.ArrowMarking) {
     root.autoMark = function (q, answer) {
       const spec = root.TESTS[q.id], base = q.run || {};
       const split = root.markSplit(q);
