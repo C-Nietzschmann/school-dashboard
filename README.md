@@ -191,6 +191,21 @@ The companion lists each chapter's questions under Assignment Arrow's own number
 once done, and names the next one ("next: Q10"). Each number, and the **Open Q10** button, is a link that
 opens that question in Assignment Arrow (`#Q10`; `#arrays` opens a chapter).
 
+Your copies also get `arrow/lab.js` and `arrow/lessons-plus.js`, which change three things from outside,
+leaving Assignment Arrow's files as they are:
+
+- **A terminal.** Run it shows the output as the program goes and asks for each INPUT in the terminal itself.
+  The program is simply run again with the answers typed so far, so a RANDOM value stays put while you type.
+- **Fair marking.** The hidden test cases still decide, but a line passes when its values are right and its words
+  are close: a spelling slip, other prompt wording or no prompt at all no longer costs marks. Numbers and
+  TRUE/FALSE must match, and a line with no numbers needs most of its words.
+- **Lessons to do.** Every example has **Try it** (edit and run it; a fragment says **Complete it**). Each A Level
+  lesson has "Your turn" exercises: predict the output, fill the gaps, write it, quick checks. They are checked as
+  you go, and the lesson's closing check gets a box for your answer. A lesson has a timer and **Complete lesson**
+  like a question, and is a worksheet on the dashboard whose questions are its exercises (`L6.1`, `L6.2`, …), so
+  the companion can plan it into a study period and links straight to it (`#L6`, `#L6.2`). `test/lab.test.mjs`
+  runs every exercise through the interpreter.
+
 ```
 git clone --depth 1 https://github.com/C-Nietzschmann/assignment-arrow /tmp/aa
 node arrow/build.mjs /tmp/aa out/arrow [its artifact link]
