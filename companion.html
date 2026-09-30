@@ -654,6 +654,7 @@ async function flush() {
 
 // The same change, applied to the copy on screen until the dashboard confirms it.
 const LOCAL = {
+  'notice.dismiss': (d, op) => { d.notices = (d.notices || []).filter((n) => n.id !== op.noticeId); },
   'task.add': (d, op) => { if (!d.tasks.some((t) => t.id === op.task.id)) d.tasks.unshift({ priority: 'normal', ...op.task, done: false }); },
   'task.update': (d, op) => { const t = [...d.tasks, ...d.done].find((x) => x.id === op.taskId); if (t) Object.assign(t, op.patch); },
   'task.done': (d, op) => {
@@ -875,9 +876,25 @@ function viewToday() {
   // every day of the fortnight, weekends too: a Saturday can hold study sessions
   const days = APP.week?.days || [];
   const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
-  return `${weekStrip(days)}<div class="grid2">
+  return `${weekStrip(days)}${noticesCard(d)}<div class="grid2">
     <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
     <div class="stack">${archiveCard(d)}${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+  </div>`;
+}
+
+/* Important messages from your school mail (your Mac's Mail rule sends it in and
+   Claude reads it hourly): at the top of the day until they stop mattering or you
+   dismiss them — and how much mail is still waiting to be read. */
+function noticesCard(d) {
+  const ns = d.notices || [], waiting = d.mail?.waiting || 0;
+  if (!ns.length && !waiting) return '';
+  return `<div class="card notices" style="margin-bottom:14px${ns.length ? ';border-color:var(--warn)' : ''}">
+    <div class="card-h"><h2>${ns.length ? 'Important' : 'School mail'}</h2>${ns.length ? `<span class="count">${ns.length}</span>` : ''}</div>
+    ${ns.map((n) => `<div class="readrow" style="align-items:flex-start">
+      <span><b>${esc(n.title)}</b>${n.text ? `<br><span style="font-size:14px">${esc(n.text)}</span>` : ''}
+        <br><span class="task-meta">${[n.subjectId ? subjectName(n.subjectId) : '', n.from, n.until ? 'until ' + fmtDay(n.until) : ''].filter(Boolean).map(esc).join(' · ')}</span></span>
+      <button class="btn ghost sm" data-act="notice-dismiss" data-id="${esc(n.id)}" aria-label="Dismiss">✕</button></div>`).join('')}
+    ${waiting ? `<div class="muted" style="font-size:13px;margin-top:${ns.length ? 8 : 0}px">${waiting} school email${waiting === 1 ? '' : 's'} waiting — Claude reads them at its next hourly check.</div>` : ''}
   </div>`;
 }
 
@@ -4286,6 +4303,7 @@ document.addEventListener('click', (e) => {
     case 'pics-retry': APP.imagesOff = false; LS.set('imagesOff', false); closeSheet(); toast('Next time you read or mark, pictures are tried again.'); return render();
     case 'read-again': if (APP.work.saved?.queue) { delete APP.reading[APP.work.saved.readId]; APP.work.saved.readId = null; startQueue(APP.work.saved); } return;
     case 'read-cancel': return send({ type: 'read.cancel', requestId: t.dataset.id });
+    case 'notice-dismiss': return send({ type: 'notice.dismiss', noticeId: t.dataset.id });
     case 'work-stop': APP.work.ctl?.abort(); return;
     case 'work-back': APP.work.stage = 'idle'; APP.work.error = null; return render();
     case 'work-reset': return resetWork();
