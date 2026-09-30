@@ -258,8 +258,10 @@ email instead) and anything else in your words.
   Mail's scripts folder. The card also says how to make the rule.
 - **The mail key** can only hand emails in: it opens neither the dashboard nor the emails.
   `MAIL_TOKEN` in the environment overrides the one the dashboard makes.
-- **Limits:** the emails are data to the reader, never instructions. At most 60 wait at a time,
-  and their text is deleted once filed.
+- **Limits:** the emails are data to the reader, never instructions. Mail older than 45 days is
+  not kept, since a rule applied to a whole mailbox sends years of it. At most 150 emails wait:
+  the oldest go first by their own date, and the reader gets the newest first. Their text is
+  deleted once filed.
 
 ## The route planner
 
