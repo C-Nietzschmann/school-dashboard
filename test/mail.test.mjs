@@ -95,6 +95,15 @@ test('the day shows waiting emails to any chat; old ones do not pile up', async 
   assert.equal([...docs.keys()].filter((k) => k.startsWith('mail-')).length, 60);
 });
 
+test("a chat's worksheets to do are school ones, not Assignment Arrow's practice chapters and lessons", async () => {
+  const { S, store } = fresh();
+  await applyOps(S, [
+    { id: 'w1', type: 'worksheet.add', worksheet: { id: 'ws-forces', title: 'Forces sheet', subjectId: 'physics' }, questions: [{ q: '1', text: 'x', maxMarks: 2 }] },
+    { id: 'w2', type: 'worksheet.add', worksheet: { id: 'al-l6', title: 'Assignment Arrow · Lesson 6: Arrays', subjectId: 'cs', source: 'arrow' }, questions: [{ q: 'L6.1', text: 'x', maxMarks: 1 }] }],
+  { date: MONDAY, store });
+  assert.deepEqual(summarize(todayPayload(S, { date: MONDAY })).worksheetsToDo.map((w) => w.id), ['ws-forces']);
+});
+
 /* The real server, with a password: the mail key hands an email in and opens nothing else. */
 test('the mail key can only hand emails in', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sd-mail-'));
