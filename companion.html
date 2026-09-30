@@ -3740,7 +3740,9 @@ function worksheetSheet(w, full, loading = false) {
   return `<div class="sheet-h"><h2>${esc(w.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(w.subjectId)}"></span>${esc(subjectName(w.subjectId))}
       ${w.topicIds?.length ? '· ' + w.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · saved ${esc(fmtDay(w.date))}</div>
-    <div class="row" style="margin-bottom:14px">${isArrow(w) ? `${arrowLink(w)}<span class="muted" style="font-size:13px">A chapter of Assignment Arrow, with the same question numbers: Practice → ${esc(String(w.title).replace(/^Assignment Arrow · /, ''))}. Press Complete on a question there and it is logged here.</span>` : `
+    <div class="row" style="margin-bottom:14px">${isArrow(w) ? `${arrowLink(w)}<span class="muted" style="font-size:13px">${String(w.id).startsWith('al-')
+      ? `A lesson of Assignment Arrow (Course → ${esc(String(w.title).replace(/^Assignment Arrow · /, '').replace(/:.*/, ''))}). Its exercises are below, with the same numbers; press Complete lesson there and it is logged here.`
+      : `A chapter of Assignment Arrow, with the same question numbers: Practice → ${esc(String(w.title).replace(/^Assignment Arrow · /, ''))}. Press Complete on a question there and it is logged here.`}</span>` : `
       ${w.folderUrl ? `<a class="btn sm" href="${esc(w.folderUrl)}" target="_blank" rel="noopener">Folder in Drive</a>` : '<span class="muted" style="font-size:13px">Not in Drive</span>'}
       ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}`}</div>
     ${w.questionCount ? `<div class="task-meta" style="margin-bottom:4px">${esc(wsProgress(w))}</div>

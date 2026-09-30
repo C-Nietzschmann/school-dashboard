@@ -90,6 +90,33 @@ test('an entry names its questions; a question done again adds its time, marks t
   assert.equal(m.ops.find((x) => x.type === 'study.done').note, 'Q10, Q11, Q12, Q13, Q14 +2 · 7/7 marks');
 });
 
+test('lessons are worksheets too: their exercises are the questions, logged as "Lesson 6"', () => {
+  const lessons = [
+    { id: 'L6', title: 'Arrays', levels: ['as', 'a2'], exercises: [{ id: 'L6.1', text: 'Predict' }, { id: 'L6.2', text: 'Fill' }, { id: 'L6.3', text: 'Check' }] },
+    { id: 'L12', title: 'Classes and objects', levels: ['a2'], exercises: [{ id: 'L12.1', text: 'x' }] },
+    { id: 'G3', title: 'IGCSE', levels: ['igcse'], exercises: [] },
+  ];
+  const as = B.lessonSheets(lessons, 'as');
+  assert.deepEqual(as.map((s) => [s.id, s.lesson, s.title, s.topic, s.questions.map((q) => q.q)]),
+    [['al-l6', 'L6', 'Assignment Arrow · Lesson 6: Arrays', 'Arrays', ['L6.1', 'L6.2', 'L6.3']]]);
+  assert.deepEqual(B.lessonSheets(lessons, 'a2').map((s) => s.id), ['al-l6', 'al-l12']);
+  assert.equal(B.topicName(B.lessonSheets(lessons, 'a2')[1].topic), 'Programming paradigms');
+  // completing a lesson: its own worksheet, named as a lesson, marked by its exercises
+  const sheets = B.chapters(QS, 'as').concat(as);
+  const r = B.buildOps({ date: MONDAY, target: { key: '15:05', chosen: null, own: false }, sheets, topics: { Arrays: 't174' }, logs: {}, stamp: 'l',
+    items: [{ qid: 'L6', sheet: 'al-l6', name: 'Lesson 6', minutes: 25, marks: 2, max: 3, diff: 2 }, { qid: 'Q02', minutes: 8, marks: 5, max: 5 }] });
+  assert.deepEqual(r.ops.map((o) => [o.type, o.option?.worksheetId || o.item || '', o.note || '']), [
+    ['study.choose', 'al-l6', ''], ['study.done', '', 'Lesson 6 · 2/3 marks'],
+    ['study.choose', 'aa-arrays', ''], ['study.done', 'aa-arrays', 'Q02 · 5/5 marks'],
+  ]);
+  assert.equal(r.ops[0].option.topicId, 't174');
+  // links to a lesson or one of its exercises
+  assert.deepEqual(B.hashTarget('#L6', QS, lessons), { lesson: 'L6', ex: null });
+  assert.deepEqual(B.hashTarget('#l6.2', QS, lessons), { lesson: 'L6', ex: 'L6.2' });
+  assert.deepEqual(B.hashTarget('#al-l12', QS, lessons), { lesson: 'L12', ex: null });
+  assert.deepEqual(B.hashTarget('#Q02', QS, lessons), { qid: 'Q02', topic: 'Arrays' });
+});
+
 test('which questions are done, per chapter; links into Assignment Arrow', () => {
   const sheets = B.chapters(QS, 'as');
   assert.deepEqual(B.doneByChapter(sheets, { Q02: { marks: 4, max: 5, ts: 1 }, Q40: { marks: 6, max: 6 } }, { Q01: '2026-09-30' }),

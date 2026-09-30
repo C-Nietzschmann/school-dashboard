@@ -539,6 +539,7 @@ body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 const COMPANION_HEAD = appHead('Companion', '/icons/icon-180.png', '/icons/companion.webmanifest');
 // Assignment Arrow, your copy (arrow/site, built by arrow/build.mjs --site): an app of its own at /arrow/
 const ARROW_HEAD = appHead('Arrow', '/icons/arrow-180.png', '/icons/arrow.webmanifest');
+const ARROW_OWN = ['bridge.js', 'lab.js', 'lessons-plus.js'];
 
 const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
@@ -734,10 +735,10 @@ const server = createServer(async (req, res) => {
        serve anything under the checkout, which included data.json back when the
        data lived here. Dot-segments are refused outright so .git and .cache
        cannot be walked. */
-    // /arrow/ is Assignment Arrow: its files live in arrow/site, its bridge in arrow/
+    // /arrow/ is Assignment Arrow: its files live in arrow/site, your own scripts (bridge, lab, exercises) in arrow/
     if (path === '/arrow') { res.writeHead(301, { Location: '/arrow/' }); return res.end(); }
     const rel = path === '/' ? '/app.html' : path === '/companion' ? '/companion.html'
-      : path === '/arrow/' ? '/arrow/site/index.html' : path === '/arrow/bridge.js' ? '/arrow/bridge.js'
+      : path === '/arrow/' ? '/arrow/site/index.html' : ARROW_OWN.includes(path.slice('/arrow/'.length)) && path.startsWith('/arrow/') ? path
       : path.startsWith('/arrow/') ? '/arrow/site/' + path.slice('/arrow/'.length) : path;
     if (rel.split('/').some((seg) => seg.startsWith('.'))) return send(res, 403, { error: 'nope' });
     const ext = rel.slice(rel.lastIndexOf('.'));

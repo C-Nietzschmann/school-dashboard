@@ -51,6 +51,20 @@
     return [...out.values()];
   }
 
+  // Assignment Arrow's lessons are worksheets too: their exercises (arrow/lab.js)
+  // are the questions, and the lesson's number picks the dashboard topic.
+  const LESSON_CHAPTER = { 4: 'Selection', 5: 'Iteration', 6: 'Arrays', 8: 'Subroutines', 9: 'Tracing', 10: 'Files', 11: 'Records', 12: 'OOP', 13: 'Algorithms' };
+  const lessonSheetId = (id) => `al-${slug(id)}`;
+  const lessonNumber = (id) => Number(String(id).replace(/\D/g, '')) || 0;
+  function lessonSheets(lessons, course) {
+    const sees = LEVEL_SEES[course] || LEVEL_SEES.as;
+    return (lessons || []).filter((L) => L?.id && (L.levels || ['as', 'a2']).some((x) => sees.indexOf(x) !== -1)).map((L) => ({
+      id: lessonSheetId(L.id), lesson: L.id, topic: LESSON_CHAPTER[lessonNumber(L.id)] || 'Lesson',
+      title: `Assignment Arrow · Lesson ${lessonNumber(L.id)}: ${L.title}`,
+      questions: (L.exercises || []).map((x) => ({ q: x.id, text: String(x.text || x.id).slice(0, 200), maxMarks: 1 })),
+    }));
+  }
+
   // Minutes for questions that had no timer of their own: exam mode marks a
   // whole paper at once (within 5 seconds), and those marks share the time
   // from when the paper started (1–60). Timed questions keep their minutes.
@@ -129,12 +143,14 @@
     let chosen = target.chosen;
     const byChapter = new Map();
     for (const it of items) {
-      const sh = sheets.find((s) => s.questions.some((q) => q.q === it.qid));
+      // a lesson names its worksheet; a question is found in its chapter
+      const sh = it.sheet ? sheets.find((s) => s.id === it.sheet) : sheets.find((s) => s.questions.some((q) => q.q === it.qid));
       if (!sh) continue;
       if (!byChapter.has(sh.id)) byChapter.set(sh.id, { sh, n: 0, minutes: 0, marks: 0, max: 0, dm: 0, ids: [] });
       const g = byChapter.get(sh.id);
       if (!it.repeat) g.n++;                             // done again: its time counts, not another question
-      if (!g.ids.includes(it.qid)) g.ids.push(it.qid);
+      const name = it.name || it.qid;
+      if (!g.ids.includes(name)) g.ids.push(name);
       g.minutes += Number(it.minutes) || 0;
       if (it.max > 0) {
         g.marks += it.marks; g.max += it.max;
@@ -168,7 +184,7 @@
         minutes: Math.max(1, tot.minutes), confidence: tot.max ? Math.round(5 * tot.marks / tot.max) : undefined,
         // the marks and how hard the questions were: they count towards the topic's level on the dashboard
         ...(tot.max ? { evidence: { marks: tot.marks, max: tot.max, difficulty: +(tot.dm / tot.max).toFixed(1) } } : {}),
-        note: what + (tot.max ? ` · ${tot.marks}/${tot.max} marks` : '') });
+        note: what + (tot.max ? ` \u00b7 ${tot.marks}/${tot.max} marks` : '') });
       next[k] = { slot, seq, ...tot };
     }
     return { ops, logs: next };
@@ -192,12 +208,16 @@
       return { id: s.id, done };
     });
   }
-  // A link into Assignment Arrow: #Q10 opens that question, #arrays that chapter.
-  function hashTarget(hash, questions) {
+  // A link into Assignment Arrow: #Q10 opens that question, #arrays that chapter,
+  // #L6 a lesson and #L6.2 one of its exercises.
+  function hashTarget(hash, questions, lessons) {
     const h = String(hash || '').replace(/^#/, '').trim().toLowerCase();
     if (!h) return null;
     const q = (questions || []).find((x) => String(x.id).toLowerCase() === h);
     if (q) return { qid: q.id, topic: q.topic };
+    const l = h.match(/^(?:al-)?([a-z]\d+)(?:\.(\d+))?$/);
+    const L = l && (lessons || []).find((x) => String(x.id).toLowerCase() === l[1]);
+    if (L) return { lesson: L.id, ex: l[2] ? `${L.id}.${l[2]}` : null };
     const t = (questions || []).find((x) => x.topic && (slug(x.topic) === h || sheetId(x.topic) === h));
     return t ? { topic: t.topic } : null;
   }
@@ -209,7 +229,7 @@
   };
   const signature = (course, sheets) => hashOf(course + '|' + sheets.map((s) => s.id + ':' + s.questions.map((q) => q.q).join(',')).join(';'));
 
-  const core = { CHAPTER_TOPIC, chapters, minutesFor, pickPeriod, buildOps, doneCounts, doneByChapter, hashTarget, signature, sheetId, topicName,
+  const core = { CHAPTER_TOPIC, chapters, lessonSheets, minutesFor, pickPeriod, buildOps, doneCounts, doneByChapter, hashTarget, signature, sheetId, topicName,
     hmOf, isoOf, timerMs, timerStop, timerRun, timerMinutes, completeItem, clock };
   root.ArrowBridge = core;
   if (typeof document === 'undefined' || !root.localStorage) return;
@@ -225,9 +245,20 @@
   const picked = () => (document.getElementById('levelGate')?.hidden === false ? null
     : LEVEL_SEES[arrowState().level] ? arrowState().level : null);
   const course = () => picked() || 'a2';
-  const sheetsNow = () => chapters(allQuestions(), course());
-  const inChapter = (qid) => sheetsNow().some((s) => s.questions.some((q) => q.q === qid));
-  const diffOf = (qid) => Number(allQuestions().find((q) => q.id === qid)?.diff) || 3;   // Assignment Arrow's own 1–5
+  // the lessons, with their exercises when arrow/lab.js is here (only the check otherwise)
+  const lessonsNow = () => [].concat(root.LESSONS_ALEVEL || [], root.LESSONS_IGCSE || []).map((L) => ({ id: L.id, title: L.title, levels: L.levels,
+    exercises: root.ArrowLab ? root.ArrowLab.lessonExercises(L, root.LESSONS_PLUS).map((x) => ({ id: x.id, text: root.ArrowLab.plainText(x.q) })) : [] }));
+  const chapterSheets = () => chapters(allQuestions(), course());
+  const lessonSheet = (key) => lessonSheets(lessonsNow().filter((L) => L.id === key), course())[0] || null;
+  const sheetsNow = () => chapterSheets().concat(lessonSheets(lessonsNow(), course()).filter((s) => s.questions.length));
+  const inChapter = (qid) => chapterSheets().some((s) => s.questions.some((q) => q.q === qid));
+  // what you did in the lessons' exercises (arrow/lab.js): one mark each, right or not
+  const labDone = () => { try { return JSON.parse(localStorage.getItem('aaLab.v1'))?.ex || {}; } catch { return {}; } };
+  const lessonScore = (key) => {
+    const ex = labDone(), done = (lessonSheet(key)?.questions || []).filter((q) => ex[q.q]);
+    return { marks: done.filter((q) => ex[q.q].ok).length, max: done.length };
+  };
+  const diffOf = (qid) => Number(allQuestions().find((q) => q.id === qid)?.diff) || 3;   // Assignment Arrow's own 1\u20135
   // this copy's own link, when the build was given it: the companion's "Open Assignment Arrow"
   // On the dashboard's site this copy talks to its API, and its own address is its link.
   const SITE = !root.claude?.use && /^\/arrow(\/|$)/.test(location.pathname);
@@ -256,7 +287,7 @@
     pill.style.borderColor = bad ? 'var(--pen,#be3a2b)' : 'var(--ink-3,#999)';
     pill.hidden = false;
   };
-  const showQueue = () => { if (queue.length) say(`${queue.length} question${queue.length === 1 ? '' : 's'} waiting for your dashboard — tap to send`); };
+  const showQueue = () => { if (queue.length) say(`${queue.length} question${queue.length === 1 ? '' : 's'} waiting for your dashboard \u2014 tap to send`); };
   const enqueue = (item, wait = 800) => {
     queue.push(item);
     LS.set('queue', queue);
@@ -277,13 +308,14 @@
     + '.aa-timer.is-logged .aa-note{color:var(--ok,#256b4e);font-weight:600}';
   document.head.appendChild(css);
 
-  function bar(qid) {
+  function bar(qid, lesson = false) {
     const el = document.createElement('div');
     el.className = 'aa-timer';
     el.dataset.qid = qid;
-    el.innerHTML = '<span class="aa-clock" title="Time on this question">⏱<b>00:00</b></span>'
+    if (lesson) el.dataset.kind = 'lesson';
+    el.innerHTML = `<span class="aa-clock" title="Time on this ${lesson ? 'lesson' : 'question'}">\u23f1<b>00:00</b></span>`
       + '<button type="button" class="btn btn-sm" data-aa="pause">Pause</button>'
-      + '<button type="button" class="btn btn-primary btn-sm" data-aa="complete">Complete</button>'
+      + `<button type="button" class="btn btn-primary btn-sm" data-aa="complete">${lesson ? 'Complete lesson' : 'Complete'}</button>`
       + '<button type="button" class="btn btn-sm" data-aa="again" hidden>Time it again</button>'
       + '<span class="aa-note"></span>';
     el.addEventListener('click', (e) => { const b = e.target.closest('[data-aa]'); if (b) act(qid, b.dataset.aa); });
@@ -301,9 +333,12 @@
       pause.hidden = done.hidden = Boolean(t.logged);
       again.hidden = !t.logged;
       pause.textContent = t.paused ? 'Resume' : 'Pause';
-      el.querySelector('.aa-note').textContent = t.logged ? `✓ Logged · ${t.loggedMin} min today`
+      const lesson = el.dataset.kind === 'lesson';
+      el.querySelector('.aa-note').textContent = t.logged ? `\u2713 Logged \u00b7 ${t.loggedMin} min today`
         : t.paused ? 'Paused'
-        : t.markedAt ? `Marked ${t.marks}/${t.max} — press Complete when you are done`
+        : t.markedAt ? (lesson ? `${t.marks} of ${t.max} exercises right \u2014 press Complete lesson when you are done`
+          : `Marked ${t.marks}/${t.max} \u2014 press Complete when you are done`)
+        : lesson ? 'Press Complete lesson when you are done: the lesson goes into your study log'
         : 'Press Complete when you are done: it goes into your study log';
     }
   }
@@ -344,6 +379,25 @@
     if (current !== qid) focus(qid);
     paint();
   }
+  // a lesson on screen in the Course section: its timer runs like a question's
+  const courseOn = () => Boolean(document.getElementById('view-course')?.classList.contains('is-active'));
+  function lessonOpened(el) {
+    const key = el.dataset.lesson;
+    if (!key || !lessonSheet(key)) return;
+    if (!el.querySelector('.aa-timer')) el.insertBefore(bar(key, true), el.firstChild);
+    if (courseOn() && current !== key) focus(key);
+    paint();
+  }
+  function courseChanged() {
+    const el = document.querySelector('#lessonBody .aa-lesson[data-lesson]');
+    if (courseOn()) { if (el && current !== el.dataset.lesson) { focus(el.dataset.lesson); paint(); } }
+    else if (current && lessonSheet(current)) {         // left the course: the lesson waits for you
+      timers[current] = timerStop(timers[current], Date.now());
+      current = null;
+      saveTimers();
+      paint();
+    }
+  }
   function act(qid, what) {
     const now = Date.now();
     const t = timers[qid];
@@ -365,8 +419,12 @@
     if (seen.date !== date) { seen.date = date; seen.ids = []; }
     const again = seen.ids.includes(qid);
     if (!again) { seen.ids.push(qid); LS.set('seen', seen); }
+    const ls = lessonSheet(qid);
+    // a lesson: its exercises as they stand now, counted once a day like a question
+    if (ls) t = { ...t, ...lessonScore(qid), sentMarks: again };
     const withMarks = t.max > 0 && !t.sentMarks;
-    const item = completeItem(t, at, diffOf(qid), { again, withMarks });
+    const item = completeItem(t, at, ls ? 2 : diffOf(qid), { again, withMarks });
+    if (ls) Object.assign(item, { sheet: ls.id, name: `Lesson ${lessonNumber(qid)}` });
     timers[qid] = { ...t, logged: true, markedAt: null, loggedMin: (t.loggedMin || 0) + item.minutes, sentMarks: t.sentMarks || withMarks };
     const completed = LS.get('completed', {});
     completed[qid] = date;
@@ -385,7 +443,7 @@
 
   // every mark Assignment Arrow gives comes through here
   const orig = root.recordResult;
-  if (typeof orig !== 'function') { say("Couldn't find Assignment Arrow's marking — nothing is logged.", true); return; }
+  if (typeof orig !== 'function') { say("Couldn't find Assignment Arrow's marking \u2014 nothing is logged.", true); return; }
   root.recordResult = function (qid, marks, max) {
     const out = orig.apply(this, arguments);
     try { marked(String(qid), Number(marks) || 0, Number(max) || 0); } catch { /* the practice itself never breaks */ }
@@ -421,10 +479,17 @@
   // a link from the companion: #Q10 opens that question, #arrays that chapter
   let wantLink = false;
   function go() {
-    const target = hashTarget(location.hash, allQuestions());
+    const target = hashTarget(location.hash, allQuestions(), lessonsNow());
     if (!target) return;
     if (!picked()) { wantLink = true; return; }
     wantLink = false;
+    if (target.lesson) {
+      document.querySelector('.nav-btn[data-view="course"]')?.click();
+      const i = typeof root.activeLessons === 'function' ? root.activeLessons().findIndex((L) => L.id === target.lesson) : -1;
+      if (i >= 0 && typeof root.renderLesson === 'function') root.renderLesson(i);
+      if (target.ex) setTimeout(() => root.ArrowLabShow?.(target.ex), 80);
+      return;
+    }
     document.querySelector('.nav-btn[data-view="practice"]')?.click();
     const chip = [...document.querySelectorAll('#topicChips [data-topic]')].find((b) => b.dataset.topic === target.topic);
     if (chip && chip.getAttribute('aria-pressed') !== 'true') chip.click();
@@ -461,10 +526,25 @@
     for (const m of list) for (const n of m.addedNodes) {
       if (n.nodeType !== 1) continue;
       if (n.matches('.q-card[data-qid]')) opened(n);
-      else n.querySelectorAll?.('.q-card[data-qid]').forEach(opened);
+      else if (n.matches('.aa-lesson[data-lesson]')) lessonOpened(n);
+      else { n.querySelectorAll?.('.q-card[data-qid]').forEach(opened); n.querySelectorAll?.('.aa-lesson[data-lesson]').forEach(lessonOpened); }
     }
   }).observe(document.body, { childList: true, subtree: true });
+  const courseView = document.getElementById('view-course');
+  if (courseView) new MutationObserver(courseChanged).observe(courseView, { attributes: true, attributeFilter: ['class'] });
   document.querySelectorAll('.q-card[data-qid]').forEach(opened);
+  document.querySelectorAll('.aa-lesson[data-lesson]').forEach(lessonOpened);
+  // an exercise done in a lesson: the lesson's timer knows, and the dashboard hears soon
+  root.addEventListener('arrowlab:exercise', (e) => {
+    const key = e.detail?.lesson;
+    if (!key || !lessonSheet(key)) return;
+    const now = Date.now(), t = timerFor(key, now);
+    Object.assign(t, lessonScore(key), { lastAt: now });
+    if (!t.logged) t.markedAt = now;
+    saveTimers();
+    paint();
+    if (live && !queue.length) { clearTimeout(timer); timer = setTimeout(flush, 8000); }
+  });
   go();
 
   /* ---- sending it to the dashboard ---- */
@@ -507,7 +587,8 @@
   async function ensureSheets(sheets, topics) {
     if (!picked()) return;                               // wait until you have chosen your course
     const sig = signature('2|' + course() + (SELF || ''), sheets);
-    const done = doneByChapter(sheets, arrowState().done || {}, LS.get('completed', {}));
+    const exercises = Object.fromEntries(Object.entries(labDone()).map(([id, x]) => [id, { marks: x.ok ? 1 : 0, max: 1 }]));
+    const done = doneByChapter(sheets, { ...(arrowState().done || {}), ...exercises }, LS.get('completed', {}));
     const ops = [];
     if (LS.get('sheets', null) !== sig) {
       // chapters your course no longer has go (their marked work stays in your history)
@@ -558,9 +639,9 @@
         queue = queue.filter((i) => i.date !== date);
         LS.set('queue', queue);
         const mins = items.reduce((a, i) => a + (Number(i.minutes) || 0), 0);
-        const names = namesOf([...new Set(items.map((i) => i.qid))]);
+        const names = namesOf([...new Set(items.map((i) => i.name || i.qid))]);
         if (bad.length) say(`Logged, but the dashboard said: ${bad[0].error}`, true);
-        else say(`✓ ${names} · ${mins} min logged to your ${target.own ? 'study session' : 'study period'}`);
+        else say(`\u2713 ${names} \u00b7 ${mins} min logged to your ${target.own ? 'study session' : 'study period'}`);
       }
       await ensureSheets(sheets, topics);                  // which questions are done, now including these
     } catch (e) {
@@ -568,7 +649,7 @@
       say(code === 'signin' ? 'Sign in to your dashboard (open it in this browser) to log your practice.'
         : /not_connected|not_found|not_in_manifest|not_granted/.test(code)
         ? 'Connect the A Level Dashboard connector to log your practice.'
-        : `Not logged yet — ${e?.message || 'the dashboard did not answer'}. Tap to try again.`, true);
+        : `Not logged yet \u2014 ${e?.message || 'the dashboard did not answer'}. Tap to try again.`, true);
       showQueue();
     } finally {
       flushing = false;
@@ -585,7 +666,7 @@
     if (SITE) return start();                            // on the dashboard's site: its API, no connector
     if (!root.claude?.use) return;                       // anywhere else (the school's site): nothing to log to
     mcp = await root.claude.use('mcp').catch(() => null);
-    if (!mcp) { say('Connectors are off in this view — practice is not logged.', true); return; }
+    if (!mcp) { say('Connectors are off in this view \u2014 practice is not logged.', true); return; }
     try {
       const { servers = [] } = await mcp.listTools();
       const mine = servers.find((s) => String(s.server).toLowerCase().replace(/\s+/g, ' ').trim() === 'a level dashboard');
