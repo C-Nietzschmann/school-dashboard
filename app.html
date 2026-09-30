@@ -2463,6 +2463,24 @@ views.files = () => `
     <button class="btn sm" id="compRotate" data-armed="0">Make a new key</button>
   </div>
 
+  <div class="card" style="margin-bottom:16px" id="mailCard">
+    <h2>School mail from your Mac</h2>
+    <div class="hint">A rule in Apple Mail sends your school emails here, and Claude reads them at its hourly check:
+      homework, tests and deadlines go on your lists, and anything important shows at the top of the companion.
+      Only the emails the rule picks leave your Mac, and its key can only hand emails in.</div>
+    <ol class="uni-list" style="font-size:13.5px;line-height:1.9;margin:10px 0 6px">
+      <li>On your Mac, open <b>Terminal</b> and run this once (it saves the address and key, and installs the rule's script):
+        <pre id="mailCmd" style="white-space:pre-wrap;word-break:break-all;font-size:11.5px;margin:6px 0">loading…</pre>
+        <button class="btn ghost sm" id="mailCopy">Copy</button></li>
+      <li>In <b>Mail → Settings → Rules → Add Rule</b>: If <b>any</b> of the following conditions are met —
+        <b>From contains</b> your school's email domain, <b>From contains</b> <code>classroom.google.com</code>,
+        and one more <b>From contains</b> for each teacher who emails you from a private address —
+        perform <b>Run AppleScript → School mail</b>. Click OK, then <b>Apply</b> to run it on the emails already there.</li>
+    </ol>
+    <div class="hint" id="mailNote" style="margin:0 0 10px"></div>
+    <button class="btn sm" id="mailRotate" data-armed="0">Make a new key</button>
+  </div>
+
   <div class="card" style="margin-bottom:16px">
     <h2>Your data</h2>
     <div class="hint">Everything the dashboard knows, as one file. Worth exporting now and then —
@@ -2660,7 +2678,7 @@ function afterRender(v) {
   renderAlert();
   if (v === 'whiteboard') initWhiteboard();
   if (v === 'files') { loadIntegrationStatus(); loadConfigUI(); }
-  if (v === 'files') loadCompanionCard();
+  if (v === 'files') { loadCompanionCard(); loadMailCard(); }
   if (v === 'files') $('#view-files').insertAdjacentHTML('afterbegin', routeFilesCard());
   // on a phone the station line scrolls sideways: keep the current stop in view
   const line = v === 'route' && $('.rline'), stop = line && $('.rstop.now', line);
@@ -2682,6 +2700,30 @@ async function loadCompanionCard(rotate = false) {
         : 'The URL is the key: anyone with it can read and change your dashboard, so keep it to yourself.',
     ].filter(Boolean).join(' ');
     $('#compRotate').hidden = d.fromEnv;
+  } catch (e) {
+    el.textContent = 'not available — ' + e.message;
+  }
+}
+// The Files tab's mail card: one Terminal command for the Mac, with this dashboard's
+// address and the mail key in it (only this signed-in page ever sees the key).
+async function loadMailCard(rotate = false) {
+  const el = $('#mailCmd'); if (!el) return;
+  try {
+    const r = await fetch('/api/mail/setup', { method: rotate ? 'POST' : 'GET' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+    const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+    const dir = '~/Library/Application\\ Scripts/com.apple.mail';
+    el.textContent = `printf '%s\\n%s\\n' ${q(d.endpoint)} ${q(d.key)} > ~/.school-dashboard-mail && chmod 600 ~/.school-dashboard-mail && `
+      + `mkdir -p ${dir} && curl -fsSL ${q(d.script)} -o /tmp/school-mail.applescript && `
+      + `osacompile -o ${dir}/School\\ mail.scpt /tmp/school-mail.applescript && echo 'School mail is set up'`;
+    $('#mailNote').innerHTML = [
+      d.https ? '' : '<b>This is the address on this computer.</b> Your Mac needs the https address of your hosted dashboard — open this tab there to copy it.',
+      d.received ? `${d.received} email${d.received === 1 ? '' : 's'} received${d.waiting ? `, ${d.waiting} waiting for Claude` : ''}${d.last ? ` · last ${esc(new Date(d.last).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}` : ''}.`
+        : 'No emails yet.',
+      d.fromEnv ? 'The key comes from <code>MAIL_TOKEN</code> in your host\'s settings.' : '',
+    ].filter(Boolean).join(' ');
+    $('#mailRotate').hidden = d.fromEnv;
   } catch (e) {
     el.textContent = 'not available — ' + e.message;
   }
@@ -2818,6 +2860,12 @@ document.addEventListener('click', (e) => {
   if (t.dataset.rate) return rateTopic(t.dataset.rate, Number(t.dataset.conf));
   if (t.dataset.copy) return copyText(t.dataset.copy, t);
   if (t.id === 'compCopy') return copyText($('#compUrl').textContent, t);
+  if (t.id === 'mailCopy') return copyText($('#mailCmd').textContent, t);
+  if (t.id === 'mailRotate') {
+    if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Your Mac stops sending until you run the new command — tap again'; return; }
+    t.dataset.armed = '0'; t.textContent = 'Make a new key';
+    return loadMailCard(true);
+  }
   if (t.id === 'compRotate') {
     if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'The old URL stops working — tap again'; return; }
     t.dataset.armed = '0'; t.textContent = 'Make a new key';

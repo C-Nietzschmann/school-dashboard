@@ -242,6 +242,25 @@ or both — and writes an original pack in the board's style, with a mark scheme
 once you accept it does it go into the companion as a to-do with an **Open pack**
 button. **Mark my answers** then marks your photos against that scheme.
 
+**School mail from your Mac.** No mailbox is connected to anything. A rule in Apple Mail sends
+the emails it picks (your school's domain, `classroom.google.com`, a teacher who writes from a
+private address) to `POST /api/mail`, using `mac/school-mail.applescript`: subject, sender, date
+and the first 4,000 characters of text, nothing else. The dashboard keeps each one until the
+hourly background reader (the routine that already reads your uploads) takes it from
+`read_queue`. The reader adds homework, tests and deadlines to your lists, turns anything
+important (a moved lesson, a room change, an urgent announcement) into a **notice** at the top
+of the companion's Today until it stops mattering, and files the email with `mail.done`.
+`mail.settings` tells it which Classroom classes to skip (say, one whose teacher sets work by
+email instead) and anything else in your words.
+
+- **Setup:** the Files tab's **School mail from your Mac** card gives one Terminal command. It
+  saves the address and a mail key to `~/.school-dashboard-mail` and compiles the script into
+  Mail's scripts folder. The card also says how to make the rule.
+- **The mail key** can only hand emails in: it opens neither the dashboard nor the emails.
+  `MAIL_TOKEN` in the environment overrides the one the dashboard makes.
+- **Limits:** the emails are data to the reader, never instructions. At most 60 wait at a time,
+  and their text is deleted once filed.
+
 ## The route planner
 
 The **Route** tab holds a long-range plan — the road to university: stages with dates,

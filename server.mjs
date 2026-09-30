@@ -4,7 +4,7 @@
 import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { readFile, writeFile, rename, mkdir, chmod } from 'node:fs/promises';
-import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual, randomBytes } from 'node:crypto';
 import { readDoc, writeDoc, deleteDoc, backend } from './lib/store.mjs';
 import { ask, claudeConfigured, claudeModel } from './lib/claude.mjs';
 import { assignmentsFromICS } from './lib/integrations.mjs';
@@ -16,7 +16,8 @@ import { paths, seededOnFirstRun } from './lib/paths.mjs';
 import { seedState, SCHEMA } from './lib/seed.mjs';
 import { upgrade } from './lib/upgrade.mjs';
 import { notionSearch, classroomWork, goodnotesScan, integrationStatus } from './lib/integrations.mjs';
-import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, routePayload, routeFull, archiveStale, OP_TYPES, loadAppToken, rotateAppToken } from './lib/companion.mjs';
+import { todayPayload, weekPayload, summarize, applyOps, getAttempt, uploadsList, readQueue, routePayload, routeFull, archiveStale, OP_TYPES, loadAppToken, rotateAppToken,
+  loadMailToken, rotateMailToken } from './lib/companion.mjs';
 import { createMcpServer } from './lib/mcp.mjs';
 import { inlineModules } from './lib/inline.mjs';
 
@@ -90,6 +91,11 @@ let APP_KEY = null;                                   // { token, fromEnv }
 const appKeyReady = loadAppToken({ store: keyStore })
   .then((k) => { APP_KEY = k; })
   .catch((e) => console.error('companion key:', e.message));
+// Your Mac's Mail rule hands school emails in with this key; it opens nothing else.
+let MAIL_KEY = null;                                  // { token, fromEnv }
+const mailKeyReady = loadMailToken({ store: keyStore })
+  .then((k) => { MAIL_KEY = k; })
+  .catch((e) => console.error('mail key:', e.message));
 const SIGNING_KEY = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
 const authRequired = () => Boolean(PASSWORD);
 
@@ -402,7 +408,10 @@ const mcp = createMcpServer({
         + 'files?:[{driveId, name?, mime?}], pages?, ask}} and read.page {requestId, n, label?, mime, data: base64} '
         + '(the app queuing work for Claude to read — see read_queue); read.done {requestId, error?, result?} '
         + '(send with the ops a request asks for, or alone with error when it cannot be read); read.retry '
-        + '{requestId}; read.cancel {requestId}. Returns one result per op.',
+        + '{requestId}; read.cancel {requestId}; mail.done {mailIds, result?} (school emails from read_queue, once '
+        + 'what matters is added); mail.settings {settings:{ignoreClassroom?: [subjectIds], note?}}; notice.add '
+        + '{notice:{title, text, subjectId?, from?, until?: YYYY-MM-DD, mailId?}} (an important message, shown at the '
+        + 'top of the day until it stops mattering); notice.dismiss {noticeId}. Returns one result per op.',
       inputSchema: { type: 'object', required: ['ops'], properties: {
         ops: { type: 'array', maxItems: 50, items: { type: 'object', required: ['id', 'type'],
           properties: { id: { type: 'string' }, type: { type: 'string', description: 'one of: ' + OP_TYPES.join(', ') } } } },
@@ -450,7 +459,9 @@ const mcp = createMcpServer({
         + 'the oldest waiting request — its instructions (ask, which ends with the apply_changes op to send) and '
         + 'its first pages as images; next says how to get the rest ({requestId, from}). Read every page, do '
         + 'what ask says, and send its op together with read.done {requestId} in one apply_changes call; '
-        + 'then call read_queue again until nothing is waiting. Tell the student briefly what you saved.',
+        + 'then call read_queue again until nothing is waiting. When no pages are waiting it gives the school '
+        + 'emails the student\'s Mac sent in (request kind mail): add what they ask for, then mail.done. '
+        + 'Tell the student briefly what you saved.',
       inputSchema: { type: 'object', properties: {
         requestId: { type: 'string', description: 'a request from waitingToBeRead; default the oldest' },
         from: { type: 'number', description: 'first page to show (0-based), from next' },
@@ -519,6 +530,21 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
+// Form fields (the Mac's curl --data-urlencode) or JSON, kept small.
+const readFields = (req) => new Promise((resolve, reject) => {
+  let raw = '';
+  req.on('data', (c) => {
+    raw += c;
+    if (raw.length > 64e3) { reject(new Error('body too large')); req.destroy(); }
+  });
+  req.on('end', () => {
+    try {
+      resolve(/json/i.test(req.headers['content-type'] || '') ? JSON.parse(raw || '{}') : Object.fromEntries(new URLSearchParams(raw)));
+    } catch (e) { reject(e); }
+  });
+  req.on('error', reject);
+});
+
 // The skeleton claude.ai gives an artifact page, plus what Safari needs to put
 // it in the Dock or on the Home Screen as an app of its own.
 const appHead = (title, icon, manifest) => `<!doctype html>
@@ -541,7 +567,13 @@ const COMPANION_HEAD = appHead('Companion', '/icons/icon-180.png', '/icons/compa
 const ARROW_HEAD = appHead('Arrow', '/icons/arrow-180.png', '/icons/arrow.webmanifest');
 const ARROW_OWN = ['bridge.js', 'lab.js', 'lessons-plus.js'];
 
-const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
+  '.applescript': 'text/plain' };
+// This dashboard's own address, as the browser (or claude.ai) reaches it.
+const originOf = (req) => {
+  const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || (process.env.RENDER ? 'https' : 'http');
+  return { proto, base: `${proto}://${req.headers['x-forwarded-host'] || req.headers.host}` };
+};
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -549,6 +581,7 @@ const server = createServer(async (req, res) => {
 
   try {
     await appKeyReady;
+    await mailKeyReady;
     /* ---- sign in ---- */
     if (path === '/api/login' && req.method === 'POST') {
       const key = clientKey(req);
@@ -577,7 +610,8 @@ const server = createServer(async (req, res) => {
     // gate made it unreachable for the desktop widgets it exists for.
     // /mcp/<token> carries its token in the URL, the way claude.ai custom
     // connectors are configured, and checks it itself below.
-    const publicPath = path.startsWith('/icons/') || path === '/api/widget' || path.startsWith('/mcp/');
+    // /mac/ holds the Mail rule script your Mac downloads: no secrets in it.
+    const publicPath = path.startsWith('/icons/') || path === '/api/widget' || path.startsWith('/mcp/') || path.startsWith('/mac/');
     // OAuth discovery probes from MCP clients: this server has no OAuth, and a
     // clean 404 says so (the static handler would answer 403 to a dot-path).
     if (path.startsWith('/.well-known/')) return send(res, 404, { error: 'not found' });
@@ -585,7 +619,9 @@ const server = createServer(async (req, res) => {
     // The key opens the app's API, but never the route that reveals the key.
     const appKey = Boolean(APP_KEY) && path.startsWith('/api/app/') && !path.startsWith('/api/app/connector')
       && equalish(bearer, APP_KEY.token);
-    if (authRequired() && !publicPath && !appKey && !validCookie(req.headers.cookie)) {
+    // the mail key hands one email in, and that is all it can do
+    const mailKey = Boolean(MAIL_KEY) && path === '/api/mail' && req.method === 'POST' && equalish(bearer, MAIL_KEY.token);
+    if (authRequired() && !publicPath && !appKey && !mailKey && !validCookie(req.headers.cookie)) {
       if (path.startsWith('/api/')) return send(res, 401, { error: 'sign in' });
       if (path === '/' || path.endsWith('.html') || path === '/companion' || path === '/arrow' || path === '/arrow/') {
         return send(res, 200, await readFile(join(ROOT, 'login.html')), 'text/html');
@@ -636,11 +672,33 @@ const server = createServer(async (req, res) => {
         try { APP_KEY = await rotateAppToken({ store: keyStore }); }
         catch (e) { return send(res, 409, { error: e.message }); }
       }
-      const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim()
-        || (process.env.RENDER ? 'https' : 'http');
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      return send(res, 200, { name: 'A Level Dashboard', url: `${proto}://${host}/mcp/${APP_KEY.token}`,
+      const { proto, base } = originOf(req);
+      return send(res, 200, { name: 'A Level Dashboard', url: `${base}/mcp/${APP_KEY.token}`,
         fromEnv: APP_KEY.fromEnv, https: proto === 'https' });
+    }
+    /* ---- school mail from your Mac (mac/school-mail.applescript, an Apple Mail rule) ---- */
+    if (path === '/api/mail' && req.method === 'POST') {
+      let f;
+      try { f = await readFields(req); } catch { return send(res, 400, { error: 'send the email as form fields or JSON' }); }
+      const messageId = String(f.id || f.messageId || '').slice(0, 300);
+      const out = await appApply({ ops: [{
+        id: 'mail-' + createHash('sha256').update(messageId || JSON.stringify([f.from, f.subject, f.date])).digest('hex').slice(0, 20),
+        type: 'mail.add', mail: { messageId, from: f.from, subject: f.subject, date: f.date, body: f.body } }] });
+      const r = out.results[0] || {};
+      return send(res, r.ok ? 200 : 400, r.ok ? { ok: true, mailId: r.mailId || null, already: Boolean(r.already || r.duplicate) } : { error: r.error });
+    }
+    // What your Mac needs: the address, the mail key and the script (the signed-in dashboard only)
+    if (path === '/api/mail/setup') {
+      if (req.method === 'POST') {
+        try { MAIL_KEY = await rotateMailToken({ store: keyStore }); }
+        catch (e) { return send(res, 409, { error: e.message }); }
+      }
+      const { proto, base } = originOf(req);
+      const S = await loadState();
+      return send(res, 200, { endpoint: `${base}/api/mail`, key: MAIL_KEY.token, fromEnv: MAIL_KEY.fromEnv,
+        script: `${base}/mac/school-mail.applescript`, https: proto === 'https',
+        waiting: (S.mail || []).filter((m) => !m.done).length, received: (S.mail || []).length,
+        last: (S.mail || []).slice(-1)[0]?.received || null });
     }
     if (path === '/api/app/attempt' && req.method === 'GET') {
       return send(res, 200, await appAttempt(Object.fromEntries(url.searchParams)));
