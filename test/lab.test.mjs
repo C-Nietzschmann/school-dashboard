@@ -33,8 +33,27 @@ test('marking: values must be right, words need only be close, prompts are not m
   assert.equal(Lab.sameOutput('Parcel refused - to heavy', 'Parcel refused - too heavy').ok, true);
   assert.equal(Lab.sameOutput('Invalid weight', 'Charge: 3.5').ok, false);
   assert.equal(Lab.sameOutput('Charge: 3.50', 'Charge: 3.5').ok, true, '3.50 and 3.5 are the same value');
-  assert.equal(Lab.sameOutput('3 pound 45 p', '3 pounds 45 pence').ok, true, 'numbers right: the words are only labels');
-  assert.equal(Lab.sameOutput('Too heavy', 'Parcel refused - too heavy').ok, false, 'no numbers: most words must be there');
+  assert.equal(Lab.sameOutput('3 pound 45 pense', '3 pounds 45 pence').ok, true, 'a spelling slip');
+  assert.equal(Lab.sameOutput('3 pound 45 p', '3 pounds 45 pence').ok, false, 'an abbreviation is not a spelling slip');
+  assert.equal(Lab.sameOutput('Too heavy', 'Parcel refused - too heavy').ok, false, 'every word must be there');
+  // meaning is never forgiven: different words that happen to be close, and NOT
+  for (const [got, want] of [['Valid', 'Invalid'], ['Invalid', 'Valid'], ['5 is odd', '5 is even'], ['Record 5 found', 'Record 5 not found'],
+    ['Record 5 not found', 'Record 5 found'], ['Pass', 'Fail'], ['Weekday', 'Weekend']]) assert.equal(Lab.sameOutput(got, want).ok, false, `${got} / ${want}`);
+});
+
+test("the school's own marking.js gives the same answers, and no two hidden cases of a question pass for each other", () => {
+  const school = {};
+  vm.runInNewContext(readFileSync(new URL('../arrow/site/marking.js', import.meta.url), 'utf8'), { window: school, globalThis: school });
+  const pairs = [['Enter a number of seconds: \n1 hour(s) 2 minute(s) 5 secound(s)', 'Enter a number of seconds: \n1 hour(s) 2 minute(s) 5 second(s)'],
+    ['Valid', 'Invalid'], ['5 is odd', '5 is even'], ['Record 5 found', 'Record 5 not found'], ['Charge: 3.50', 'Charge: 3.5'], ['3 pound 45 p', '3 pounds 45 pence']];
+  for (const [got, want] of pairs) assert.equal(school.ArrowMarking.sameOutput(got, want).ok, Lab.sameOutput(got, want).ok, `${got} / ${want}`);
+  for (const [id, spec] of Object.entries(ctx.TESTS)) {
+    const base = [...(ctx.QUESTIONS_ALEVEL || []), ...(ctx.QUESTIONS_IGCSE || []), ...(ctx.QUESTIONS_EXTRA || [])].find((q) => q.id === id)?.run || {};
+    const setup = (t) => JSON.stringify([t.setup ?? base.setup ?? '', t.harness ?? base.harness ?? '']);
+    spec.tests.forEach((a, i) => spec.tests.forEach((b, j) => {
+      if (j > i && a.out !== b.out && setup(a) === setup(b)) assert.equal(Lab.sameOutput(a.out, b.out).ok || Lab.sameOutput(b.out, a.out).ok, false, `${id} cases ${i + 1} and ${j + 1}`);
+    }));
+  }
 });
 
 test("lesson examples: run as they are, with OUTPUT added, after the ones above, or completed by you", () => {

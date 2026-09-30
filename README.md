@@ -196,9 +196,11 @@ leaving Assignment Arrow's files as they are:
 
 - **A terminal.** Run it shows the output as the program goes and asks for each INPUT in the terminal itself.
   The program is simply run again with the answers typed so far, so a RANDOM value stays put while you type.
-- **Fair marking.** The hidden test cases still decide, but a line passes when its values are right and its words
-  are close: a spelling slip, other prompt wording or no prompt at all no longer costs marks. Numbers and
-  TRUE/FALSE must match, and a line with no numbers needs most of its words.
+- **Fair marking.** The hidden test cases still decide, but a line passes when its values are right and every
+  word is there, allowing a spelling slip (same first letter, a letter or two out): a spelling slip, other
+  prompt wording or no prompt at all no longer costs marks. Numbers, TRUE/FALSE and "not" must match, so
+  "Valid" is not "Invalid". The school's site now marks this way too (its `marking.js`); a copy built from
+  it uses that, and `lab.js` only takes over for a copy built from an older Assignment Arrow.
 - **Lessons to do.** Every example has **Try it** (edit and run it; a fragment says **Complete it**). Each A Level
   lesson has "Your turn" exercises: predict the output, fill the gaps, write it, quick checks. They are checked as
   you go, and the lesson's closing check gets a box for your answer. A lesson has a timer and **Complete lesson**
