@@ -265,6 +265,8 @@ section.tab.on{display:block}
 .q{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;padding:11px 12px 11px 6px;border-top:1px solid var(--rule)}
 .q:first-child{border-top:0}
 .q-label{font-family:var(--mono);font-weight:500;text-align:right;padding-top:2px}
+a.q-label{color:var(--pen);text-decoration:underline;text-underline-offset:2px}
+.aa-done{color:var(--tick);font-weight:600}
 .q-mark{font-family:var(--hand);font-size:22px;line-height:1}
 .q-mark.ok{color:var(--tick)}
 .q-mark.no{color:var(--pen)}
@@ -1527,7 +1529,12 @@ const worksheetOf = (id) => worksheetList().find((w) => w.id === id) || null;
 // Worksheets to answer: unanswered ones first, the ones planned soonest before the rest.
 // A chapter of Assignment Arrow: done and marked there, and logged here by it.
 const isArrow = (w) => w?.source === 'arrow';
-const arrowLink = (w, cls = 'btn sm') => (w?.fileUrl ? `<a class="${cls}" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">Open Assignment Arrow</a>` : '');
+// the chapter's first question you have not done, by its name in Assignment Arrow
+const arrowNext = (w) => (isArrow(w) && (w.labels || []).find((q) => !w.doneQuestions?.[q])) || null;
+// Assignment Arrow opened at one question (#Q10), or at the chapter (#arrays)
+const arrowHref = (w, q) => `${w.fileUrl}#${encodeURIComponent(q || String(w.id).replace(/^aa-/, ''))}`;
+const arrowLink = (w, cls = 'btn sm', q = arrowNext(w)) => (w?.fileUrl
+  ? `<a class="${cls}" href="${esc(arrowHref(w, q))}" target="_blank" rel="noopener">${q ? `Open ${esc(q)}` : 'Open Assignment Arrow'}</a>` : '');
 function answerable() {
   const next = (w) => (w.planned || []).find((p) => !p.done)?.date || '9999';
   return worksheetList().filter((w) => !isArrow(w)).sort((a, b) => (a.attempts?.length ? 1 : 0) - (b.attempts?.length ? 1 : 0)
@@ -2424,7 +2431,7 @@ function planWorksheet(wid, date, key) {
   toast(`Planned for ${date === nowISO() ? 'today' : fmtDay(date)} at ${sp.start}.`);
 }
 // How much of a worksheet is done: from marked answers, or what you said when logging.
-const wsProgress = (w) => (w?.questionCount ? `${w.done || 0} of ${w.questionCount} done · ${w.left ?? w.questionCount} left`
+const wsProgress = (w) => (w?.questionCount ? `${w.done || 0} of ${w.questionCount} done · ${arrowNext(w) ? `next: ${arrowNext(w)}` : `${w.left ?? w.questionCount} left`}`
   : w?.done ? `${w.done} question${w.done === 1 ? '' : 's'} done` : '');
 // Worksheets not finished yet: any of them can go into a study period.
 const openWorksheets = () => worksheetList().filter((w) => (w.questionCount ? (w.left ?? w.questionCount) > 0 : !w.attempts?.length));
@@ -3733,7 +3740,7 @@ function worksheetSheet(w, full, loading = false) {
   return `<div class="sheet-h"><h2>${esc(w.title)}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="meta" style="margin-bottom:10px"><span class="dot" style="--c:${colourOf(w.subjectId)}"></span>${esc(subjectName(w.subjectId))}
       ${w.topicIds?.length ? '· ' + w.topicIds.map((t) => esc(topicOf(t)?.name || t)).join(', ') : ''} · saved ${esc(fmtDay(w.date))}</div>
-    <div class="row" style="margin-bottom:14px">${isArrow(w) ? `${arrowLink(w)}<span class="muted" style="font-size:13px">A chapter of Assignment Arrow — questions you finish there are logged here by themselves.</span>` : `
+    <div class="row" style="margin-bottom:14px">${isArrow(w) ? `${arrowLink(w)}<span class="muted" style="font-size:13px">A chapter of Assignment Arrow, with the same question numbers: Practice → ${esc(String(w.title).replace(/^Assignment Arrow · /, ''))}. Press Complete on a question there and it is logged here.</span>` : `
       ${w.folderUrl ? `<a class="btn sm" href="${esc(w.folderUrl)}" target="_blank" rel="noopener">Folder in Drive</a>` : '<span class="muted" style="font-size:13px">Not in Drive</span>'}
       ${w.fileUrl && w.fileUrl !== w.folderUrl ? `<a class="btn sm ghost" href="${esc(w.fileUrl)}" target="_blank" rel="noopener">The sheet</a>` : ''}`}</div>
     ${w.questionCount ? `<div class="task-meta" style="margin-bottom:4px">${esc(wsProgress(w))}</div>
@@ -3748,10 +3755,16 @@ function worksheetSheet(w, full, loading = false) {
       <button class="btn sm" data-act="ws-plan" data-id="${esc(w.id)}">Plan into a study period</button></div>
     ${planned.length ? `<div class="eyebrow">Planned</div><div style="margin:4px 0 14px;font-size:14px">${planned.map((p) =>
       `${esc(fmtDay(p.date))} ${esc(String(p.key).replace(/^x/, ''))}${p.done ? ' ✓' : ''}`).join(' · ')}</div>` : ''}
-    <details${qs.length && !atts.length ? ' open' : ''}><summary class="eyebrow" style="cursor:pointer">Questions · ${w.questionCount ?? qs.length}${w.maxMarks ? ` · ${fmtN(w.maxMarks)} marks` : ''}</summary>
+    <details${(qs.length && !atts.length) || isArrow(w) ? ' open' : ''}><summary class="eyebrow" style="cursor:pointer">Questions · ${w.questionCount ?? qs.length}${w.maxMarks ? ` · ${fmtN(w.maxMarks)} marks` : ''}</summary>
       ${loading ? '<div class="muted" style="font-size:13px;margin-top:6px">Fetching…</div>'
-        : qs.length ? `<div class="page" style="margin-top:8px">${qs.map((q) => `<div class="q"><div class="q-label">${esc(q.q)}</div>
-            <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}</div></div></div>`).join('')}</div>`
+        : qs.length ? `<div class="page" style="margin-top:8px">${qs.map((q) => {
+            // Assignment Arrow: its number opens that question there; ticked with your best marks once done
+            const d = isArrow(w) ? w.doneQuestions?.[q.q] : null;
+            const label = isArrow(w) && w.fileUrl ? `<a class="q-label" href="${esc(arrowHref(w, q.q))}" target="_blank" rel="noopener">${esc(q.q)}</a>` : `<div class="q-label">${esc(q.q)}</div>`;
+            return `<div class="q">${label}
+            <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}${d
+              ? ` · <span class="aa-done">✓ done${d.max ? ` · ${fmtN(d.marks)}/${fmtN(d.max)}` : ''}</span>` : isArrow(w) && q.q === arrowNext(w) ? ' · next' : ''}</div></div></div>`;
+          }).join('')}</div>`
         : w.pending ? `<div class="muted" style="font-size:13px;margin-top:6px">Not uploaded yet. When you've done it, tap <b>Add my answers</b> and photograph the booklet and your answers together.</div>`
         : `<div class="muted" style="font-size:13px;margin-top:6px">Its questions were not read when it was saved — Claude looks at the sheet itself when marking.</div>
           <button class="btn sm" style="margin-top:6px" data-act="chat-ws" data-id="${esc(w.id)}">Have Claude read them in a chat</button>`}

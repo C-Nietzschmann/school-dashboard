@@ -179,10 +179,17 @@ rules live in `lib/plan.mjs`, which the dashboard page shares.
 **Assignment Arrow, your own copy.** [Assignment Arrow](https://github.com/C-Nietzschmann/assignment-arrow)
 is a pseudocode trainer for Cambridge 9618 and 0478. `arrow/build.mjs` makes a private copy of it with
 `arrow/bridge.js` added; the site itself is not changed. In that copy, each chapter of practice questions is a
-worksheet on the dashboard. A question you finish there moves its chapter on (done and left), and the time you
-spent goes into the study period you are in, or a study session of its own, as one entry per chapter. That
-entry grows as you do more, and the chapter's topic level moves with your marks. Only one chapter at a time is
-suggested for a free period.
+worksheet on the dashboard. Each question gets a timer that starts when you open it, which you can pause (it also
+stops while the app is in the background), and a **Complete** button. Complete sends the question and its time
+into the study period you are in, or a study session of its own, as one entry per chapter that names its
+questions ("Q01, Q03 · 6/8 marks"). You don't need to plan it in the companion first. A question you marked but
+never completed is completed for you when you open another one, or after half an hour. Exam mode logs a whole
+paper when it is marked, timed from Start. The chapter's topic level moves with your marks, and only one
+chapter at a time is suggested for a free period.
+
+The companion lists each chapter's questions under Assignment Arrow's own numbers, ticked with your best marks
+once done, and names the next one ("next: Q10"). Each number, and the **Open Q10** button, is a link that
+opens that question in Assignment Arrow (`#Q10`; `#arrays` opens a chapter).
 
 ```
 git clone --depth 1 https://github.com/C-Nietzschmann/assignment-arrow /tmp/aa
@@ -206,8 +213,9 @@ lives in `arrow/site/`. After Assignment Arrow changes, rebuild it and commit:
 node arrow/build.mjs /tmp/aa arrow/site --site
 ```
 
-That copy's address goes on each chapter's worksheet, so the companion's **Open Assignment Arrow** opens it.
-Each copy keeps its own saved progress, and the dashboard keeps the higher done count of the two.
+That copy's address goes on each chapter's worksheet, so the companion's **Open** buttons open it.
+Each copy keeps its own saved progress, and the dashboard merges which questions each has done, keeping
+the best marks.
 
 **Question packs.** In a Claude Code session opened in this folder, `/question-pack maths`
 (or `fmaths`, `physics`, `cs`) runs the skill in `.claude/skills/question-pack/`. It asks

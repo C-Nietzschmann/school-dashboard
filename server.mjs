@@ -376,7 +376,7 @@ const mcp = createMcpServer({
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
         + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
         + 'worksheet.add {worksheet:{id?, title, subjectId, topicIds, folderId?, folderUrl?, fileId?, fileUrl?, pending? (true = added by name, booklet comes later with the answers), questionCount?}, '
-        + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch? (incl. doneCount = questions done so far), questions?, summary?} '
+        + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch? (incl. doneCount = questions done so far; doneQuestions {label: {marks, max}} = which are done, best marks kept), questions?, summary?} '
         + '(questions replace the saved ones — for a sheet saved without being read); '
         + 'worksheet.delete {worksheetId}; worksheet.recount {worksheetId?} (counts questions again by number — 1a and 1b are one question); '
         + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, worksheetId?, kind: answers|notes|worksheet|test, '
