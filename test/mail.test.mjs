@@ -88,12 +88,23 @@ test('the day shows waiting emails to any chat; old ones do not pile up', async 
   await applyOps(S, [email(1)], { date: MONDAY, store });
   const sum = summarize(todayPayload(S, { date: MONDAY }));
   assert.deepEqual(sum.waitingToBeRead.map((w) => [w.id, w.kind, w.title]), [['mail', 'mail', '1 school email']]);
-  // at most 60 wait: a flood drops the oldest, text and all
-  const ops = Array.from({ length: 64 }, (_, i) => email(i + 10));
+  // a rule applied to a whole mailbox: mail from long ago is not kept at all
+  const old = await applyOps(S, [email(2, { date: '2026-06-01' })], { date: MONDAY, store });
+  assert.match(old.results[0].skipped, /older than 45 days/);
+  // at most 150 wait: Mail sends the newest first, and a flood drops the oldest BY DATE, text and all
+  const day = (n) => isoDay(MONDAY, -Math.floor(n / 5));                  // 5 a day, going back
+  const ops = Array.from({ length: 170 }, (_, i) => email(i + 10, { date: day(i) }));
   for (let i = 0; i < ops.length; i += 50) await applyOps(S, ops.slice(i, i + 50), { date: MONDAY, store });
-  assert.equal(S.mail.filter((m) => !m.done).length, 60);
-  assert.equal([...docs.keys()].filter((k) => k.startsWith('mail-')).length, 60);
+  const waiting = S.mail.filter((m) => !m.done);
+  assert.equal(waiting.length, 150);
+  assert.equal([...docs.keys()].filter((k) => k.startsWith('mail-')).length, 150);
+  assert.ok(waiting.some((m) => m.date === MONDAY), 'the newest are kept');
+  assert.ok(!waiting.some((m) => m.date === day(169)), 'the oldest went');
+  // and the reader gets the newest first
+  const batch = JSON.parse((await readQueue(S, {}, store))[0].text);
+  assert.equal(batch.emails[0].date, MONDAY);
 });
+const isoDay = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 test("a chat's worksheets to do are school ones, not Assignment Arrow's practice chapters and lessons", async () => {
   const { S, store } = fresh();
