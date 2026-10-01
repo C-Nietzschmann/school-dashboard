@@ -84,7 +84,7 @@ header.top.hide{transform:translateY(-105%)}
 @keyframes pulse{50%{opacity:.35}}
 
 nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px))}
+  display:grid;grid-template-columns:repeat(6,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px))}
 nav.tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;
   padding:5px 0;border-radius:10px;color:var(--muted);font-size:11.5px;font-weight:500}
 nav.tabbar button svg{width:22px;height:22px}
@@ -186,6 +186,28 @@ section.tab.on{display:block}
 .pack-ms div{white-space:pre-wrap;margin-top:4px}
 .task-title{overflow-wrap:anywhere}
 .task-meta{font-size:12.5px;color:var(--text-2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.paper-cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.paper-card{display:grid;gap:10px}
+.paper-card .grade,.paper-row .grade{font-family:var(--mono);font-weight:500}
+.paper-card .grade{font-size:15px;border:1px solid var(--line-strong);border-radius:8px;padding:2px 9px;color:var(--text)}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pstats div{display:grid;gap:1px;min-width:0}
+.pstats b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:500;color:var(--text)}
+.spark{display:block;width:100%;height:auto;max-width:100%}
+.spark .grid{stroke:var(--line);stroke-width:1}
+.spark .target{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 4}
+.spark .axis{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.spark .val{fill:var(--text);font-family:var(--mono);font-size:11px;font-weight:500}
+.spark .mark{stroke:var(--surface);stroke-width:2}
+.paper-list{display:grid}
+.paper-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;
+  border:0;border-top:1px solid var(--line);background:none;padding:10px 2px;color:inherit;font:inherit;cursor:pointer}
+.paper-row:first-child{border-top:0}
+.paper-main{display:grid;gap:2px;min-width:0}
+.paper-name{font-weight:500;overflow-wrap:anywhere}
+.paper-score{display:grid;justify-items:end;gap:1px;white-space:nowrap}
+.paper-score .pct{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:500}
+.paper-score .muted{font-size:12px}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -352,6 +374,8 @@ a.q-label{color:var(--pen);text-decoration:underline;text-underline-offset:2px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14l2 2 4-4"/></svg>Work</button>
       <button role="tab" data-tab="history" aria-selected="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5M12 8v4.5l3 2"/></svg><span>History<span class="badge" id="mistakeBadge" hidden></span></span></button>
+      <button role="tab" data-tab="papers" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 17l2.5-3 2 2 2.5-4"/></svg>Papers</button>
       <button role="tab" data-tab="skills" aria-selected="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V13M12 20V8M19 20V4"/></svg>Skills</button>
       <button role="tab" data-tab="route" aria-selected="false">
@@ -364,6 +388,7 @@ a.q-label{color:var(--pen);text-decoration:underline;text-underline-offset:2px}
   <section class="tab on" id="tab-today" role="tabpanel"></section>
   <section class="tab" id="tab-work" role="tabpanel"></section>
   <section class="tab" id="tab-history" role="tabpanel"></section>
+  <section class="tab" id="tab-papers" role="tabpanel"></section>
   <section class="tab" id="tab-skills" role="tabpanel"></section>
   <section class="tab" id="tab-route" role="tabpanel"></section>
 </main>
@@ -440,6 +465,7 @@ const APP = {
   work: { stage: 'idle', pages: [], hint: { subjectId: '', homeworkId: '' }, tier: LS.get('tier', 'quick'),
     mode: LS.get('workMode', 'worksheet'), worksheetId: '', where: LS.get('workWhere', 'class'), minutes: null },
   history: { view: 'mistakes', subject: '' },
+  papers: { subject: '', where: '' },
   details: {},            // attempt id -> full marking, fetched on demand
   sheets: {},             // worksheet id -> its questions, fetched on demand
   skillsOpen: null,
@@ -790,6 +816,18 @@ const LOCAL = {
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
   'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
   'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
+  'paper.add': (d, op) => {
+    const p = op.paper;
+    if ((d.papers ||= []).some((x) => x.id === p.id)) return;
+    d.papers.unshift(withPct({ ...p }));
+    d.papers.sort((a, b) => b.date.localeCompare(a.date));
+  },
+  'paper.update': (d, op) => {
+    const p = d.papers?.find((x) => x.id === op.paperId);
+    if (p) withPct(Object.assign(p, op.patch));
+    d.papers?.sort((a, b) => b.date.localeCompare(a.date));
+  },
+  'paper.delete': (d, op) => { d.papers = (d.papers || []).filter((x) => x.id !== op.paperId); },
   'test.result': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) t.result = Math.round(op.mark / op.total * 100); },
   'mistake.resolve': (d, op) => {
     d.mistakes = d.mistakes.filter((m) => !(m.attemptId === op.attemptId && String(m.q) === String(op.q)));
@@ -828,7 +866,7 @@ function renderNow() {
   document.querySelectorAll('nav.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === APP.tab)));
   document.querySelectorAll('section.tab').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + APP.tab));
   const host = $('#tab-' + APP.tab);
-  host.innerHTML = ({ today: viewToday, work: viewWork, history: viewHistory, skills: viewSkills, route: viewRoute })[APP.tab]?.() ?? viewToday();
+  host.innerHTML = ({ today: viewToday, work: viewWork, history: viewHistory, papers: viewPapers, skills: viewSkills, route: viewRoute })[APP.tab]?.() ?? viewToday();
 
   for (const [id, [v, pos]] of Object.entries(keep)) {
     const el = document.getElementById(id);
@@ -1602,11 +1640,15 @@ function viewWork() {
 
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
   const forTask = w.mode === 'other' && w.hint.homeworkId ? taskOf(w.hint.homeworkId) : null;
+  const forPaper = w.mode === 'other' && w.paperKind;
   return `<div class="stack">
     ${w.pages.length ? '' : readingPanel()}
     ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. ${ws.pending
       ? 'Photograph the question booklet <b>and</b> your answer pages together, in any order'
       : 'Photograph your answer pages — as many as you need —'} then tap <b>Mark my answers</b>.</div>` : ''}
+    ${forPaper ? `<div class="notice">Adding ${w.paperName ? `<b>${esc(w.paperName)}</b>` : 'a paper'}: add its pages, then
+      <b>Mark it and file it</b>. Claude marks it, and the score goes in your Papers log as a ${esc(paperKindName(w.paperKind).toLowerCase())}
+      ${w.where === 'home' ? 'done at home' : 'done at school'}.</div>` : ''}
     ${forTask ? `<div class="notice">Adding work to the to-do <b>${esc(forTask.title)}</b>. Add the pages, then choose
       <b>Mark it and file it</b> or <b>Just file it</b>. <button class="btn ghost sm" data-act="task-unlink">Not for this to-do</button></div>` : ''}
     <div class="card">
@@ -1976,6 +2018,8 @@ function markReviewView() {
           <label class="field"><span>What it is</span><select id="rKind">${Object.entries(KINDS).map(([k, v]) =>
             `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
         </div>`}
+        ${ws ? '' : `<div class="field" id="rPaperKind" ${r.kind === 'test' ? '' : 'hidden'}><span>In your Papers log as</span>
+          <div class="seg">${PAPER_KINDS_UI.map(([k, v]) => `<button type="button" data-rpk="${k}" aria-pressed="${(r.paperKind || 'past') === k}">${v}</button>`).join('')}</div></div>`}
         ${topicsField(r)}
         ${ws ? '' : `<label class="field"><span>Assignment</span><select id="rHw"><option value="">Not an assignment</option>
           ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === r.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>`}
@@ -2104,6 +2148,7 @@ function savedView(s) {
       ${s.correctionsUrl ? `<a class="btn" href="${esc(s.correctionsUrl)}" target="_blank" rel="noopener">Corrections in Drive</a>` : ''}
       ${s.url ? `<a class="btn${s.correctionsUrl ? ' ghost' : ''}" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
       ${s.worksheetId ? `<button class="btn ghost" data-act="open-ws" data-id="${esc(s.worksheetId)}">The worksheet</button>` : ''}
+      ${s.paper ? '<button class="btn" data-act="tab" data-tab="papers">See it in Papers</button>' : ''}
       ${s.max && s.score < s.max && !s.worksheetId ? '<button class="btn" data-act="tab" data-tab="history">See the mistakes</button>' : ''}
       <span class="spacer"></span><button class="btn primary" data-act="work-reset">Add more work</button>
     </div>
@@ -3120,6 +3165,7 @@ async function analyse(force = false) {
 }
 function startReview(a) {
   APP.work.review = stampWhere(JSON.parse(JSON.stringify(a)), a.mode === 'notes' ? (a.readPages || readUnits(APP.work).length) : pageUnits(APP.work).length || APP.work.pages.length);
+  paperReview(APP.work.review);
   APP.work.stage = 'review';
   APP.work.dest = null;
   render();
@@ -3137,6 +3183,7 @@ function fileOnly(markLater = false) {
     kind: mode === 'worksheet' ? 'worksheet' : markLater ? 'answers' : 'notes', title: ws ? 'Answers — ' + ws.title : defaultTitle(),
     questions: [], summary: '', keyPoints: [], nextSteps: [], detected: null };
   stampWhere(w.review, 0);
+  paperReview(w.review);
   w.stage = 'review';
   w.dest = null;
   render();
@@ -3548,6 +3595,7 @@ async function saveWork(noDrive = false) {
       kind: ws ? 'answers' : ['answers', 'test'].includes(r.kind) ? r.kind : 'answers', worksheetId: ws?.id || null,
       driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '', folderId: info?.folderId || null, ownCopy,
       mime: info?.mime || '', pages, hash: w.hash, where: r.where };
+    if (attachment.kind === 'test') attachment.paperKind = r.paperKind || 'past';
     w.saved = { mode: 'marklater', where: r.where, minutes: r.minutes, title: r.title, subjectId, worksheetId: ws?.id || null, url: info?.url || null, folder: info?.folder || null,
       chat: chatAsk('mark', { worksheet: ws, subjectId }),
       queue: { kind: 'mark', units: pageUnits(w).slice(0, QUEUE_PAGES.mark),
@@ -3613,7 +3661,7 @@ async function saveWork(noDrive = false) {
     attachment: { id: attachmentId, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
       kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
       folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash,
-      ...(r.where ? { where: r.where } : {}) },
+      ...(r.where ? { where: r.where } : {}), ...(kind === 'test' ? { paperKind: r.paperKind || 'past' } : {}) },
     study: r.where === 'home' && r.minutes ? { minutes: r.minutes } : undefined,
     notes: kind === 'notes' ? { summary: r.summary || '', keyPoints: r.keyPoints || [], fileName: w.pages[0]?.name || '',
       pageCount: pages, readPages: r.readPages || (r.detected ? pages : 0), firstSig: sigs[0] || undefined, pageSigs: sigs } : undefined,
@@ -3624,6 +3672,7 @@ async function saveWork(noDrive = false) {
   w.saved = { mode: r.mode, where: r.where, minutes: r.minutes, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
     nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
     url: info?.url || null, folder: info?.folder || null, weakTopics, noteId: kind === 'notes' ? attachmentId : null,
+    paper: kind === 'test' && max > 0 && Boolean(r.subjectId),
     chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null,
     queue: kind === 'notes' && !r.readLabel && !r.detected ? { kind: 'notes', units: pageUnits(w).slice(0, QUEUE_PAGES.notes),
       x: { id: attachmentId, targetId: attachmentId, title: r.title, subjectId: r.subjectId, pages, files: driveFiles(w, info), where: r.where, minutes: r.minutes } } : null };
@@ -4018,6 +4067,156 @@ function viewSkills() {
   </div>`;
 }
 
+/* ================================================================= papers
+   Past papers, school tests and mocks you sat, at school or at home: what you
+   got, paper by paper, and where that puts you. */
+const PAPER_KINDS_UI = [['past', 'Past paper'], ['test', 'School test'], ['mock', 'Mock']];
+const PAPER_WHERE_UI = [['school', 'At school'], ['home', 'At home']];
+const paperKindName = (k) => (PAPER_KINDS_UI.find(([x]) => x === k) || [, 'Paper'])[1];
+const pctText = (v) => (v == null ? '–' : `${Math.round(v)}%`);
+
+function viewPapers() {
+  const d = APP.data;
+  if (!d) return noData();
+  const f = APP.papers;
+  const all = d.papers || [];
+  const keep = (p) => (!f.subject || p.subjectId === f.subject) && (!f.where || p.where === f.where);
+  const list = all.filter(keep);
+  const where = `<div class="seg" id="pWhere">${[['', 'All'], ['school', 'School'], ['home', 'Home']].map(([v, l]) =>
+    `<button type="button" data-pfilter="${v}" aria-pressed="${f.where === v}">${l}</button>`).join('')}</div>`;
+  const subs = subjects().filter((s) => list.some((p) => p.subjectId === s.id));
+  return `<div class="stack">
+    <div class="card">
+      <div class="card-h"><h2>Papers <span class="count">${all.length}</span></h2>
+        <button class="btn sm primary" data-act="paper-new">Log a paper</button></div>
+      <p class="muted" style="font-size:13.5px;margin:0 0 10px">Past papers, school tests and mocks you sat, at school or at home.
+        Every score moves your projected grade.</p>
+      <div class="row"><select id="pSubj" style="width:auto">${subjectOptions(f.subject, 'All subjects')}</select>${where}</div>
+    </div>
+    ${subs.length ? `<div class="paper-cards">${subs.map((s) => paperCard(s, list.filter((p) => p.subjectId === s.id), d.paperStats?.[s.id])).join('')}</div>` : ''}
+    <div class="card">
+      <div class="card-h"><h2>Every paper</h2><span class="count">${list.length}</span></div>
+      ${list.length ? `<div class="paper-list">${list.map(paperRow).join('')}</div>`
+        : `<div class="empty">${all.length ? 'Nothing matches these filters.' : 'No papers yet. Log one you did at school or at home, or upload a paper in Work and choose “Test paper”: Claude marks it and it lands here.'}</div>`}
+    </div>
+  </div>`;
+}
+
+// One subject: its numbers for the papers shown, and the line of its scores.
+function paperCard(s, ps, st) {
+  const avg = ps.reduce((a, p) => a + p.pct, 0) / ps.length;
+  const best = Math.max(...ps.map((p) => p.pct));
+  const target = st?.targetPct ?? null;
+  return `<div class="card paper-card">
+    <div class="row"><span class="dot" style="--c:${s.colour}"></span><h2 style="font-size:16px;flex:1">${esc(s.name)}</h2>
+      ${st?.grade ? `<span class="eyebrow">Projected grade</span><span class="grade">${esc(st.grade)}</span>` : ''}</div>
+    <div class="pstats">
+      <div><span class="eyebrow">Last</span><b>${pctText(ps[0].pct)}</b></div>
+      <div><span class="eyebrow">Average</span><b>${pctText(avg)}</b></div>
+      <div><span class="eyebrow">Best</span><b>${pctText(best)}</b></div>
+      <div><span class="eyebrow">Projected</span><b>${pctText(st?.projected)}</b></div>
+    </div>
+    ${spark(ps.slice().reverse(), s.colour, target, st?.target)}
+    <div class="muted" style="font-size:12.5px">${ps.length} paper${ps.length === 1 ? '' : 's'}${target != null ? ` · target ${esc(st.target)} is ${target}%` : ''}
+      · projected from all your papers, recent ones counting most</div>
+  </div>`;
+}
+
+// Scores paper by paper (oldest left), on a fixed 0–100% scale so subjects compare.
+function spark(ps, colour, target, grade) {
+  const pts = ps.slice(-12);
+  const W = 320, H = 92, L = 30, R = 34, T = 8, B = 8;
+  const x = (i) => (pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1));
+  const y = (v) => T + (100 - v) * (H - T - B) / 100;
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.pct).toFixed(1)}`).join('');
+  const last = pts.at(-1);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Scores, oldest to newest: ${esc(pts.map((p) => Math.round(p.pct) + '%').join(', '))}">
+    ${[0, 50, 100].map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${L - 6}" y="${y(v) + 3.5}" class="axis" text-anchor="end">${v}</text>`).join('')}
+    ${target != null ? `<line x1="${L}" x2="${W - R}" y1="${y(target)}" y2="${y(target)}" class="target"/><text x="${W - R + 5}" y="${y(target) + 3.5}" class="axis">${esc(grade || '')} ${target}</text>` : ''}
+    ${pts.length > 1 ? `<path d="${line}" fill="none" stroke="${colour}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+    ${pts.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="4" fill="${colour}" class="mark"><title>${esc(p.name)} · ${esc(fmtDay(p.date))} · ${fmtN(p.mark)}/${fmtN(p.total)} = ${pctText(p.pct)}</title></circle>`).join('')}
+    ${target == null || Math.abs(target - last.pct) > 8 ? `<text x="${(x(pts.length - 1) + 7).toFixed(1)}" y="${(y(last.pct) + 3.5).toFixed(1)}" class="val">${pctText(last.pct)}</text>` : ''}
+  </svg>`;
+}
+
+function paperRow(p) {
+  const bits = [esc(subjectName(p.subjectId)), esc(fmtDay(p.date)), esc(paperKindName(p.kind))];
+  if (p.where) bits.push(p.where === 'school' ? 'at school' : 'at home');
+  if (p.minutes) bits.push(`${p.minutes} min`);
+  return `<button class="paper-row" data-act="paper-edit" data-id="${esc(p.id)}">
+    <span class="dot" style="--c:${colourOf(p.subjectId)}"></span>
+    <span class="paper-main"><span class="paper-name">${esc(p.name)}</span><span class="task-meta">${bits.join(' · ')}</span></span>
+    <span class="paper-score"><span class="pct">${pctText(p.pct)}</span><span class="mono muted">${fmtN(p.mark)}/${fmtN(p.total)}${p.grade ? ' · ' + esc(p.grade) : ''}</span></span>
+  </button>`;
+}
+
+function paperSheet(id) {
+  const ex = id && (APP.data.papers || []).find((p) => p.id === id);
+  const p = ex ? { ...ex } : { id: newId('p'), name: '', subjectId: APP.papers.subject || lessonSubjectNow() || '', date: nowISO(),
+    mark: '', total: '', where: LS.get('paperWhere', 'home'), kind: 'past', minutes: '', notes: '' };
+  SHEET.ctx = { kind: 'paper', isNew: !ex, paper: p };
+  const seg = (id, opts, val, attr) => `<div class="seg" id="${id}">${opts.map(([k, v]) => `<button type="button" ${attr}="${k}" aria-pressed="${val === k}">${v}</button>`).join('')}</div>`;
+  openSheet(`<div class="sheet-h"><h2>${ex ? 'Edit paper' : 'Log a paper'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <label class="field"><span>Paper</span><input id="pName" value="${esc(p.name)}" placeholder="June 2023 Paper 1"></label>
+      <div class="fields two">
+        <label class="field"><span>Subject</span><select id="pSubject">${subjectOptions(p.subjectId, 'Choose…')}</select></label>
+        <label class="field"><span>Date</span><input type="date" id="pDate" value="${esc(p.date)}"></label>
+      </div>
+      <div class="fields two">
+        <label class="field"><span>Your mark</span><input type="number" id="pMark" min="0" step="0.5" inputmode="decimal" value="${esc(p.mark)}"></label>
+        <label class="field"><span>Out of</span><input type="number" id="pTotal" min="1" step="0.5" inputmode="decimal" value="${esc(p.total)}"></label>
+      </div>
+      <div class="muted mono" id="pPct" style="font-size:13px;min-height:1.2em">${paperPctLine(p.mark, p.total)}</div>
+      <div class="field"><span>Where</span>${seg('pWhereSeg', PAPER_WHERE_UI, p.where, 'data-pwhere')}</div>
+      <div class="field"><span>What it was</span>${seg('pKindSeg', PAPER_KINDS_UI, p.kind, 'data-pkind')}</div>
+      <div class="fields two">
+        <label class="field"><span>Time it took</span><input type="number" id="pMins" min="1" max="600" step="5" inputmode="numeric" value="${esc(p.minutes || '')}" placeholder="minutes, optional"></label>
+        <label class="field"><span>Note</span><input id="pNotes" value="${esc(p.notes || '')}" placeholder="optional: timed, open book…"></label>
+      </div>
+      ${p.attemptId ? `<div class="muted" style="font-size:13px">Marked by Claude in Work. If you correct a mark in History, this score follows.${p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}</div>` : ''}
+      ${p.testId ? '<div class="muted" style="font-size:13px">The result of a test on your dashboard. Deleting it here clears that result.</div>' : ''}
+      <div class="row"><button class="btn primary" data-act="paper-save">Save</button>
+        ${ex ? '' : '<button class="btn ghost" data-act="paper-upload">Upload it for Claude to mark</button>'}
+        <span class="spacer"></span>
+        ${ex ? '<button class="btn danger" data-act="paper-delete" data-armed="0">Delete</button>' : ''}</div>
+    </div>`);
+}
+function paperPctLine(mark, total) {
+  const m = Number(mark), t = Number(total);
+  if (!(t > 0) || mark === '' || !(m >= 0)) return '';
+  if (m > t) return 'Your mark is more than the total.';
+  const pct = m / t * 100;
+  return `${fmtN(Math.round(pct * 10) / 10)}%${gradeOf(pct) ? ' · grade ' + gradeOf(pct) : ''}`;
+}
+const withPct = (p) => Object.assign(p, { pct: p.total > 0 ? Math.round(p.mark / p.total * 1000) / 10 : null, grade: p.total > 0 ? gradeOf(p.mark / p.total * 100) || null : null });
+// pages added from the Papers tab are a test paper, named as you named it there
+function paperReview(r) {
+  const w = APP.work;
+  if (!w.paperKind || !r || r.mode === 'worksheet' || r.mode === 'notes' || r.worksheetId) return;
+  r.kind = 'test';
+  r.paperKind = w.paperKind;
+  if (w.paperName) r.title = w.paperName;
+}
+// the dashboard's grade boundaries, the same ones its On track tab uses
+function gradeOf(pct) {
+  const b = Object.entries(APP.data?.boundaries || {}).sort((x, y) => y[1] - x[1]);
+  if (!b.length) return '';
+  for (const [g, cut] of b) if (pct >= cut) return g;
+  return 'U';
+}
+function readPaperFields() {
+  const p = SHEET.ctx.paper;
+  p.name = $('#pName')?.value.trim() ?? p.name;
+  p.subjectId = $('#pSubject')?.value ?? p.subjectId;
+  p.date = $('#pDate')?.value || p.date;
+  p.mark = $('#pMark')?.value ?? p.mark;
+  p.total = $('#pTotal')?.value ?? p.total;
+  p.minutes = $('#pMins')?.value ?? p.minutes;
+  p.notes = $('#pNotes')?.value.trim() ?? p.notes;
+  return p;
+}
+
 function testsFull(d) {
   const tests = d.tests.slice().sort((a, b) => a.date.localeCompare(b.date));
   const today = nowISO();
@@ -4394,6 +4593,34 @@ document.addEventListener('click', (e) => {
     /* skills */
     case 'skills-open': APP.skillsOpen = APP.skillsOpen === t.dataset.id ? null : t.dataset.id; return render();
     case 'test-new': return testSheet(null);
+    case 'paper-new': return paperSheet(null);
+    case 'paper-edit': return paperSheet(t.dataset.id);
+    case 'paper-save': {
+      const p = readPaperFields();
+      const mark = Number(p.mark), total = Number(p.total);
+      if (!p.subjectId) return toast('Choose the subject.');
+      if (p.mark === '' || !(total > 0) || !(mark >= 0) || mark > total) return toast('Enter your mark and what it was out of.');
+      const paper = { name: p.name || 'Paper', subjectId: p.subjectId, date: p.date, mark, total, where: p.where, kind: p.kind,
+        minutes: Number(p.minutes) > 0 ? Number(p.minutes) : null, notes: p.notes || '' };
+      LS.set('paperWhere', p.where);
+      if (SHEET.ctx.isNew) send({ type: 'paper.add', paper: { id: p.id, ...paper } });
+      else send({ type: 'paper.update', paperId: p.id, patch: paper });
+      return closeSheet();
+    }
+    case 'paper-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      send({ type: 'paper.delete', paperId: SHEET.ctx.paper.id });
+      return closeSheet();
+    case 'paper-upload': {
+      // the pages, marked by Claude: the score lands in Papers by itself
+      const p = readPaperFields();
+      closeSheet();
+      if (APP.work.stage === 'saved') resetWork();
+      if (APP.work.stage === 'idle') Object.assign(APP.work, { hint: { subjectId: p.subjectId || '', homeworkId: '' }, mode: 'other', modeChosen: true,
+        paperKind: p.kind, paperName: p.name, where: p.where === 'school' ? 'class' : 'home', already: null, error: null });
+      APP.tab = 'work'; LS.set('tab', APP.tab); window.scrollTo(0, 0);
+      return render();
+    }
     case 'test-edit': return testSheet(t.dataset.id);
     case 'unit-add': {
       readTestFields();
@@ -4421,6 +4648,11 @@ document.addEventListener('click', (e) => {
   }
 
   /* segmented controls inside sheets and the work form */
+  const press = () => t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+  if (t.dataset.pfilter !== undefined) { APP.papers.where = t.dataset.pfilter; return render(); }
+  if (t.dataset.pwhere && SHEET.ctx?.kind === 'paper') { SHEET.ctx.paper.where = t.dataset.pwhere; return press(); }
+  if (t.dataset.pkind && SHEET.ctx?.kind === 'paper') { SHEET.ctx.paper.kind = t.dataset.pkind; return press(); }
+  if (t.dataset.rpk && APP.work.review) { APP.work.review.paperKind = t.dataset.rpk; return press(); }
   if (t.dataset.prio) { t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.conf) { SHEET.ctx.conf = Number(t.dataset.conf); t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
   if (t.dataset.kind && SHEET.ctx?.kind === 'test') { SHEET.ctx.test.kind = t.dataset.kind; t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t))); return; }
@@ -4444,6 +4676,7 @@ document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.id === 'qaText') return updateQuickPreview();
   if (el.id === 'rTopicSearch') return topicSuggest();
+  if ((el.id === 'pMark' || el.id === 'pTotal') && $('#pPct')) { $('#pPct').textContent = paperPctLine($('#pMark').value, $('#pTotal').value); return; }
   if (el.id === 'rTitle' && APP.work.review) { APP.work.review.title = el.value; return; }
   if (el.id === 'rMins' && APP.work.review) { APP.work.review.minutes = Number(el.value) || null; APP.work.review.minutesGuessed = false; return; }
   if (el.id === 'rSummary' && APP.work.review) { APP.work.review.summary = el.value; return; }
@@ -4470,10 +4703,11 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'wHw') { APP.work.hint.homeworkId = el.value; return; }
   if (el.id === 'wSheet') { APP.work.worksheetId = el.value; APP.work.already = null; return; }
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
+  if (el.id === 'pSubj') { APP.papers.subject = el.value; return render(); }
   if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
   if (!r) return;
   if (el.id === 'rSubj') { r.subjectId = el.value; r.topicIds = r.topicIds.filter((id) => topicOf(id)?.subjectId === el.value); return planDestination(); }
-  if (el.id === 'rKind') { r.kind = el.value; return planDestination(); }
+  if (el.id === 'rKind') { r.kind = el.value; const pk = $('#rPaperKind'); if (pk) pk.hidden = el.value !== 'test'; return planDestination(); }
   if (el.id === 'rHw') { r.homeworkId = el.value; return planDestination(); }
   if (el.id === 'rDest' && APP.work.dest) { APP.work.dest.choice = APP.work.dest.userChoice = el.value; return render(); }
   if (el.dataset.qf) {

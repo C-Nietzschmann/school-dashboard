@@ -1320,6 +1320,9 @@ views.study = () => {
   </div>`;
 };
 
+// where you sat it and what it was (the companion's Papers log keeps both)
+const paperTag = (p) => [{ past: 'past paper', test: 'school test', mock: 'mock' }[p.kind || (p.testId ? 'test' : '')],
+  { school: 'at school', home: 'at home' }[p.where || (p.testId ? 'school' : '')]].filter(Boolean).join(', ');
 views.papers = () => {
   const list = S.papers.slice().sort((a, b) => b.date.localeCompare(a.date));
   return `
@@ -1334,6 +1337,8 @@ views.papers = () => {
         <label class="f">Mark<input type="number" id="ppMark" min="0" class="num"></label>
         <label class="f">Out of<input type="number" id="ppTotal" min="1" value="75" class="num"></label>
         <label class="f">Date<input type="date" id="ppDate" value="${todayISO()}"></label>
+        <label class="f">Where<select id="ppWhere"><option value="home">At home</option><option value="school">At school</option></select></label>
+        <label class="f">What<select id="ppKind"><option value="past">Past paper</option><option value="test">School test</option><option value="mock">Mock</option></select></label>
         <button class="btn primary" id="ppAdd">Add</button>
       </div>
     </details>
@@ -1349,7 +1354,7 @@ views.papers = () => {
         return `<tr>
           <td style="white-space:nowrap">${esc(fmtDay(p.date))}</td>
           <td><span class="row" style="gap:8px"><span class="dot" style="background:${colorOf(p.subjectId)}"></span>${esc(nameOf(p.subjectId))}</span></td>
-          <td>${esc(p.name)}</td>
+          <td>${esc(p.name)}${paperTag(p) ? ` <span class="hint" style="display:inline">· ${paperTag(p)}</span>` : ''}</td>
           <td class="num">${p.mark}/${p.total}</td>
           <td class="num">${pct.toFixed(0)}%</td>
           <td><span class="pill">${gradeFor(pct)}</span></td>
@@ -2974,7 +2979,7 @@ document.addEventListener('click', (e) => {
     if (!(total > 0) || !(mark >= 0)) return $('#ppMark').focus();
     return mutate(() => S.papers.push({
       id: uid(), subjectId: $('#ppSubj').value, name: $('#ppName').value.trim() || 'Paper',
-      mark, total, date: $('#ppDate').value || todayISO(),
+      mark, total, date: $('#ppDate').value || todayISO(), where: $('#ppWhere').value, kind: $('#ppKind').value,
     }));
   }
   if (t.dataset.ppdel) return mutate(() => { S.papers = S.papers.filter((p) => p.id !== t.dataset.ppdel); });
