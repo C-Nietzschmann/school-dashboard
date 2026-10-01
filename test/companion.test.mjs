@@ -184,6 +184,72 @@ test('a test result becomes a paper, which moves the grade projection', async ()
   assert.equal(S.papers.at(-1).testId, 'x');
 });
 
+test('the Papers log: past papers at home, school tests, per-subject stats and the summary', async () => {
+  const S = fixture();
+  S.papers = [];
+  const { results } = await applyOps(S, [
+    { id: 'p1', type: 'paper.add', paper: { id: 'pp1', subjectId: 'maths', name: 'June 2023 P1', mark: 52, total: 75, date: '2026-09-20', where: 'home', minutes: 110 } },
+    { id: 'p2', type: 'paper.add', paper: { id: 'pp2', subjectId: 'maths', name: 'Nov 2023 P1', mark: 60, total: 75, date: '2026-09-27', where: 'home', kind: 'past' } },
+    { id: 'p3', type: 'paper.add', paper: { subjectId: 'maths', name: 'too many', mark: 80, total: 75 } },
+    { id: 'p4', type: 'paper.add', paper: { subjectId: 'nope', name: 'no subject', mark: 1, total: 2 } },
+    { id: 't1', type: 'test.add', test: { id: 'ut', title: 'Unit test 1', subjectId: 'physics', date: '2026-09-25', kind: 'unit' } },
+    { id: 't2', type: 'test.result', testId: 'ut', mark: 18, total: 24 },
+  ], { date: MONDAY });
+  assert.deepEqual(results.map((r) => r.ok), [true, true, false, false, true, true]);
+  assert.equal(results[0].pct, 69.3);
+  const school = S.papers.find((x) => x.testId === 'ut');
+  assert.equal(school.where, 'school'); assert.equal(school.kind, 'test');
+
+  let p = todayPayload(S, { date: MONDAY });
+  assert.deepEqual(p.papers.map((x) => x.id), ['pp2', school.id, 'pp1'], 'newest first');
+  assert.equal(p.papers[2].minutes, 110);
+  assert.equal(p.paperStats.maths.count, 2);
+  assert.equal(p.paperStats.maths.best, 80);
+  assert.equal(p.paperStats.maths.last, 80);
+  assert.ok(p.paperStats.maths.projected > 74 && p.paperStats.maths.projected < 80, 'the newer paper counts more');
+  assert.ok(p.paperStats.maths.grade);
+  assert.match(summarize(p).recentPapers[0], /Maths · Nov 2023 P1 · 60\/75 = 80% .* at home · past paper/);
+
+  // edit, and a bad edit leaves it as it was
+  const { results: r2 } = await applyOps(S, [
+    { id: 'u1', type: 'paper.update', paperId: 'pp1', patch: { mark: 55, where: 'school', kind: 'mock', minutes: null, notes: 'timed' } },
+    { id: 'u2', type: 'paper.update', paperId: 'pp1', patch: { total: 10 } },
+  ], { date: MONDAY });
+  assert.deepEqual(r2.map((r) => r.ok), [true, false]);
+  const pp1 = S.papers.find((x) => x.id === 'pp1');
+  assert.deepEqual([pp1.mark, pp1.total, pp1.where, pp1.kind, pp1.minutes, pp1.notes], [55, 75, 'school', 'mock', undefined, 'timed']);
+
+  // deleting a school test's paper takes the test's result with it
+  await applyOps(S, [{ id: 'd1', type: 'paper.delete', paperId: school.id }], { date: MONDAY });
+  assert.equal(S.tests.find((t) => t.id === 'ut').result, null);
+  p = todayPayload(S, { date: MONDAY });
+  assert.ok(!p.paperStats.physics);
+});
+
+test('a marked test paper lands in the Papers log, and follows corrected marks', async () => {
+  const S = fixture();
+  S.papers = [];
+  const store = memStore();
+  const { results: [r] } = await applyOps(S, [{
+    id: 'w1', type: 'work.save', study: { minutes: 90 },
+    attachment: { id: 'fp', title: 'June 2022 P3', subjectId: 'maths', topicIds: ['t002'], kind: 'test', where: 'home', driveUrl: 'https://drive.google.com/p3' },
+    marking: { questions: [{ q: '1', topicId: 't002', marks: 3, maxMarks: 5 }, { q: '2', topicId: 't002', marks: 4, maxMarks: 5 }] },
+  }, {
+    id: 'w2', type: 'work.save',
+    attachment: { title: 'Ex 3B', subjectId: 'maths', kind: 'answers' },
+    marking: { questions: [{ q: '1', topicId: 't002', marks: 1, maxMarks: 2 }] },
+  }], { date: MONDAY, store });
+  assert.equal(S.papers.length, 1, 'worked answers are not a paper');
+  const paper = S.papers[0];
+  assert.deepEqual([paper.name, paper.mark, paper.total, paper.where, paper.kind, paper.minutes, paper.attemptId],
+    ['June 2022 P3', 7, 10, 'home', 'past', 90, r.attemptId]);
+  assert.equal(todayPayload(S, { date: MONDAY }).papers[0].url, 'https://drive.google.com/p3');
+  await applyOps(S, [{ id: 'c1', type: 'attempt.update', attemptId: r.attemptId, questions: [{ q: '1', marks: 5 }] }], { date: MONDAY });
+  assert.equal(paper.mark, 9);
+  await applyOps(S, [{ id: 'c2', type: 'attempt.delete', attemptId: r.attemptId }], { date: MONDAY });
+  assert.equal(S.papers.length, 0, 'deleting the marking deletes its paper');
+});
+
 test('a question pack arrives with its own to-do, and goes when either is deleted', async () => {
   const S = fixture();
   const pack = { title: 'Quadratics', subjectId: 'maths', difficulty: 'hard', due: '2026-10-02', priority: 'high',

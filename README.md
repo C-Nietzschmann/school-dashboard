@@ -177,6 +177,14 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Papers.** The Papers tab is a log of every past paper, school test and mock you sat, at school or at home:
+**Log a paper** takes the mark, what it was out of, where you sat it, what it was and (if you like) how long it
+took. A paper uploaded in Work as a *Test paper* and marked by Claude lands there by itself (and follows any mark
+you correct in History), and so does a result logged for a test on Skills. Each subject shows its last, average,
+best and projected score with a line of every paper against your target, and the list filters by subject and by
+school or home. The projection is the dashboard's own (recent papers count most), so both apps agree; the dashboard's
+Papers tab shows the same log.
+
 **Assignment Arrow, your own copy.** [Assignment Arrow](https://github.com/C-Nietzschmann/assignment-arrow)
 is a pseudocode trainer for Cambridge 9618 and 0478. `arrow/build.mjs` makes a private copy of it with
 `arrow/bridge.js` added; the site itself is not changed. In that copy, each chapter of practice questions is a

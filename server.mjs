@@ -340,8 +340,8 @@ const mcp = createMcpServer({
   instructions: 'One student\'s A Level dashboard (Year 12: Maths, Further Maths, Physics, '
     + 'Computer Science, German). get_today reads the day — timetable, what to do in each free '
     + 'period, the to-do list, upcoming tests, unfixed mistakes and skill level. apply_changes '
-    + 'writes: to-dos, study-period choices and study sessions, tests, worksheets, notes, marked work '
-    + 'and question packs. get_route reads the university plan (the "route"): today\'s route checklist, '
+    + 'writes: to-dos, study-period choices and study sessions, tests, past papers, worksheets, notes, '
+    + 'marked work and question packs. get_route reads the university plan (the "route"): today\'s route checklist, '
     + 'progress per stage and project, deadlines; apply_changes route.tick ticks items off. '
     + 'get_uploads lists the photos and PDFs the student uploaded (stored in Google '
     + 'Drive; read them by driveId through the Google Drive connector). When the student asks you to read '
@@ -357,7 +357,9 @@ const mcp = createMcpServer({
         + 'unfixed mistakes from marked work, weak topics and skill level per subject. detail="summary" '
         + '(the default) is short and readable; detail="full" adds every topic id, the recent marked '
         + 'work and per-topic mastery, which is what you need before calling apply_changes. waitingToBeRead '
-        + '(summary) and reading.queue (full) list work waiting for Claude — see read_queue.',
+        + '(summary) and reading.queue (full) list work waiting for Claude — see read_queue. recentPapers (summary) '
+        + 'are the last past papers and tests sat; papers and paperStats (full) are the whole Papers log with '
+        + 'per-subject averages and the projected grade.',
       inputSchema: { type: 'object', properties: {
         date: { type: 'string', description: 'YYYY-MM-DD in the student\'s local time; default today' },
         time: { type: 'string', description: 'HH:MM local time, to mark which lesson is on now' },
@@ -380,13 +382,17 @@ const mcp = createMcpServer({
         + 'study.slot.add {date, start: HH:MM, minutes?, title?} (a study session on any day, weekends too; '
         + 'its key comes back and it gets options like a free period); study.slot.remove {date, key}; '
         + 'test.add {test:{title, date, subjectId, kind?: unit|test|mock|exam, topicIds?}}; '
-        + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total}; '
+        + 'test.update {testId, patch}; test.delete {testId}; test.result {testId, mark, total} (also logs it as a school test in the Papers log); '
+        + 'paper.add {paper:{subjectId, name, mark, total, date?, where?: school|home, kind?: past|test|mock, minutes?, notes?}} '
+        + '(a past paper, school test or mock the student sat: their Papers log, and it moves the grade projection); '
+        + 'paper.update {paperId, patch}; paper.delete {paperId}; '
         + 'worksheet.add {worksheet:{id?, title, subjectId, topicIds, folderId?, folderUrl?, fileId?, fileUrl?, pending? (true = added by name, booklet comes later with the answers), questionCount?}, '
         + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch? (incl. doneCount = questions done so far; doneQuestions {label: {marks, max}} = which are done, best marks kept), questions?, summary?} '
         + '(questions replace the saved ones — for a sheet saved without being read); '
         + 'worksheet.delete {worksheetId}; worksheet.recount {worksheetId?} (counts questions again by number — 1a and 1b are one question); '
         + 'work.save {attachment:{title, subjectId, topicIds, homeworkId?, worksheetId?, kind: answers|notes|worksheet|test, '
-        + 'driveId?, driveUrl?, correctionsUrl?, folderId?, ownCopy?, hash?, where?: class|home}, study?:{minutes} '
+        + 'driveId?, driveUrl?, correctionsUrl?, folderId?, ownCopy?, hash?, where?: class|home}, study?:{minutes}, '
+        + 'paper?:{kind: past|test|mock} (kind test with marking also logs the score in the Papers log; attachment.paperKind works too) '
         + '(where home + minutes logs a study session; class marks its topics taught), notes?:{summary, keyPoints, fileName?, '
         + 'pageCount?, firstSig?, pageSigs?, readPages?} (kind notes); notes.update {attachmentId, patch:{summary?, '
         + 'keyPoints?, topicIds?, title?, pageCount?, firstSig?, fileName?, driveId?, driveUrl?, folder?, folderId?, where?, minutes?}, '
