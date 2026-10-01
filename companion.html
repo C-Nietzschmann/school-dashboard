@@ -208,6 +208,27 @@ section.tab.on{display:block}
 .paper-score{display:grid;justify-items:end;gap:1px;white-space:nowrap}
 .paper-score .pct{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:500}
 .paper-score .muted{font-size:12px}
+.test-plan{border-left:3px solid var(--c)}
+.test-plan .card-h h2{display:flex;align-items:center;gap:8px}
+.tp-steps{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.tp-step{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start}
+.tp-n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:12px;
+  border:1px solid var(--line-strong);color:var(--text-2);background:var(--surface)}
+.tp-step.now .tp-n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tp-step.done .tp-n{background:var(--tick-soft);border-color:var(--tick);color:var(--tick)}
+.tp-title{font-weight:500;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.tp-step.later .tp-title{color:var(--text-2)}
+.tp-body{min-width:0}
+.tp-note{font-size:13.5px;color:var(--text-2);margin-top:2px}
+.tp-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px;font-size:14px}
+.tp-list li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.tp-list .ok,.tp-sched .ok{color:var(--tick)}
+.tp-list .todo{color:var(--muted)}
+.tp-sched ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13.5px}
+.tp-sched li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px}
+.tp-sched li.is-done{color:var(--muted)}
+.tp-when{color:var(--text-2);font-size:12.5px;white-space:nowrap}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -918,9 +939,66 @@ function viewToday() {
   // every day of the fortnight, weekends too: a Saturday can hold study sessions
   const days = APP.week?.days || [];
   const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
-  return `${weekStrip(days)}${noticesCard(d)}<div class="grid2">
+  return `${weekStrip(days)}${noticesCard(d)}${testPlanCards(d)}<div class="grid2">
     <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
     <div class="stack">${archiveCard(d)}${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+  </div>`;
+}
+
+/* A test coming up comes first. Its plan: your teacher's worksheets on it, then
+   one booklet of hard exam questions Claude writes once they are done (as long as
+   the time left allows), then your weakest topics, laid over the free periods
+   until the day. The dashboard works it out afresh every time. */
+function testPlanCards(d) {
+  const plans = d.testPlans || [];
+  if (!plans.length) return '';
+  return `<div class="stack" style="margin-bottom:14px">${plans.slice(0, 3).map(testPlanCard).join('')}</div>`;
+}
+function testPlanCard(x) {
+  const when = x.daysLeft === 0 ? 'today' : x.daysLeft === 1 ? 'tomorrow' : `in ${x.daysLeft} days`;
+  const b = x.booklet;
+  const sheetsDone = x.worksheets.filter((w) => w.done).length;
+  const canStart = APP.mcp && APP.mode === 'claude' && !scheduledReader();
+  const asked = APP.bookletAsked?.[x.testId];
+  const step = (n, state, title, body) => `<li class="tp-step ${state}"><span class="tp-n" aria-hidden="true">${state === 'done' ? '✓' : n}</span>
+    <div class="tp-body"><div class="tp-title">${title}</div>${body}</div></li>`;
+  const sheets = x.worksheets.length
+    ? `<ul class="tp-list">${x.worksheets.map((w) => `<li><span class="${w.done ? 'ok' : 'todo'}" aria-label="${w.done ? 'done' : 'to do'}">${w.done ? '✓' : '○'}</span>
+        <button class="linkbtn" data-act="open-ws" data-id="${esc(w.worksheetId)}">${esc(w.title)}</button>
+        ${w.questions ? `<span class="muted mono">${w.done ? w.questions : w.doneCount}/${w.questions}</span>` : ''}</li>`).join('')}</ul>`
+    : '<div class="tp-note">None saved for it. A worksheet your teacher gives you goes here first: save it in Work.</div>';
+  const bookletNote = {
+    later: `When the worksheets are done, Claude writes you one: about ${b.questions} questions (~${b.minutes} min) on your weak spots, then very hard and extremely hard exam questions.`,
+    wanted: asked ? `Claude is writing it now: ${b.questions} questions, ~${b.minutes} min.`
+      : `${x.worksheets.length ? 'Your worksheets are done' : 'No worksheets to wait for'}, so Claude writes it next: ${b.questions} questions, ~${b.minutes} min${canStart ? '.' : ', at its next hourly check.'}`,
+    made: `Ready: ${b.questions} question${b.questions === 1 ? '' : 's'}, ~${b.minutes} min, due the day before.`,
+    done: 'Done.',
+    none: 'No time left for one: go over your weakest topics instead.',
+    removed: 'You deleted it, so no other is written for this test.',
+  }[b.status] || '';
+  const bookletBtn = b.status === 'made' ? `<button class="btn sm primary" data-act="pack-open" data-id="${esc(b.packId)}">Open booklet</button>`
+    : b.status === 'wanted' && canStart && !asked ? `<button class="btn sm" data-act="booklet-now" data-id="${esc(x.testId)}">Write it now</button>` : '';
+  const weakest = x.weakest.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}</span>`).join('');
+  const sheetState = !x.worksheets.length ? 'later' : sheetsDone === x.worksheets.length ? 'done' : 'now';
+  const bookletState = b.status === 'done' ? 'done' : ['wanted', 'made'].includes(b.status) ? 'now' : 'later';
+  const sched = x.schedule.filter((s) => s.step || s.other);
+  const row = (s) => `<li${s.done ? ' class="is-done"' : ''}><span class="mono tp-when">${esc(fmtDay(s.date).replace(/,.*/, ''))} ${esc(s.start)}</span>
+    <span>${s.step ? esc(s.step.title) : `<span class="muted">your choice: ${esc(s.other)}</span>`}${s.done ? ' <span class="ok">✓</span>' : ''}</span></li>`;
+  return `<div class="card test-plan" style="--c:${colourOf(x.subjectId)}">
+    <div class="card-h"><h2><span class="dot" style="--c:${colourOf(x.subjectId)}"></span>${esc(x.title)}</h2>
+      <span class="days-left${x.daysLeft <= 3 ? ' close' : ''}">${when}</span></div>
+    <div class="task-meta" style="margin-bottom:12px">${esc(subjectName(x.subjectId))} · ${esc(fmtDay(x.date))} · your plan for it comes first in your free periods</div>
+    <ol class="tp-steps">
+      ${step(1, sheetState, `Your teacher's worksheets${x.worksheets.length ? ` <span class="count">${sheetsDone}/${x.worksheets.length}</span>` : ''}`, sheets)}
+      ${step(2, bookletState, 'A booklet of hard questions', `<div class="tp-note">${esc(bookletNote)}</div>${bookletBtn ? `<div class="row" style="margin-top:6px">${bookletBtn}</div>` : ''}`)}
+      ${x.mistakes ? step(3, 'later', `Fix your mistakes <span class="count">${x.mistakes}</span>`, `<div class="tp-note">${x.mistakes} unfixed on its topics, ${fmtN(x.marksLost)} marks.
+        <button class="linkbtn" data-act="tab" data-tab="history">See them</button></div>`) : ''}
+      ${weakest ? step(x.mistakes ? 4 : 3, 'later', 'The last days: your weakest topics', `<div class="row" style="margin-top:4px">${weakest}</div>`) : ''}
+    </ol>
+    ${sched.length ? `<div class="tp-sched"><div class="eyebrow" style="margin:14px 0 6px">Your free periods until then</div>
+      <ul>${sched.slice(0, 4).map(row).join('')}</ul>
+      ${sched.length > 4 ? `<details><summary class="muted" style="font-size:13px">All ${sched.length}</summary><ul>${sched.slice(4).map(row).join('')}</ul></details>` : ''}</div>`
+      : '<div class="tp-note" style="margin-top:12px">No free periods before it. Add a study session on a day before the test (tap a day above).</div>'}
   </div>`;
 }
 
@@ -2301,6 +2379,7 @@ function readerPrompt() {
 1. Call read_queue on the ${DASH} connector (find it with ToolSearch if its tools are deferred). It gives the oldest waiting request: its instructions (ask) and its pages as pictures, a few at a time — call it again with "next" until you have seen every page. If nothing is waiting, stop. If an answer is too big, ask for fewer pages with "limit": 1.
 2. Read the pages carefully — handwriting, maths, diagrams — and do what ask says. It ends with the apply_changes op to send: fill it in and keep its id. For topic ids, call get_today with detail "full" once. Send that op together with {"id": "<requestId>-done", "type": "read.done", "requestId": "<requestId>", "result": "<one short sentence on what you saved>"} in ONE apply_changes call, with "date" from the request. If an op comes back not ok, correct it from the error and send it once more.
 3. If you can't read it, send only {"id": "<requestId>-failed", "type": "read.done", "requestId": "<requestId>", "error": "<one sentence for the student on what went wrong>"}.
+   Some requests have no pages: school emails (kind mail) and a booklet of exam questions for a coming test (kind booklet). For those, do exactly what ask says and send the op it ends with; write a booklet's questions and mark schemes carefully, at the difficulty it asks for.
 4. Call read_queue again and repeat until nothing is waiting, then stop with one short line.
 
 Only send the ops the requests give you and read.done. Never delete or change anything else.`;
@@ -2361,7 +2440,9 @@ let watchedAt = 0;
 async function watchReader() {
   if (!APP.mcp || APP.mode !== 'claude' || Date.now() - watchedAt < 20e3) return;
   const q = waitingList(), r = APP.reader;
-  if (!q.length && r?.status !== 'working' && !LS.get('readers', []).length) return;
+  // a test's booklet waiting to be written (its worksheets are done): a reader writes it
+  const booklets = (APP.data?.testPlans || []).filter((x) => x.booklet.status === 'wanted');
+  if (!q.length && !booklets.length && r?.status !== 'working' && !LS.get('readers', []).length) return;
   watchedAt = Date.now();
   try {
     if (r?.id && (q.length || r.status !== 'done')) {
@@ -2376,6 +2457,15 @@ async function watchReader() {
         for (const x of due) tries[x.id] = (tries[x.id] || 0) + 1;
         LS.set('readTries', tries);
         await startReader(due[0].title).catch((e) => { APP.readerError = connError(e, REMOTE); });
+      }
+    } else if (booklets.length && !busy && !readingNow()) {
+      const tries = LS.get('readTries', {});
+      const due = booklets.filter((x) => (tries['booklet-' + x.testId] || 0) < 2);
+      if (due.length) {
+        for (const x of due) tries['booklet-' + x.testId] = (tries['booklet-' + x.testId] || 0) + 1;
+        LS.set('readTries', tries);
+        (APP.bookletAsked ||= {})[due[0].testId] = true;
+        await startReader('Booklet for ' + due[0].title).catch((e) => { APP.readerError = connError(e, REMOTE); delete APP.bookletAsked[due[0].testId]; });
       }
     }
     if (!q.length && !busy) {
@@ -4358,6 +4448,15 @@ document.addEventListener('click', (e) => {
   const d = APP.data;
   switch (act) {
     case 'tab': APP.tab = t.dataset.tab; LS.set('tab', APP.tab); window.scrollTo(0, 0); return render();
+    case 'booklet-now': {
+      // a reader session now, instead of at the next hourly check: read_queue hands it the booklet to write
+      const x = (d.testPlans || []).find((p) => p.testId === t.dataset.id);
+      (APP.bookletAsked ||= {})[t.dataset.id] = true;
+      render();
+      startReader('Booklet for ' + (x?.title || 'a test')).then((r) => toast(r ? 'Claude is writing your booklet. It shows up here when it is done.' : 'Claude writes it at its next hourly check.'))
+        .catch((e) => { delete APP.bookletAsked[t.dataset.id]; APP.readerError = connError(e, REMOTE); toast('Could not start Claude: ' + APP.readerError); render(); });
+      return;
+    }
     case 'status': return statusSheet();
     case 'fullscreen': return toggleFullscreen();
     case 'retry': closeSheet(); refresh(); return flush();

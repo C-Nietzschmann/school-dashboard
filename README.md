@@ -177,6 +177,17 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**A test comes first.** Add a test (on Skills, or Claude adds one from your school mail) and for the three weeks
+before it, its plan tops every free period. Your teacher's worksheets on it come first (on its topics, or in its
+subject when it has none), weakest topic first. When they are done (answered, or every question ticked off) and the
+test is still coming, Claude writes you **one booklet** of original exam questions: about 40% on your weak spots and
+the mistakes you have not fixed, then very difficult and extremely hard ones. It is as long as the time left allows
+(your free periods and study sessions until the test, plus 40 minutes an evening, shared with any other test,
+about 9 minutes a question, 4 to 30 questions). The background reader writes it through `read_queue` (kind
+`booklet`). The companion starts one straight away when it is open in Claude, or **Write it now** does. It arrives as a
+high-priority question pack due the day before, and the last two days go over your weakest topics. Today shows the plan:
+the worksheets with ticks, the booklet's state, and which free period does what until the test.
+
 **Papers.** The Papers tab is a log of every past paper, school test and mock you sat, at school or at home:
 **Log a paper** takes the mark, what it was out of, where you sat it, what it was and (if you like) how long it
 took. A paper uploaded in Work as a *Test paper* and marked by Claude lands there by itself (and follows any mark

@@ -250,6 +250,80 @@ test('a marked test paper lands in the Papers log, and follows corrected marks',
   assert.equal(S.papers.length, 0, 'deleting the marking deletes its paper');
 });
 
+test('a test comes first: its teacher worksheets, then one booklet sized to the time left', async () => {
+  const S = fixture();
+  const ws = (id, title, topicIds, subjectId = 'maths') => ({ id: 'w-' + id, type: 'worksheet.add',
+    worksheet: { id, title, subjectId, topicIds }, questions: [{ q: '1', text: 'x', maxMarks: 4, topicId: topicIds[0] }, { q: '2', text: 'y', maxMarks: 4, topicId: topicIds[0] }] });
+  await applyOps(S, [
+    { id: 't1', type: 'test.add', test: { id: 'qt', title: 'Quadratics test', subjectId: 'maths', date: '2026-10-02', topicIds: ['t002'] } },
+    ws('wq1', 'Quadratics sheet A', ['t002']), ws('wq2', 'Quadratics sheet B', ['t002']),
+    ws('wsurd', 'Surds sheet', ['t001']), ws('wph', 'Forces sheet', ['t071'], 'physics'),
+  ], { date: MONDAY, store: memStore() });
+
+  // the worksheets on its topics, and nothing else, come first in every free period
+  let p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  let plan = p.testPlans.find((x) => x.testId === 'qt');
+  assert.deepEqual(plan.worksheets.map((w) => w.worksheetId).sort(), ['wq1', 'wq2']);
+  assert.equal(plan.booklet.status, 'later');
+  assert.equal(plan.phase, 'worksheets');
+  assert.deepEqual(p.studyPeriods.map((s) => s.options[0].id).sort(), ['ws:wq1', 'ws:wq2']);
+  assert.match(p.studyPeriods[0].options[0].why, /Quadratics test in 4 days · your teacher's worksheets come first/);
+  assert.equal(plan.schedule[0].step.kind, 'worksheet');
+  assert.equal((await readQueue(S, { date: MONDAY }, memStore()))[0].text.includes('Nothing is waiting'), true, 'no booklet while worksheets wait');
+
+  // done (answered, or every question ticked off): the booklet is wanted, sized to the time left
+  await applyOps(S, [
+    { id: 'u1', type: 'worksheet.update', worksheetId: 'wq1', patch: { doneCount: 2 } },
+    { id: 'u2', type: 'worksheet.update', worksheetId: 'wq2', patch: { doneCount: 2 } },
+  ], { date: MONDAY });
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  plan = p.testPlans.find((x) => x.testId === 'qt');
+  assert.equal(plan.booklet.status, 'wanted');
+  assert.ok(plan.booklet.questions >= 4 && plan.booklet.questions <= 30);
+  assert.equal(plan.booklet.questions, Math.max(4, Math.min(30, Math.round(plan.booklet.minutes / 9))));
+  assert.ok(summarize(p).waitingToBeRead.some((x) => x.id === 'booklet-qt'));
+  assert.match(summarize(p).testPlans[0].booklet, /wanted now/);
+
+  // the reader is asked for it: the mix, the topics and the op to send
+  const [q] = await readQueue(S, { date: MONDAY }, memStore());
+  const b = JSON.parse(q.text);
+  assert.equal(b.request.id, 'booklet-qt');
+  assert.equal(b.request.kind, 'booklet');
+  assert.ok(b.topics.some((t) => t.id === 't002'));
+  assert.match(b.ask, new RegExp(`${plan.booklet.questions} questions`));
+  assert.match(b.ask, /very difficult exam questions/);
+  assert.match(b.ask, /extremely hard/);
+  assert.match(b.ask, /"testId":"qt"/);
+  assert.match(b.ask, /"due":"2026-10-01"/, 'due the day before the test');
+
+  // it arrives: a high-priority to-do that tops the free periods, and no second request
+  const { results: [made] } = await applyOps(S, [{ id: 'booklet-qt', type: 'pack.add', pack: { id: 'bk-qt', testId: 'qt', title: 'Booklet: Quadratics test',
+    subjectId: 'maths', difficulty: 'stretch', minutes: 90, due: '2026-10-01', priority: 'high',
+    questions: [{ n: '1', text: 'Hard one', marks: 8, topicId: 't002', difficulty: 5, markScheme: 'M1 A1' }] } }], { date: MONDAY });
+  assert.equal(S.packs.find((k) => k.id === 'bk-qt').questions[0].difficulty, 5);
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  plan = p.testPlans.find((x) => x.testId === 'qt');
+  assert.equal(plan.booklet.status, 'made');
+  assert.equal(plan.phase, 'booklet');
+  assert.equal(p.studyPeriods[0].options[0].id, `task:${made.taskId}`);
+  assert.match((await readQueue(S, { date: MONDAY }, memStore()))[0].text, /Nothing is waiting/);
+
+  // done when its to-do is; deleted, it is not written again
+  await applyOps(S, [{ id: 'd1', type: 'task.done', taskId: made.taskId, done: true }], { date: MONDAY });
+  assert.equal(todayPayload(S, { date: MONDAY }).testPlans[0].booklet.status, 'done');
+  await applyOps(S, [{ id: 'd2', type: 'pack.delete', packId: 'bk-qt' }], { date: MONDAY });
+  assert.equal(todayPayload(S, { date: MONDAY }).testPlans[0].booklet.status, 'removed');
+
+  // a test today has no time for a booklet; a test four weeks away does not take over yet
+  await applyOps(S, [
+    { id: 't2', type: 'test.add', test: { id: 'today', title: 'Exit ticket', subjectId: 'physics', date: MONDAY } },
+    { id: 't3', type: 'test.add', test: { id: 'far', title: 'Mock', subjectId: 'physics', date: '2026-10-30' } },
+  ], { date: MONDAY });
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.equal(p.testPlans.find((x) => x.testId === 'today').booklet.status, 'none');
+  assert.ok(!p.testPlans.some((x) => x.testId === 'far'));
+});
+
 test('a question pack arrives with its own to-do, and goes when either is deleted', async () => {
   const S = fixture();
   const pack = { title: 'Quadratics', subjectId: 'maths', difficulty: 'hard', due: '2026-10-02', priority: 'high',
