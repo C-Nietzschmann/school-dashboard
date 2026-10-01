@@ -245,6 +245,23 @@ test('uploads: newest first, filtered by subject, topic and kind', () => {
   assert.deepEqual(uploadsList(S, { kind: 'notes', limit: 1 }).map((u) => u.id), ['f3']);
 });
 
+test('work filed for a to-do you made shows on that to-do, newest first', async () => {
+  const S = fixture();
+  await applyOps(S, [{ id: 'k1', type: 'task.add', task: { title: 'essay writing', subjectId: 'german', due: '2026-10-02' } }], { date: MONDAY });
+  const id = S.homework.find((h) => h.title === 'essay writing').id;
+  await applyOps(S, [
+    { id: 'f1', type: 'work.save', attachment: { title: 'Essay draft', subjectId: 'german', kind: 'notes', homeworkId: id, driveUrl: 'https://drive.google.com/a' } },
+    { id: 'f2', type: 'work.save', attachment: { title: 'Essay final', subjectId: 'german', kind: 'answers', homeworkId: id, driveUrl: 'https://drive.google.com/b' } },
+    { id: 'f3', type: 'work.save', attachment: { title: 'Not for it', subjectId: 'german', kind: 'notes', homeworkId: 'no-such-task' } },
+  ], { date: MONDAY, store: memStore() });
+  const p = todayPayload(S, { date: MONDAY });
+  const t = p.tasks.find((x) => x.id === id);
+  assert.equal(t.attachments, 2);
+  assert.deepEqual(t.files.map((f) => [f.title, f.url, f.kind, f.date]),
+    [['Essay final', 'https://drive.google.com/b', 'answers', MONDAY], ['Essay draft', 'https://drive.google.com/a', 'notes', MONDAY]]);
+  assert.ok(p.tasks.filter((x) => x.id !== id).every((x) => !('files' in x)), 'a to-do with no work carries no list');
+});
+
 test('today payload and its chat summary', () => {
   const S = fixture();
   const p = todayPayload(S, { date: MONDAY, time: '10:00' });

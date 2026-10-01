@@ -151,7 +151,8 @@ your board — replace them.
 what to do in each free period (and study sessions of your own, weekends too;
 once the first thing is done, more tasks can be added to the same period, each
 logged as its own study session), a
-to-do list that understands `phys wksht 3 fri high`, and a Work tab for
+to-do list that understands `phys wksht 3 fri high` (tap a to-do to add your work to it: it is
+filed in Drive with the to-do, listed on it, and marked if you want), and a Work tab for
 worksheets, answers, notes and anything else. A worksheet is read by Claude for
 its questions and topic, filed in a Drive folder of its own inside the topic's
 folder, and planned into a study period; your answers are then marked against it,

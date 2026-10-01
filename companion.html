@@ -186,6 +186,10 @@ section.tab.on{display:block}
 .pack-ms div{white-space:pre-wrap;margin-top:4px}
 .task-title{overflow-wrap:anywhere}
 .task-meta{font-size:12.5px;color:var(--text-2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
+.task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
+.task-files a{overflow-wrap:anywhere}
+.task-files .muted{font-size:12.5px}
 .late{color:var(--pen);font-weight:500}
 .prio-high{color:var(--pen);font-weight:600}
 .prio-low{color:var(--muted)}
@@ -1481,6 +1485,12 @@ function taskSheet(id) {
       <div class="field"><span>Priority</span><div class="seg" id="tPrio">${['high', 'normal', 'low'].map((p) =>
         `<button type="button" data-prio="${p}" aria-pressed="${t.priority === p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</div></div>
       <label class="field"><span>Note</span><input id="tNote" value="${esc(t.notes || '')}" placeholder="optional"></label>
+      <div class="field"><span>Your work${t.files?.length ? ` · ${t.files.length}` : ''}</span>
+        ${t.files?.length ? `<ul class="task-files">${t.files.map((f) => `<li>${f.url
+          ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.title)}</a>` : esc(f.title)}
+          <span class="muted">${esc(KINDS[f.kind] || 'Work')}${f.date ? ' · ' + esc(f.date === nowISO() ? 'today' : fmtDay(f.date)) : ''}</span></li>`).join('')}</ul>` : ''}
+        <div class="row"><button class="btn" data-act="task-work">${t.files?.length ? 'Add more work' : 'Add work'}</button>
+          <span class="muted" style="font-size:12.5px">Photos, a scan or a PDF: filed in Drive with this to-do${t.subjectId ? ', and marked if you want' : ''}.</span></div></div>
       <div class="row"><button class="btn primary" data-act="task-save">Save</button><span class="spacer"></span>
         <button class="btn danger" data-act="task-delete" data-armed="0">Delete</button></div>
     </div>`);
@@ -1591,11 +1601,14 @@ function viewWork() {
   if (w.stage === 'review') return reviewView();
 
   const ws = w.mode === 'answers' ? worksheetOf(w.worksheetId) : null;
+  const forTask = w.mode === 'other' && w.hint.homeworkId ? taskOf(w.hint.homeworkId) : null;
   return `<div class="stack">
     ${w.pages.length ? '' : readingPanel()}
     ${ws && !w.pages.length ? `<div class="notice">Adding your answers to <b>${esc(ws.title)}</b>. ${ws.pending
       ? 'Photograph the question booklet <b>and</b> your answer pages together, in any order'
       : 'Photograph your answer pages — as many as you need —'} then tap <b>Mark my answers</b>.</div>` : ''}
+    ${forTask ? `<div class="notice">Adding work to the to-do <b>${esc(forTask.title)}</b>. Add the pages, then choose
+      <b>Mark it and file it</b> or <b>Just file it</b>. <button class="btn ghost sm" data-act="task-unlink">Not for this to-do</button></div>` : ''}
     <div class="card">
       <div class="card-h"><h2>Add your work</h2><span class="count">photos · scans · PDF</span></div>
       <div class="pickers">
@@ -1664,7 +1677,7 @@ function workForm(w, canMark) {
         : `<button class="btn primary" data-act="work-analyse" ${markable ? '' : 'disabled'}>Read notes</button>
         <button class="btn" data-act="work-file-only">Just file them</button>`}${clear}</div>`;
   } else {
-    const openTasks = (APP.data?.tasks || []).filter((t) => !w.hint.subjectId || t.subjectId === w.hint.subjectId);
+    const openTasks = taskChoices(w.hint.subjectId, w.hint.homeworkId);
     body = `<div class="fields two">${subj}
         <label class="field"><span>Assignment</span><select id="wHw"><option value="">None / work it out</option>
           ${openTasks.map((t) => `<option value="${esc(t.id)}" ${t.id === w.hint.homeworkId ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
@@ -1948,7 +1961,7 @@ function notesReviewView() {
 function markReviewView() {
   const w = APP.work, r = w.review;
   const ws = r.mode === 'answers' ? worksheetOf(r.worksheetId) : null;
-  const openTasks = (APP.data.tasks || []).filter((t) => !r.subjectId || t.subjectId === r.subjectId);
+  const openTasks = taskChoices(r.subjectId, r.homeworkId);
   const total = r.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
   const got = r.questions.reduce((a, q) => a + (Number(q.marks) || 0), 0);
   return `<div class="stack">
@@ -3628,6 +3641,23 @@ function notebookUnits(w, r) {
   return pick.slice(0, QUEUE_PAGES.notes);
 }
 
+// Work, with a to-do chosen: what you add is filed with it (and marked, if you want).
+function workFor(taskId, subjectId) {
+  if (APP.work.stage === 'saved') resetWork();
+  const w = APP.work;
+  if (w.stage === 'review') w.review.homeworkId = taskId;
+  else if (w.stage === 'idle') Object.assign(w, { hint: { subjectId, homeworkId: taskId }, mode: 'other', modeChosen: true, already: null, error: null });
+  APP.tab = 'work'; LS.set('tab', APP.tab); window.scrollTo(0, 0);
+  render();
+}
+const taskOf = (id) => [...(APP.data?.tasks || []), ...(APP.data?.done || [])].find((t) => t.id === id) || null;
+// the to-dos work can go with: open ones in its subject or with no subject, and always the one already chosen
+function taskChoices(subjectId, chosen) {
+  const list = (APP.data?.tasks || []).filter((t) => !subjectId || !t.subjectId || t.subjectId === subjectId || t.id === chosen);
+  const c = chosen && !list.some((t) => t.id === chosen) ? taskOf(chosen) : null;
+  return c ? [c, ...list] : list;
+}
+
 function resetWork(preset = {}) {
   for (const p of APP.work.pages) {
     for (const i of p.images) URL.revokeObjectURL(i.url);
@@ -4242,6 +4272,11 @@ document.addEventListener('click', (e) => {
       if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
       send({ type: 'task.delete', taskId: SHEET.ctx.id });
       return closeSheet();
+    case 'task-work': {
+      const k = [...d.tasks, ...d.done].find((x) => x.id === SHEET.ctx?.id);
+      closeSheet();
+      return workFor(k?.id || '', k?.subjectId || '');
+    }
 
     /* question packs */
     case 'pack-open': SHEET.ctx = { packId: t.dataset.id }; return openSheet(packSheet(d.packs?.find((k) => k.id === t.dataset.id)));
@@ -4249,9 +4284,7 @@ document.addEventListener('click', (e) => {
       // straight into Work, with this pack's to-do chosen, so the marker gets the mark scheme
       const k = d.packs?.find((x) => x.id === t.dataset.id);
       closeSheet();
-      APP.work.hint = { subjectId: k?.subjectId || '', homeworkId: k?.taskId || '' };
-      APP.tab = 'work'; LS.set('tab', APP.tab); window.scrollTo(0, 0);
-      return render();
+      return workFor(k?.taskId || '', k?.subjectId || '');
     }
     case 'pack-delete':
       if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
@@ -4307,6 +4340,7 @@ document.addEventListener('click', (e) => {
     case 'work-stop': APP.work.ctl?.abort(); return;
     case 'work-back': APP.work.stage = 'idle'; APP.work.error = null; return render();
     case 'work-reset': return resetWork();
+    case 'task-unlink': APP.work.hint.homeworkId = ''; return render();
     case 'work-save': return saveWork(t.dataset.nodrive === '1');
     case 'topic-add': {
       const ctx = APP.work.stage === 'review' && SHEET.ctx?.kind !== 'test' ? APP.work.review : SHEET.ctx?.test;
@@ -4426,7 +4460,13 @@ document.addEventListener('change', async (e) => {
   const r = APP.work.review;
   if (['fileCamera', 'filePhotos', 'fileAny'].includes(el.id) && el.files?.length) { await addFiles([...el.files]); el.value = ''; return; }
   if (el.id === 'fileRedo' && el.files?.[0]) return checkRedo(el.dataset.q, el.files[0]);
-  if (el.id === 'wSubj') { APP.work.hint.subjectId = el.value; APP.work.hint.homeworkId = ''; return render(); }
+  if (el.id === 'wSubj') {
+    // a to-do in another subject no longer fits; one with no subject (or the same) still does
+    const k = taskOf(APP.work.hint.homeworkId);
+    APP.work.hint.subjectId = el.value;
+    if (k?.subjectId && el.value && k.subjectId !== el.value) APP.work.hint.homeworkId = '';
+    return render();
+  }
   if (el.id === 'wHw') { APP.work.hint.homeworkId = el.value; return; }
   if (el.id === 'wSheet') { APP.work.worksheetId = el.value; APP.work.already = null; return; }
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
