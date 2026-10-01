@@ -359,7 +359,8 @@ const mcp = createMcpServer({
         + 'work and per-topic mastery, which is what you need before calling apply_changes. waitingToBeRead '
         + '(summary) and reading.queue (full) list work waiting for Claude — see read_queue. recentPapers (summary) '
         + 'are the last past papers and tests sat; papers and paperStats (full) are the whole Papers log with '
-        + 'per-subject averages and the projected grade.',
+        + 'per-subject averages and the projected grade. testPlans: each test in the next three weeks with its '
+        + 'teacher worksheets (done or not), its booklet (later, wanted, made, done) and the free periods until then.',
       inputSchema: { type: 'object', properties: {
         date: { type: 'string', description: 'YYYY-MM-DD in the student\'s local time; default today' },
         time: { type: 'string', description: 'HH:MM local time, to mark which lesson is on now' },
@@ -403,7 +404,7 @@ const mcp = createMcpServer({
         + 'attempt.delete {attemptId}; attachment.delete {attachmentId}; '
         + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
-        + 'markScheme}] (1-30 questions)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
+        + 'markScheme, difficulty?: 1-5}] (1-30 questions), testId? (a test\'s booklet: one per test)}} — also creates the pack\'s to-do and returns {packId, taskId}; '
         + 'pack.delete {packId}; '
         + 'route.tick {itemId, done?: boolean} (ids from get_route); route.opts {uk?: boolean, mit?: boolean} (keep or drop '
         + 'the UK / MIT applications); route.import {plan, done?: [ids], opts?} (replaces the whole plan — only when the '
@@ -467,6 +468,8 @@ const mcp = createMcpServer({
         + 'what ask says, and send its op together with read.done {requestId} in one apply_changes call; '
         + 'then call read_queue again until nothing is waiting. When no pages are waiting it gives the school '
         + 'emails the student\'s Mac sent in (request kind mail): add what they ask for, then mail.done. '
+        + 'After those, a test whose teacher worksheets are done gets a booklet request (kind booklet): write the '
+        + 'questions it asks for and send its pack.add op. '
         + 'Tell the student briefly what you saved.',
       inputSchema: { type: 'object', properties: {
         requestId: { type: 'string', description: 'a request from waitingToBeRead; default the oldest' },
