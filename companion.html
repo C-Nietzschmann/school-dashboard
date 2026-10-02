@@ -229,6 +229,15 @@ section.tab.on{display:block}
 .tp-sched li.is-done{color:var(--muted)}
 .tp-when{color:var(--text-2);font-size:12.5px;white-space:nowrap}
 .linkbtn{border:0;background:none;padding:0;color:var(--accent);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.kind.k-relearn{background:var(--pen-soft);color:var(--pen)}
+.conf-list{display:grid;gap:4px}
+.conf{padding:10px 0;border-top:1px solid var(--line)}
+.conf:first-child{border-top:0;padding-top:0}
+.conf-h{display:flex;align-items:center;gap:8px}
+.conf-text{font-size:14px;margin-top:4px;color:var(--text-2);overflow-wrap:anywhere}
+.conf-ex{margin-top:6px}
+.conf-ex summary{cursor:pointer;color:var(--accent);font-size:13.5px}
+.conf-ex-body{white-space:pre-wrap;font-size:14px;line-height:1.5;margin-top:6px;padding:10px 12px;border-radius:10px;background:var(--surface-2);overflow-wrap:anywhere}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -837,6 +846,13 @@ const LOCAL = {
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
   'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
   'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
+  'confusion.add': (d, op) => {
+    if ((d.confusions ||= []).some((c) => c.id === op.confusion.id)) return;
+    d.confusions.unshift({ topicIds: [], text: '', level: 'no', ...op.confusion, date: nowISO(), resolved: null });
+  },
+  'confusion.update': (d, op) => { const c = d.confusions?.find((x) => x.id === op.confusionId); if (c) Object.assign(c, op.patch); },
+  'confusion.resolve': (d, op) => { const c = d.confusions?.find((x) => x.id === op.confusionId); if (c) c.resolved = op.resolved === false ? null : nowISO(); },
+  'confusion.delete': (d, op) => { d.confusions = (d.confusions || []).filter((x) => x.id !== op.confusionId); },
   'paper.add': (d, op) => {
     const p = op.paper;
     if ((d.papers ||= []).some((x) => x.id === p.id)) return;
@@ -927,10 +943,10 @@ function noData() {
 
 /* ================================================================== today */
 const KIND_LABEL = { test: 'Test prep', task: 'Task', mistakes: 'Fix mistakes', current: 'Consolidate', review: 'Review', cards: 'Cards',
-  custom: 'Own plan', worksheet: 'Worksheet' };
+  custom: 'Own plan', worksheet: 'Worksheet', relearn: 'Re-learn' };
 function optTitle(o) {
   // "Test prep: Quadratics" -> the chip already says "Test prep"
-  return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes|Worksheet):\s*/, '');
+  return String(o.title || '').replace(/^(Test prep|Consolidate|Review|Fix your mistakes|Worksheet|Re-learn):\s*/, '');
 }
 
 function viewToday() {
@@ -941,7 +957,8 @@ function viewToday() {
   const sel = APP.selDay && APP.selDay !== d.date ? days.find((x) => x.date === APP.selDay) : null;
   return `${weekStrip(days)}${noticesCard(d)}${testPlanCards(d)}<div class="grid2">
     <div class="stack">${sel ? otherDay(sel) : dayCard(d)}${logCard()}</div>
-    <div class="stack">${archiveCard(d)}${routeCard(d)}${todoCard(d)}${testsCard(d)}${weakCard(d)}</div>
+    <div class="stack">${archiveCard(d)}${(d.confusions || []).some((c) => !c.resolved) ? confusionCard(d) : ''}${routeCard(d)}${todoCard(d)}${testsCard(d)}
+      ${(d.confusions || []).some((c) => !c.resolved) ? '' : confusionCard(d)}${weakCard(d)}</div>
   </div>`;
 }
 
@@ -1000,6 +1017,126 @@ function testPlanCard(x) {
       ${sched.length > 4 ? `<details><summary class="muted" style="font-size:13px">All ${sched.length}</summary><ul>${sched.slice(4).map(row).join('')}</ul></details>` : ''}</div>`
       : '<div class="tp-note" style="margin-top:12px">No free periods before it. Add a study session on a day before the test (tap a day above).</div>'}
   </div>`;
+}
+
+/* "I didn't get it": something from class you didn't understand. Add it with your
+   class notes (Work → Notes → Didn't get it) or on its own here. Claude explains
+   it, and it comes first in your free periods as Re-learn until you've got it. */
+const agoDay = (iso) => { const n = daysBetween(iso, nowISO()); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`; };
+function confusionCard(d) {
+  const open = (d.confusions || []).filter((c) => !c.resolved);
+  return `<div class="card confusions"${open.length ? ' style="border-color:var(--pen)"' : ''}>
+    <div class="card-h"><h2>Didn't get it${open.length ? ` <span class="count">${open.length}</span>` : ''}</h2></div>
+    ${open.length ? `<div class="conf-list">${open.map(confusionRow).join('')}</div>`
+      : '<div class="muted" style="font-size:13.5px">Something from class you didn\'t understand? Add it, with your notes or on its own. Claude explains it, and it comes first in your free periods until you get it.</div>'}
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm primary" data-act="conf-new">I didn't get something</button>
+      <button class="btn sm" data-act="class-notes">Add class notes</button></div>
+  </div>`;
+}
+function confusionRow(c) {
+  const topic = (c.topicIds || []).map((id) => topicOf(id)?.name).find(Boolean);
+  const state = APP.explaining?.[c.id];
+  const canExplain = Boolean(APP.sample);
+  return `<div class="conf">
+    <div class="conf-h"><span class="dot" style="--c:${colourOf(c.subjectId)}"></span><b>${esc(topic || subjectName(c.subjectId))}</b></div>
+    <div class="task-meta">${esc(subjectName(c.subjectId))} · ${esc(agoDay(c.date))} · ${c.level === 'partly' ? 'partly got it' : 'didn\'t get it'}${c.notesTitle ? ` · with your notes “${esc(c.notesTitle)}”` : ''}</div>
+    ${c.text ? `<div class="conf-text">“${esc(c.text)}”</div>` : ''}
+    ${c.explain ? `<details class="conf-ex"${APP.openExplain === c.id ? ' open' : ''}><summary>Claude's explanation</summary><div class="conf-ex-body">${esc(c.explain)}</div></details>`
+      : `<div class="tp-note">${state === 'busy' ? 'Claude is writing you an explanation…' : state === 'failed' ? 'Claude could not explain it just now.'
+        : canExplain ? 'No explanation yet.' : 'Claude explains it at its next hourly check.'}</div>`}
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" data-act="conf-got" data-id="${esc(c.id)}">Got it now</button>
+      ${!c.explain && canExplain && state !== 'busy' ? `<button class="btn sm ghost" data-act="conf-explain" data-id="${esc(c.id)}">Explain it now</button>` : ''}
+      ${c.url ? `<a class="btn sm ghost" href="${esc(c.url)}" target="_blank" rel="noopener">Notes in Drive</a>` : ''}
+      <span class="spacer"></span><button class="btn sm ghost" data-act="conf-delete" data-id="${esc(c.id)}" data-armed="0">Delete</button>
+    </div>
+  </div>`;
+}
+
+function confusionSheet() {
+  SHEET.ctx = { kind: 'confusion', c: { id: newId('c'), subjectId: lessonSubjectNow() || '', topicId: '', text: '', level: 'no' } };
+  renderConfusionSheet();
+}
+function renderConfusionSheet() {
+  const c = SHEET.ctx.c;
+  const ts = (APP.data?.topics || []).filter((t) => t.subjectId === c.subjectId);
+  const opt = (t) => `<option value="${esc(t.id)}" ${t.id === c.topicId ? 'selected' : ''}>${esc(t.name)}</option>`;
+  const now = ts.filter((t) => t.started && !t.finished), rest = ts.filter((t) => !(t.started && !t.finished));
+  openSheet(`<div class="sheet-h"><h2>Didn't get it</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="fields">
+      <div class="fields two">
+        <label class="field"><span>Subject</span><select id="cSubj">${subjectOptions(c.subjectId, 'Choose…')}</select></label>
+        <label class="field"><span>Topic</span><select id="cTopic"><option value="">Not sure</option>
+          ${now.length ? `<optgroup label="Being taught now">${now.map(opt).join('')}</optgroup>` : ''}
+          ${rest.length ? `<optgroup label="${now.length ? 'Other topics' : 'Topics'}">${rest.map(opt).join('')}</optgroup>` : ''}</select></label>
+      </div>
+      <label class="field"><span>What didn't you get?</span><textarea id="cText" rows="3" placeholder="why we complete the square… or the whole lesson">${esc(c.text)}</textarea></label>
+      <div class="field"><span>How much</span><div class="seg">${[['no', 'Didn\'t get it'], ['partly', 'Partly']].map(([k, v]) =>
+        `<button type="button" data-clevel="${k}" aria-pressed="${c.level === k}">${v}</button>`).join('')}</div></div>
+      <div class="muted" style="font-size:12.5px">Claude explains it${APP.sample ? ' straight away' : ' at its next hourly check'}, and it comes first in your free periods as Re-learn until you tap Got it now.</div>
+      <div class="row"><button class="btn primary" data-act="conf-save">Save</button>
+        <button class="btn ghost" data-act="conf-notes">Add photos of my notes with it</button></div>
+    </div>`);
+}
+function readConfusionFields() {
+  const c = SHEET.ctx.c;
+  c.subjectId = $('#cSubj')?.value ?? c.subjectId;
+  c.topicId = $('#cTopic')?.value ?? c.topicId;
+  c.text = $('#cText')?.value.trim() ?? c.text;
+  return c;
+}
+// Work, ready for class notes (and what you didn't get in them, when you said)
+function classNotes(understood = null, subjectId = '') {
+  if (APP.work.stage === 'saved') resetWork();
+  if (APP.work.stage === 'idle') Object.assign(APP.work, { mode: 'notes', modeChosen: true, where: 'class', understood,
+    hint: { subjectId: subjectId || lessonSubjectNow() || '', homeworkId: '' }, already: null, error: null });
+  APP.tab = 'work'; LS.set('tab', APP.tab); window.scrollTo(0, 0);
+  render();
+}
+// "Did you get it?" on notes: not, or partly, keeps a Re-learn open until you do
+function understoodField(r) {
+  const u = r.understood || {};
+  return `<div class="field"><span>Did you get it?</span><div class="seg" id="rUnd">${[['yes', 'Got it'], ['partly', 'Partly'], ['no', 'Didn\'t get it']].map(([k, v]) =>
+      `<button type="button" data-und="${k}" aria-pressed="${u.level === k}">${v}</button>`).join('')}</div>
+    <input id="rUndText" data-keep placeholder="What didn't you get? Claude explains it" value="${esc(u.text || '')}" style="margin-top:6px"${u.level === 'no' || u.level === 'partly' ? '' : ' hidden'}></div>`;
+}
+// what goes with a notes save, and its confusion's id so Claude can explain it at once
+function understoodOp(r) {
+  const u = r.understood;
+  if (!u?.level) return undefined;
+  if (u.level !== 'yes') u.id ||= newId('c');
+  return { level: u.level, text: u.text || '', ...(u.level !== 'yes' ? { id: u.id } : {}) };
+}
+async function explainNow(id, x = null) {
+  if (!APP.sample || APP.explaining?.[id] === 'busy') return;
+  const c = x || (APP.data?.confusions || []).find((y) => y.id === id);
+  if (!c) return;
+  (APP.explaining ||= {})[id] = 'busy';
+  render();
+  try {
+    const topics = (c.topicIds || []).map((t) => topicOf(t)).filter(Boolean);
+    const n = c.notes || (c.attachmentId ? notesOf(c.attachmentId) : null);
+    const r = await APP.sample.json(`A UK Year 12 student did not understand something in class and wants it explained.
+${PROMPT_SUBJECTS}
+Subject: ${subjectName(c.subjectId)}${topics.length ? `. Topic: ${topics.map((t) => `${t.name} (${t.unit})`).join(', ')}` : ''}.
+What they did not get: ${c.text ? `"${c.text}"` : '(they did not say exactly: explain the core idea of the topic)'}
+${n ? `Their notes from the lesson, "${n.title}": ${n.summary || ''}${n.keyPoints?.length ? '\nKey points: ' + n.keyPoints.join('; ') : ''}` : ''}
+
+Explain it to them: the idea in plain words first, then one short worked example step by step, then the most common mistake to avoid.
+At most about 250 words. Maths in plain Unicode (x², √, ∫, π, ≤), no LaTeX. For German, explain in English with German examples.
+
+Reply with only this JSON: {"explain":"…"}`, { modelTier: APP.work.tier === 'careful' ? 'default' : 'quick' });
+    const text = String(r?.explain || '').trim();
+    if (!text) throw new Error('empty');
+    send({ type: 'confusion.update', confusionId: id, patch: { explain: text.slice(0, 4000) } });
+    APP.explaining[id] = 'done';
+    APP.openExplain = id;
+  } catch {
+    APP.explaining[id] = 'failed';
+  } finally {
+    render();
+  }
 }
 
 /* Important messages from your school mail (your Mac's Mail rule sends it in and
@@ -1920,6 +2057,7 @@ function fileUpdate() {
   const w = APP.work, n = w.match?.note;
   if (!n) return;
   w.review = { mode: 'notes', kind: 'notes', updateOf: n.id, title: n.title, subjectId: n.subjectId, topicIds: [...(n.topicIds || [])],
+    ...(w.understood ? { understood: { ...w.understood } } : {}),
     homeworkId: '', questions: [], summary: n.summary || '', keyPoints: [...(n.keyPoints || [])], newPoints: [], detected: null,
     readPages: n.readPages || 0, pageCount: pageUnits(w).length, readLabel: null, unreadLabel: pagesLabel(readUnits(w)) };
   stampWhere(w.review, 0);
@@ -2069,6 +2207,7 @@ function notesReviewView() {
         ${topicsField(r)}
         <label class="field"><span>What they cover</span><textarea id="rSummary" data-keep placeholder="optional">${esc(r.summary)}</textarea></label>
         <label class="field"><span>Key points — one per line</span><textarea id="rPoints" data-keep placeholder="optional">${esc((r.keyPoints || []).join('\n'))}</textarea></label>
+        ${understoodField(r)}
         ${minutesField(r)}
         <div class="field"><span>Goes to Google Drive</span>${destView(w)}</div>
       </div>
@@ -2151,6 +2290,8 @@ function studyLine(s) {
   return `<div class="muted" style="font-size:13px;margin-top:10px">🏠 ${s.minutes ? `Logged ${s.minutes} min of study${s.subjectId ? ' in ' + esc(subjectName(s.subjectId)) : ''}.`
     : 'Logged as study time once Claude has read it — it guesses the minutes from the pages.'}</div>`;
 }
+const confusionSaved = (s) => (s.confusionId ? `<div class="notice" style="margin-top:10px">Saved as not understood.
+  ${APP.sample ? 'Claude is explaining it' : 'Claude explains it at its next hourly check'}: see <b>Didn't get it</b> on Today. It comes first in your free periods until you tap Got it now.</div>` : '');
 function savedView(s) {
   const filed = s.folder ? ' · filed in ' + esc(s.folder) : ' · not in Drive';
   if (s.mode === 'worksheet') {
@@ -2175,7 +2316,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))} · ${s.pages} page${s.pages === 1 ? '' : 's'}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<div class="eyebrow">Added</div><ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${studyLine(s)}${readingCard(s, 'the new pages')}
+      ${confusionSaved(s)}${studyLine(s)}${readingCard(s, 'the new pages')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         <button class="btn" data-act="open-note" data-id="${esc(s.noteId)}">See all the notes</button>
@@ -2190,7 +2331,7 @@ function savedView(s) {
       <div class="muted" style="font-size:13.5px">${esc(subjectName(s.subjectId))}${s.topicIds?.length ? ' · ' + s.topicIds.map((id) => esc(topicOf(id)?.name || id)).join(', ') : ''}${filed}</div>
       ${s.summary ? `<p style="color:var(--text-2)">${esc(s.summary)}</p>` : ''}
       ${s.keyPoints?.length ? `<ul style="margin:6px 0 0;padding-left:18px">${s.keyPoints.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      ${studyLine(s)}${readingCard(s, 'your notes')}
+      ${confusionSaved(s)}${studyLine(s)}${readingCard(s, 'your notes')}
       <div class="row" style="margin-top:14px">
         ${logButton(studyToLog(null))}
         ${s.url ? `<a class="btn" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Drive</a>` : ''}
@@ -3703,14 +3844,18 @@ async function saveWork(noDrive = false) {
       await drive('trash_file', { fileId: old.driveId }).catch(() => toast('The new copy is saved; the old one could not be moved to the bin.'));
     }
     w.progress = 'Updating your dashboard…'; render();
-    send({ type: 'notes.update', attachmentId: r.updateOf, pageSigs: sigs,
+    const understood = understoodOp(r);
+    send({ type: 'notes.update', attachmentId: r.updateOf, pageSigs: sigs, understood,
       patch: { title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary || '', keyPoints: r.keyPoints || [],
         pageCount: pages, readPages: Math.max(old?.readPages || 0, r.readPages || 0), firstSig: sigs[0] || undefined,
         ...(r.where ? { where: r.where } : {}), ...(r.where === 'home' && r.minutes ? { minutes: r.minutes } : {}),
         fileName: w.pages[0]?.name || undefined,
         ...(info ? { driveId: info.id || null, driveUrl: info.url || null, folder: info.folder || '', folderId: info.folderId || old?.folderId || null,
           mime: info.mime || '', ownCopy } : {}) } });
+    if (understood?.id) explainNow(understood.id, { subjectId: r.subjectId, topicIds: r.topicIds, text: understood.text,
+      notes: { title: r.title, summary: r.summary, keyPoints: r.keyPoints } });
     w.saved = { mode: 'notes', updated: true, where: r.where, minutes: r.minutes, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, summary: r.summary,
+      confusionId: understood?.id || null,
       keyPoints: r.newPoints || [], pages, version, url: info?.url || old?.driveUrl || null,
       folder: info?.folder || old?.folder || null, noteId: r.updateOf,
       chat: r.readLabel ? null : chatAsk('notes', { id: r.updateOf, title: r.title, subjectId: r.subjectId, pages, label: r.unreadLabel,
@@ -3746,8 +3891,9 @@ async function saveWork(noDrive = false) {
     difficulty: q.difficulty || undefined, explanation: q.explanation, correction: q.correction }));
   const kind = r.mode === 'notes' ? 'notes' : r.mode === 'answers' ? 'answers' : r.kind;
   const attachmentId = newId('f');
+  const understood = kind === 'notes' ? understoodOp(r) : undefined;
   send({
-    type: 'work.save',
+    type: 'work.save', understood,
     attachment: { id: attachmentId, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, homeworkId: r.homeworkId || null,
       kind, worksheetId: ws?.id || null, driveId: info?.id || null, driveUrl: info?.url || null, folder: info?.folder || '',
       folderId: info?.folderId || null, ownCopy, correctionsUrl: info?.correctionsUrl || null, mime: info?.mime || '', pages, hash: w.hash,
@@ -3762,12 +3908,14 @@ async function saveWork(noDrive = false) {
   w.saved = { mode: r.mode, where: r.where, minutes: r.minutes, title: r.title, subjectId: r.subjectId, topicIds: r.topicIds, score, max, summary: r.summary,
     nextSteps: r.nextSteps || [], keyPoints: r.keyPoints || [], worksheetId: ws?.id || null, correctionsUrl: info?.correctionsUrl || null,
     url: info?.url || null, folder: info?.folder || null, weakTopics, noteId: kind === 'notes' ? attachmentId : null,
-    paper: kind === 'test' && max > 0 && Boolean(r.subjectId),
+    paper: kind === 'test' && max > 0 && Boolean(r.subjectId), confusionId: understood?.id || null,
     chat: kind === 'notes' && !r.readLabel && !r.detected ? chatAsk('notes', { id: attachmentId, title: r.title, subjectId: r.subjectId, pages }) : null,
     queue: kind === 'notes' && !r.readLabel && !r.detected ? { kind: 'notes', units: pageUnits(w).slice(0, QUEUE_PAGES.notes),
       x: { id: attachmentId, targetId: attachmentId, title: r.title, subjectId: r.subjectId, pages, files: driveFiles(w, info), where: r.where, minutes: r.minutes } } : null };
   w.stage = 'saved';
   render();
+  if (understood?.id) explainNow(understood.id, { subjectId: r.subjectId, topicIds: r.topicIds, text: understood.text,
+    notes: { title: r.title, summary: r.summary, keyPoints: r.keyPoints } });
   startQueue(w.saved);
 }
 // The file just filed, for Claude to fall back on.
@@ -3893,7 +4041,7 @@ function viewHistory() {
       ${list.map((n) => `<button class="attempt" data-act="open-note" data-id="${esc(n.id)}">
         <span><span class="t">${esc(n.title)}</span><span class="task-meta">${topicNames(n.topicIds) || 'no topic'} · ${n.updated
           ? `updated ${esc(fmtDay(n.updated))}` : esc(fmtDay(n.date))}${n.pageCount ? ` · ${n.pageCount} pp` : ''}</span></span>
-        <span class="kind k-notes">${n.versions > 1 ? `v${n.versions}` : 'notes'}</span></button>`).join('')}</div>`).join('')
+        <span class="kind ${n.understood ? 'k-relearn' : 'k-notes'}">${n.understood ? (n.understood === 'partly' ? 'partly' : 'didn\'t get') : n.versions > 1 ? `v${n.versions}` : 'notes'}</span></button>`).join('')}</div>`).join('')
       : '<div class="empty">No notes yet. On the Work tab, add the pages and choose <b>Notes</b>.</div>';
   } else {
     body = atts.length ? `<div>${atts.map((a) => {
@@ -4283,6 +4431,7 @@ const withPct = (p) => Object.assign(p, { pct: p.total > 0 ? Math.round(p.mark /
 // pages added from the Papers tab are a test paper, named as you named it there
 function paperReview(r) {
   const w = APP.work;
+  if (w.understood && r?.mode === 'notes' && !r.understood) r.understood = { ...w.understood };
   if (!w.paperKind || !r || r.mode === 'worksheet' || r.mode === 'notes' || r.worksheetId) return;
   r.kind = 'test';
   r.paperKind = w.paperKind;
@@ -4692,6 +4841,26 @@ document.addEventListener('click', (e) => {
     /* skills */
     case 'skills-open': APP.skillsOpen = APP.skillsOpen === t.dataset.id ? null : t.dataset.id; return render();
     case 'test-new': return testSheet(null);
+    case 'conf-new': return confusionSheet();
+    case 'class-notes': return classNotes();
+    case 'conf-save': {
+      const c = readConfusionFields();
+      if (!c.subjectId) return toast('Choose the subject.');
+      const confusion = { id: c.id, subjectId: c.subjectId, topicIds: c.topicId ? [c.topicId] : [], text: c.text, level: c.level };
+      send({ type: 'confusion.add', confusion });
+      closeSheet();
+      return explainNow(c.id, confusion);
+    }
+    case 'conf-notes': {
+      const c = readConfusionFields();
+      closeSheet();
+      return classNotes({ level: c.level, text: c.text }, c.subjectId);
+    }
+    case 'conf-got': send({ type: 'confusion.resolve', confusionId: t.dataset.id }); return toast('Nice. It is off your list.');
+    case 'conf-explain': return explainNow(t.dataset.id);
+    case 'conf-delete':
+      if (t.dataset.armed !== '1') { t.dataset.armed = '1'; t.textContent = 'Tap again to delete'; return; }
+      return send({ type: 'confusion.delete', confusionId: t.dataset.id });
     case 'paper-new': return paperSheet(null);
     case 'paper-edit': return paperSheet(t.dataset.id);
     case 'paper-save': {
@@ -4748,6 +4917,13 @@ document.addEventListener('click', (e) => {
 
   /* segmented controls inside sheets and the work form */
   const press = () => t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+  if (t.dataset.clevel && SHEET.ctx?.kind === 'confusion') { readConfusionFields(); SHEET.ctx.c.level = t.dataset.clevel; return press(); }
+  if (t.dataset.und && APP.work.review) {
+    const r = APP.work.review;
+    r.understood = { ...(r.understood || {}), level: t.dataset.und, text: $('#rUndText')?.value ?? r.understood?.text ?? '' };
+    const inp = $('#rUndText'); if (inp) inp.hidden = t.dataset.und === 'yes';
+    return press();
+  }
   if (t.dataset.pfilter !== undefined) { APP.papers.where = t.dataset.pfilter; return render(); }
   if (t.dataset.pwhere && SHEET.ctx?.kind === 'paper') { SHEET.ctx.paper.where = t.dataset.pwhere; return press(); }
   if (t.dataset.pkind && SHEET.ctx?.kind === 'paper') { SHEET.ctx.paper.kind = t.dataset.pkind; return press(); }
@@ -4775,6 +4951,7 @@ document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.id === 'qaText') return updateQuickPreview();
   if (el.id === 'rTopicSearch') return topicSuggest();
+  if (el.id === 'rUndText' && APP.work.review) { APP.work.review.understood = { ...(APP.work.review.understood || { level: 'no' }), text: el.value }; return; }
   if ((el.id === 'pMark' || el.id === 'pTotal') && $('#pPct')) { $('#pPct').textContent = paperPctLine($('#pMark').value, $('#pTotal').value); return; }
   if (el.id === 'rTitle' && APP.work.review) { APP.work.review.title = el.value; return; }
   if (el.id === 'rMins' && APP.work.review) { APP.work.review.minutes = Number(el.value) || null; APP.work.review.minutesGuessed = false; return; }
@@ -4803,6 +4980,7 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'wSheet') { APP.work.worksheetId = el.value; APP.work.already = null; return; }
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
   if (el.id === 'pSubj') { APP.papers.subject = el.value; return render(); }
+  if (el.id === 'cSubj' && SHEET.ctx?.kind === 'confusion') { readConfusionFields(); SHEET.ctx.c.topicId = ''; return renderConfusionSheet(); }
   if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
   if (!r) return;
   if (el.id === 'rSubj') { r.subjectId = el.value; r.topicIds = r.topicIds.filter((id) => topicOf(id)?.subjectId === el.value); return planDestination(); }

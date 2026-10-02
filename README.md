@@ -177,6 +177,13 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Didn't get it.** When you save class notes, say whether you got it (*Got it*, *Partly* or *Didn't get it*) and what
+you didn't get. Or tap **I didn't get something** on Today, with or without photos. Claude writes you an explanation:
+the idea in plain words, one worked example and the usual mistake. The companion does it at once when it can talk to
+Claude, otherwise the background reader does through `read_queue` (kind `explain`). Until you tap **Got it now** (or
+finish it in a free period with confidence 3 or more), it is a **Re-learn** option at the top of your free periods, and
+for a test on its topic it comes right after your teacher's worksheets.
+
 **A test comes first.** Add a test (on Skills, or Claude adds one from your school mail) and for the three weeks
 before it, its plan tops every free period. Your teacher's worksheets on it come first (on its topics, or in its
 subject when it has none), weakest topic first. When they are done (answered, or every question ticked off) and the

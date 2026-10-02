@@ -387,6 +387,9 @@ const mcp = createMcpServer({
         + 'paper.add {paper:{subjectId, name, mark, total, date?, where?: school|home, kind?: past|test|mock, minutes?, notes?}} '
         + '(a past paper, school test or mock the student sat: their Papers log, and it moves the grade projection); '
         + 'paper.update {paperId, patch}; paper.delete {paperId}; '
+        + 'confusion.add {confusion:{subjectId, topicIds?, text (what they did not get), level?: no|partly, explain?}} (something from '
+        + 'class the student did not understand: it tops their free periods as Re-learn until resolved); confusion.update {confusionId, '
+        + 'patch:{explain?, text?, level?, topicIds?}}; confusion.resolve {confusionId, resolved?: false to reopen}; confusion.delete {confusionId}; '
         + 'worksheet.add {worksheet:{id?, title, subjectId, topicIds, folderId?, folderUrl?, fileId?, fileUrl?, pending? (true = added by name, booklet comes later with the answers), questionCount?}, '
         + 'questions:[{q, text, maxMarks, topicId}], summary?}; worksheet.update {worksheetId, patch? (incl. doneCount = questions done so far; doneQuestions {label: {marks, max}} = which are done, best marks kept), questions?, summary?} '
         + '(questions replace the saved ones — for a sheet saved without being read); '
@@ -395,7 +398,8 @@ const mcp = createMcpServer({
         + 'driveId?, driveUrl?, correctionsUrl?, folderId?, ownCopy?, hash?, where?: class|home}, study?:{minutes}, '
         + 'paper?:{kind: past|test|mock} (kind test with marking also logs the score in the Papers log; attachment.paperKind works too) '
         + '(where home + minutes logs a study session; class marks its topics taught), notes?:{summary, keyPoints, fileName?, '
-        + 'pageCount?, firstSig?, pageSigs?, readPages?} (kind notes); notes.update {attachmentId, patch:{summary?, '
+        + 'pageCount?, firstSig?, pageSigs?, readPages?} (kind notes), understood?:{level: yes|partly|no, text?} (notes the student '
+        + 'did not get open a confusion); notes.update {attachmentId, patch:{summary?, '
         + 'keyPoints?, topicIds?, title?, pageCount?, firstSig?, fileName?, driveId?, driveUrl?, folder?, folderId?, where?, minutes?}, '
         + 'pageSigs?} (more of the same notebook); '
         + 'marking?:{questions:[{q, topicId, marks, maxMarks, difficulty?: 1-5 (1 recall, 3 exam standard, 5 A* stretch), errorType?: careless|method|knowledge|timing, '
@@ -469,7 +473,8 @@ const mcp = createMcpServer({
         + 'then call read_queue again until nothing is waiting. When no pages are waiting it gives the school '
         + 'emails the student\'s Mac sent in (request kind mail): add what they ask for, then mail.done. '
         + 'After those, a test whose teacher worksheets are done gets a booklet request (kind booklet): write the '
-        + 'questions it asks for and send its pack.add op. '
+        + 'questions it asks for and send its pack.add op. Then things from class the student did not get (kind explain): '
+        + 'explain each and send confusion.update. '
         + 'Tell the student briefly what you saved.',
       inputSchema: { type: 'object', properties: {
         requestId: { type: 'string', description: 'a request from waitingToBeRead; default the oldest' },
