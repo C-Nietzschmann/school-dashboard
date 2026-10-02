@@ -130,6 +130,64 @@ test('work.save: marking lands in attempts, the words in their own document, and
   assert.equal(todayPayload(S, { date: MONDAY }).markedHashes['ab'.repeat(16)], a.id);
 });
 
+test("the examiner's annotation on each part is kept with the marking and comes back with it", async () => {
+  const S = fixture();
+  const store = memStore();
+  const { results: [r] } = await applyOps(S, [{ id: 'w1', type: 'work.save',
+    attachment: { title: 'Ex 2A', subjectId: 'maths', topicIds: ['t002'], kind: 'answers' },
+    marking: { questions: [
+      { q: '1', topicId: 't002', marks: 3, maxMarks: 3, annotation: 'M1 A1 A1' },
+      { q: '2', topicId: 't002', marks: 1, maxMarks: 4, annotation: 'M1 A0 dM0 A0 — sign error in line 2', errorType: 'method', explanation: 'you lose A1: …', correction: 'M1 … A1 …' },
+      { q: '3', topicId: 't002', marks: 0, maxMarks: 2 },
+    ] } }], { date: MONDAY, store });
+  const doc = store.m.get('mark-' + r.attemptId);
+  assert.deepEqual(doc.questions.map((q) => q.annotation), ['M1 A1 A1', 'M1 A0 dM0 A0 — sign error in line 2', undefined]);
+  const full = await getAttempt(S, { id: r.attemptId }, store);
+  assert.equal(full.questions[1].annotation, 'M1 A0 dM0 A0 — sign error in line 2');
+  assert.equal(full.questions[1].marks, 1, 'the numbers still come from the state');
+});
+
+test('homework counts towards your level: a mark or a rating on its topics, unless marked work came with it', async () => {
+  const S = fixture();
+  const store = memStore();
+  await applyOps(S, [
+    { id: 'a', type: 'task.add', task: { id: 'hg', title: 'speaking activity', subjectId: 'maths' } },
+    { id: 'b', type: 'task.add', task: { id: 'hm', title: 'Ex 3B', subjectId: 'maths' } },
+    { id: 'c', type: 'task.add', task: { id: 'hr', title: 'reading', subjectId: 'maths' } },
+  ], { date: MONDAY });
+  const before = todayPayload(S, { date: MONDAY }).mastery.topics.t003;
+  const { results } = await applyOps(S, [
+    { id: 'd1', type: 'task.done', taskId: 'hg', done: true },
+    { id: 'r1', type: 'task.result', taskId: 'hg', topicIds: ['t003', 't071'], marks: 2, max: 10 },
+    { id: 'r2', type: 'task.result', taskId: 'hr', topicIds: ['t003'] },
+    { id: 'r3', type: 'task.result', taskId: 'hr', topicIds: [], rating: 3 },
+    { id: 'r4', type: 'task.result', taskId: 'hr', topicIds: ['t003'], marks: 12, max: 10 },
+  ], { date: MONDAY });
+  assert.deepEqual(results.map((r) => r.ok), [true, true, false, false, false]);
+  const h = S.homework.find((x) => x.id === 'hg');
+  assert.deepEqual(h.result.topicIds, ['t003'], 'only topics of its subject');
+  assert.equal(S.topics.find((t) => t.id === 't003').started, true);
+  let p = todayPayload(S, { date: MONDAY });
+  const after = p.mastery.topics.t003;
+  assert.ok(after.evidence > before.evidence && after.score < before.score, '2/10 pulls the level down');
+  assert.deepEqual(p.done.find((t) => t.id === 'hg').result, { marks: 2, max: 10, topicIds: ['t003'], date: MONDAY });
+
+  // a rating counts a little
+  await applyOps(S, [{ id: 'r5', type: 'task.result', taskId: 'hr', topicIds: ['t004'], rating: 5 }], { date: MONDAY });
+  const t4 = todayPayload(S, { date: MONDAY }).mastery.topics.t004;
+  assert.ok(t4.evidence > 0 && t4.evidence < 2);
+
+  // marked work for the to-do counts instead, not both
+  await applyOps(S, [{ id: 'r6', type: 'task.result', taskId: 'hm', topicIds: ['t005'], marks: 0, max: 10 },
+    { id: 'w', type: 'work.save', attachment: { title: 'Ex 3B answers', subjectId: 'maths', topicIds: ['t005'], kind: 'answers', homeworkId: 'hm' },
+      marking: { questions: [{ q: '1', topicId: 't005', marks: 5, maxMarks: 5 }] } }], { date: MONDAY, store });
+  p = todayPayload(S, { date: MONDAY });
+  assert.equal(p.tasks.find((t) => t.id === 'hm').marked, true);
+  assert.ok(p.mastery.topics.t005.score > 60, 'the marked 5/5 counts, not the 0/10');
+  await applyOps(S, [{ id: 'r7', type: 'task.result', taskId: 'hg', clear: true }], { date: MONDAY });
+  assert.equal(S.homework.find((x) => x.id === 'hg').result, undefined);
+});
+
 test('fixing mistakes and correcting the marks both raise your level', async () => {
   const S = fixture();
   const store = memStore();

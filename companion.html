@@ -244,6 +244,9 @@ section.tab.on{display:block}
 .wq-t{grid-column:1 / -1}
 .wq-head{border-bottom:0;padding-bottom:0;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .chip.pick{cursor:pointer;color:var(--accent);border-color:var(--line-strong)}
+.chip.pick.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
+.seg.segwrap-in{display:flex;flex-wrap:wrap;max-width:100%}
+.annot{font-family:var(--mono);font-size:12.5px;color:var(--pen);margin:4px 0 2px;overflow-wrap:anywhere}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -852,6 +855,12 @@ const LOCAL = {
   'test.add': (d, op) => { if (!d.tests.some((t) => t.id === op.test.id)) d.tests.push({ ...op.test, result: null }); },
   'test.update': (d, op) => { const t = d.tests.find((x) => x.id === op.testId); if (t) Object.assign(t, op.patch); },
   'test.delete': (d, op) => { d.tests = d.tests.filter((x) => x.id !== op.testId); },
+  'task.result': (d, op) => {
+    const t = [...(d.tasks || []), ...(d.done || [])].find((x) => x.id === op.taskId);
+    if (!t) return;
+    if (op.clear) delete t.result;
+    else t.result = { ...(op.max ? { marks: op.marks, max: op.max } : {}), ...(op.rating ? { rating: op.rating } : {}), topicIds: op.topicIds };
+  },
   'confusion.add': (d, op) => {
     if ((d.confusions ||= []).some((c) => c.id === op.confusion.id)) return;
     d.confusions.unshift({ topicIds: [], text: '', level: 'no', ...op.confusion, date: nowISO(), resolved: null });
@@ -1731,6 +1740,51 @@ const SHEET = { ctx: null };
 const subjectOptions = (sel, blank = 'General') =>
   `<option value="">${esc(blank)}</option>` + subjects().map((s) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
 
+/* How a to-do went: homework counts towards your level too. When marked work
+   came with it, that already counts; otherwise your mark (the teacher's, say) or
+   your own 1–5, on the topics it practised. */
+const RATINGS = [[1, 'Couldn\'t do it'], [2, 'Hard'], [3, 'OK'], [4, 'Good'], [5, 'Easy']];
+const resultLine = (r) => (r ? `${r.max ? `${fmtN(r.marks)}/${fmtN(r.max)} (${Math.round(r.marks / r.max * 100)}%)` : ''}${r.max && r.rating ? ' · ' : ''}${r.rating ? RATINGS.find(([k]) => k === r.rating)?.[1] || '' : ''}`
+  + `${r.topicIds?.length ? ' · ' + r.topicIds.map((id) => topicOf(id)?.name || id).join(', ') : ''}` : '');
+function resultSheet(id) {
+  const t = taskOf(id);
+  if (!t) return;
+  const r = t.result || {};
+  const ts = (APP.data?.topics || []).filter((x) => !t.subjectId || x.subjectId === t.subjectId);
+  const now = ts.filter((x) => x.started && !x.finished);
+  SHEET.ctx = { kind: 'result', id, r: { topicIds: [...(r.topicIds || (now.length === 1 ? [now[0].id] : []))], marks: r.marks ?? '', max: r.max ?? '', rating: r.rating || null } };
+  renderResultSheet();
+}
+function renderResultSheet() {
+  const c = SHEET.ctx, r = c.r, t = taskOf(c.id);
+  const ts = (APP.data?.topics || []).filter((x) => !t?.subjectId || x.subjectId === t.subjectId);
+  const now = ts.filter((x) => x.started && !x.finished), rest = ts.filter((x) => !(x.started && !x.finished));
+  const chip = (x) => `<button type="button" class="chip pick${r.topicIds.includes(x.id) ? ' on' : ''}" data-rtopic="${esc(x.id)}" aria-pressed="${r.topicIds.includes(x.id)}">${esc(x.name)}</button>`;
+  const restOn = rest.some((x) => r.topicIds.includes(x.id));
+  openSheet(`<div class="sheet-h"><h2>How did it go?</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+    <div class="task-meta" style="margin-bottom:10px">${esc(t?.title || '')}${t?.subjectId ? ' · ' + esc(subjectName(t.subjectId)) : ''}</div>
+    <div class="fields">
+      <div class="field"><span>Topics it practised</span>
+        ${now.length ? `<div class="row">${now.map(chip).join('')}</div>` : ''}
+        ${rest.length ? `<details style="margin-top:6px"${restOn || !now.length ? ' open' : ''}><summary class="muted" style="font-size:13px;cursor:pointer">${now.length ? 'Other topics' : 'Topics'}</summary>
+          <div class="row" style="margin-top:6px">${rest.map(chip).join('')}</div></details>` : ''}</div>
+      <div class="field"><span>Your mark, if it was marked</span>
+        <div class="row"><input type="number" id="hrMarks" min="0" step="0.5" inputmode="decimal" value="${esc(r.marks)}" style="width:90px" aria-label="Your mark">
+          <span class="muted">out of</span><input type="number" id="hrMax" min="1" step="0.5" inputmode="decimal" value="${esc(r.max)}" style="width:90px" aria-label="Out of"></div></div>
+      <div class="field"><span>Or how it went</span><div class="seg segwrap-in">${RATINGS.map(([k, v]) =>
+        `<button type="button" data-hrate="${k}" aria-pressed="${r.rating === k}">${v}</button>`).join('')}</div></div>
+      <div class="muted" style="font-size:12.5px">It counts towards your level in those topics: a mark like marked work, your own rating a little.</div>
+      <div class="row"><button class="btn primary" data-act="hr-save">Save</button><button class="btn ghost" data-act="close">Skip</button>
+        <span class="spacer"></span>${t?.result ? '<button class="btn ghost sm" data-act="hr-clear">Remove</button>' : ''}</div>
+    </div>`);
+}
+function readResultFields() {
+  const r = SHEET.ctx.r;
+  r.marks = $('#hrMarks')?.value ?? r.marks;
+  r.max = $('#hrMax')?.value ?? r.max;
+  return r;
+}
+
 function taskSheet(id) {
   const t = [...APP.data.tasks, ...APP.data.done].find((x) => x.id === id);
   if (!t) return;
@@ -1745,6 +1799,10 @@ function taskSheet(id) {
       <div class="field"><span>Priority</span><div class="seg" id="tPrio">${['high', 'normal', 'low'].map((p) =>
         `<button type="button" data-prio="${p}" aria-pressed="${t.priority === p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</div></div>
       <label class="field"><span>Note</span><input id="tNote" value="${esc(t.notes || '')}" placeholder="optional"></label>
+      ${t.done || t.result ? `<div class="field"><span>How it went</span>
+        <div class="row">${t.marked ? '<span class="muted" style="font-size:13.5px">Marked work came with it, so that counts.</span>'
+          : `${t.result ? `<span style="font-size:14px">${esc(resultLine(t.result))}</span>` : '<span class="muted" style="font-size:13.5px">Not said yet.</span>'}
+          <button class="btn sm" data-act="hr-open" data-id="${esc(t.id)}">${t.result ? 'Change' : 'Add how it went'}</button>`}</div></div>` : ''}
       <div class="field"><span>Your work${t.files?.length ? ` · ${t.files.length}` : ''}</span>
         ${t.files?.length ? `<ul class="task-files">${t.files.map((f) => `<li>${f.url
           ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.title)}</a>` : esc(f.title)}
@@ -2269,6 +2327,7 @@ function markReviewView() {
                 `<option value="${e}" ${e === q.errorType ? 'selected' : ''}>${e}</option>`).join('')}</select>`}
               ${topicSelect(q, i, r.subjectId)}
             </div>
+            ${q.annotation ? `<div class="annot">${esc(q.annotation)}</div>` : ''}
             ${q.explanation ? `<div class="q-text">${esc(q.explanation)}</div>` : ''}
             ${q.correction && !ok ? `<div class="working">${esc(q.correction)}</div>` : ''}
           </div></div>`;
@@ -2415,8 +2474,9 @@ Then save what they cover to my A Level dashboard: call apply_changes on ${conn}
   const a = x.attachment;
   const attachment = a ? JSON.stringify({ ...a, topicIds: [`<${topics}>`] }) + studyJson(x)
     : `{"id": "${newId('f')}", "title": "${ws ? 'Answers — ' + ws.title : '<a short name>'}", "kind": "answers"${ws ? `, "worksheetId": "${ws.id}"` : ''}, "subjectId": "${x.subjectId || ws?.subjectId || '<subject id>'}", "topicIds": ["<${topics}>"]}`;
-  return `${q ? 'These pictures are' : "I've attached"} ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it like a careful teacher with a red pen${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. For every part give marks and maxMarks; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me, and the correct working. ${q ? 'Then save' : 'Show me the marking, then save'} it with apply_changes on ${conn} —
-{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}${a ? '' : studyJson(x)}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "difficulty": "<1 recall … 3 exam standard … 5 A* stretch>", "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
+  return `${q ? 'These pictures are' : "I've attached"} ${ws ? `my answers to the worksheet "${ws.title}"` : `my ${x.subjectId ? subjectName(x.subjectId) + ' ' : ''}work`}. Please mark it${ws ? `; get the worksheet's questions first with get_attempt {"worksheetId": "${ws.id}"} on ${conn}` : ''}. ${EXAMINER(x.subjectId || ws?.subjectId)}
+For every part give marks, maxMarks and the annotation; for each part that lost marks an errorType (careless, method, knowledge or timing), a short explanation to me naming the mark lost, and the mark-scheme answer with each mark labelled. ${q ? 'Then save' : 'Show me the marking, then save'} it with apply_changes on ${conn} —
+{"id": "${chatOpId()}", "type": "work.save", "attachment": ${attachment}${a ? '' : studyJson(x)}, "marking": {"questions": [{"q": "1a", "topicId": "<topic id>", "marks": 1, "maxMarks": 3, "difficulty": "<1 recall … 3 exam standard … 5 A* stretch>", "annotation": "M1 A0 A0 — …", "errorType": "method", "explanation": "…", "correction": "…"}], "summary": "…", "nextSteps": ["…"]}}`;
 }
 function chatCard(text, what = 'it') {
   return `<div class="card chatcard">
@@ -3146,23 +3206,59 @@ function subjectHint(hint) {
   return hint.subjectId ? `The student says this is ${subjectName(hint.subjectId)}.`
     : `Work out the subject from the pages.${recent ? ` (Their most recent lesson was ${subjectName(recent)}, which may or may not be related.)` : ''}`;
 }
+/* Mark like the board's own examiners. Each subject is marked by its board's
+   conventions, and every part gets the examiner's annotation (M1 A1 B0, MP1 ✓,
+   a level for an essay) so you can see which marks you earned and which you lost. */
+const BOARD_MARKING = {
+  maths: `MATHS: Pearson Edexcel International A Level (WMA11/12 Pure, WST01 Statistics, WME01 Mechanics). Mark as a Pearson examiner applying its General Marking Guidance:
+- M marks: method — knowing a method and attempting to apply it to this question. A marks: accuracy — only if the M mark they depend on is earned. B marks: independent (a correct value, statement or sketch feature). dM: a method mark that needs the previous M.
+- ft: follow an earlier error through when the later method is right (not where the error made the question easier). cao: correct answer only. cso: correct solution only — for "show that" and proofs every step must be shown, and a wrong or missing step loses the final A mark.
+- awrt: accept answers that round to the required accuracy (3 s.f. unless the question says; exact answers where asked). isw: ignore working after a correct answer unless it contradicts it.
+- A correct answer with no working: full marks only where the question does not demand working ("show that", "hence", "using algebra/calculus" do); otherwise give what the scheme would for the answer alone.
+- Mechanics: equations of motion and resolving need all the terms (M1), correct signs and values (A1); a final answer in a sensible form with units.`,
+  fmaths: `FURTHER MATHS: Pearson Edexcel International A Level (WFM01 Further Pure 1, WDM11 Decision Maths 1, WME02). Same General Marking Guidance as maths: M/A/B/dM marks, ft, cao, cso, awrt, isw.
+- Decision Maths (D1): the method as the scheme sets it out — for Prim, Kruskal, Dijkstra, route inspection, sorting and bin packing: M1 for the right method started, A marks for each correct stage (order of arcs, labels and order of labelling, passes of a sort, bins), B marks for the final value or statement (weight, route, length). Arcs and vertices must be named in the order the algorithm finds them.`,
+  physics: `PHYSICS: Pearson Edexcel International A Level (WPH11–WPH16). Mark as a Pearson physics examiner:
+- One mark per creditworthy point (MP1, MP2…), up to the marks for the part; precise physics language only ("force", not "power"; "resultant", not "total" where it matters).
+- Calculations: a mark for the right equation or substitution, a mark for the answer; the answer mark needs the correct unit. ecf: an error carried forward from an earlier part is not penalised again.
+- "Show that": working must be shown and the answer given to at least one more significant figure than the value quoted. Otherwise 2–3 s.f.; more is not penalised unless the question says.
+- Extended responses (6 marks): indicative content points plus marks for linked lines of reasoning, as the Pearson scheme does.
+- Graphs: axes labelled with quantity and unit, sensible scales, points plotted to within half a small square, a line of best fit.`,
+  cs: `COMPUTER SCIENCE: Cambridge International AS & A Level Computer Science 9618. Mark as a Cambridge examiner applying its generic marking principles:
+- Positive marking: award marks for correct, valid points; don't deduct for errors or omissions. Whole marks only. Accept equivalent wording and any valid alternative the scheme would.
+- Mark points: "1 mark per point (max n)" — name each point you credit (MP1, MP2…).
+- Pseudocode in the Cambridge pseudocode guide style (DECLARE … : INTEGER, ←, IF … THEN … ELSE … ENDIF, CASE OF … ENDCASE, FOR … TO … NEXT, WHILE … ENDWHILE, REPEAT … UNTIL, PROCEDURE/FUNCTION … RETURNS … ENDFUNCTION, OUTPUT, INPUT, OPENFILE/READFILE/WRITEFILE/CLOSEFILE). Unless the question demands pseudocode, accept program code or pseudocode that clearly shows the logic; mark each required feature (declare/initialise, the loop and its bounds, the condition, the update, the output/return).
+- Trace tables: as the scheme does, a mark per correct column or group of rows; dry-run the algorithm yourself first.
+- Theory: technical terms must be used correctly (e.g. "protocol", "packet", "two's complement"); one point = one mark; an answer that contradicts itself scores the lower.`,
+  german: `GERMAN: Pearson Edexcel International A Level German (WGN01–WGN04). Mark as a Pearson examiner:
+- Reading and listening: one mark per correct point, answered in the language asked for; a spelling slip that keeps the meaning is fine, wrong or contradicting information loses the mark.
+- Translation into German: each section or sentence is credited for conveying the meaning with accurate grammar (cases, verb forms and position, genders, adjective endings).
+- Written tasks and essays: levels-based, best fit, as the official grids are — judge separately (a) content and response: relevance to the task and its bullet points, development, critical analysis and justified opinions; (b) range of language: vocabulary, complex structures and subordinate clauses; (c) accuracy: cases, verb forms and word order, genders, adjective endings, spelling. For each strand decide the level first, then the mark within it. Give each strand as its own part (q "Content", "Range", "Accuracy") with its maxMarks — from the task if it says, otherwise in proportion to the grid for that task.
+- Corrections for German writing: rewrite every sentence that has a mistake correctly, and name the rule for each mistake (e.g. "weil sends the verb to the end", "mit + dative: mit meinem Bruder").`,
+};
+// the rules for one subject, or for all of them when Claude decides the subject from the pages
+const boardRules = (sid) => (BOARD_MARKING[sid] ? BOARD_MARKING[sid] : `Use the conventions for the subject you choose:\n${Object.values(BOARD_MARKING).join('\n')}`);
+const EXAMINER = (sid) => `Mark as an official examiner for the board, not a friendly teacher: be exactly as strict and as generous as the published mark scheme would be.
+${boardRules(sid)}
+For every part also give annotation: the marks as the examiner writes them on the script, e.g. "M1 A1 dM1 A0" (maths), "MP1 ✓ MP2 ✗ MP3 ✓" (physics, CS), "Content L3, Range L2, Accuracy L2" (German writing), with a few words where a mark is lost (e.g. "A0 cso: sign error in line 3").`;
+
 const MARK_RULES = `Use marks printed on the sheet, like [3], when shown; otherwise estimate 1–4 per part the way an exam mark scheme would. With no mark scheme, solve it yourself and judge the answer and the method; give method marks for a correct method with a later slip.
 For every part that loses marks, set errorType to one of:
    careless  — a slip: sign, arithmetic, copying, units
    method    — the wrong or an incomplete approach
    knowledge — did not know the content
    timing    — left blank or unfinished
-   explanation: why it is wrong, in at most two sentences, speaking to the student ("you…").
-   correction: the correct working and final answer, at most five short lines.
+   explanation: why marks were lost, in at most two sentences, speaking to the student ("you…"), naming the mark that was lost (e.g. "you lose A1: …").
+   correction: the mark-scheme answer: the expected working and final answer with each mark labelled where it is earned (M1, A1, MP1…), at most eight short lines.
 If you cannot read something, say so in its explanation instead of guessing.
 For every part also give difficulty, 1–5, for a Year 12 student on this syllabus: 1 recall of a fact or definition,
 2 a routine one-step method, 3 exam standard, 4 hard (several steps, or an unfamiliar setting), 5 A* stretch.
 Rate the question, not how the student did on it.`;
 const MARK_JSON = (sid) => `Reply with only this JSON:
 {"subjectId":"${sid || 'maths'}","topicIds":["t002"],"homeworkId":null,"kind":"answers","title":"a short name for this work",
- "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"difficulty":3,"errorType":"method","explanation":"…","correction":"…"}],
+ "questions":[{"q":"2a","topicId":"t002","marks":1,"maxMarks":4,"difficulty":3,"annotation":"M1 A0 dM0 A0 — sign error in line 2","errorType":"method","explanation":"…","correction":"…"}],
  "summary":"one or two sentences for the student","nextSteps":["one concrete next step"]}
-Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks.`;
+Use "errorType":null, "explanation":"" and "correction":"" for a part with full marks (it still gets its annotation).`;
 
 function markPrompt(hint) {
   const d = APP.data;
@@ -3173,7 +3269,7 @@ function markPrompt(hint) {
   const packBlock = pack ? `
 
 These answers are for a QUESTION PACK. Mark them against it: use its question numbers as "q", its marks as
-maxMarks, its topic ids, and its mark scheme. A question with no working on the pages scores 0 with errorType "timing".
+maxMarks, its topic ids, and its mark scheme, awarding exactly the marks it lists (M1, A1, B1, mark points) and no others. A question with no working on the pages scores 0 with errorType "timing".
 ${pack.questions.map((q) => `Q${q.n} [${q.marks}]${q.topicId ? ' · ' + q.topicId : ''}
 ${q.text}
 Mark scheme: ${q.markScheme || '(none — solve it yourself)'}`).join('\n\n')}` : '';
@@ -3186,6 +3282,7 @@ The ${APP.work.pages.length === 1 ? 'image is one page' : 'images are the pages,
 1. Choose the subject and the topics this work covers, using ids from TOPICS.
 2. If it is one of the OPEN ASSIGNMENTS, give that id as homeworkId.
 3. Mark every question and part you can see. ${MARK_RULES}
+${EXAMINER(hint.subjectId)}
 If the pages are notes or an unanswered worksheet, set kind to "notes" or "worksheet" and questions to [].${packBlock}
 
 TOPICS (id · subject · unit · topic)
@@ -3311,6 +3408,7 @@ ${sheetPages ? `The first ${sheetPages === 1 ? 'image is' : `${sheetPages} image
 
 1. Mark every question and part of the worksheet${qs.length ? ', using the q labels and the marks above' : ''}. A question the student did not attempt gets 0 marks with errorType "timing".
 2. ${MARK_RULES}
+${EXAMINER(ws.subjectId)}
 3. topicIds: the topics the answers show, using ids from TOPICS.
 
 TOPICS (id · subject · unit · topic)
@@ -3329,6 +3427,7 @@ function normalise(a, hint) {
     return { q: String(q.q ?? i + 1).slice(0, 12), topicId: topicOf(q.topicId) ? q.topicId : topicIds[0] || '',
       marks, maxMarks, errorType: ['careless', 'method', 'knowledge', 'timing'].includes(q.errorType) ? q.errorType : (marks < maxMarks ? 'method' : null),
       difficulty: [1, 2, 3, 4, 5].includes(Math.round(q.difficulty)) ? Math.round(q.difficulty) : null,
+      annotation: String(q.annotation || '').slice(0, 200),
       explanation: String(q.explanation || '').slice(0, 1500), correction: String(q.correction || '').slice(0, 2500) };
   });
   for (const q of questions) if (q.topicId && !topicIds.includes(q.topicId)) topicIds.push(q.topicId);
@@ -3818,8 +3917,9 @@ ${r.questions.map((q) => {
     const ok = Number(q.marks) >= Number(q.maxMarks);
     return `<h3>Question ${esc(q.q)} — ${fmtN(q.marks)}/${fmtN(q.maxMarks)} <span style="color:${ok ? TICK : PEN}">${ok ? '✓' : '✗'}</span></h3>
 ${q.topicId && topicOf(q.topicId) ? `<p><i>${esc(topicOf(q.topicId).name)}</i></p>` : ''}
+${q.annotation ? `<p style="font-family:'Courier New',monospace;color:${PEN}">${esc(q.annotation)}</p>` : ''}
 ${!ok && q.explanation ? `<p><b style="color:${PEN}">What went wrong${q.errorType ? ` (${esc(q.errorType)})` : ''}:</b> ${para(q.explanation)}</p>` : ''}
-${!ok && q.correction ? `<p><b>The right working:</b><br><span style="font-family:'Courier New',monospace">${para(q.correction)}</span></p>` : ''}`;
+${!ok && q.correction ? `<p><b>Mark scheme answer:</b><br><span style="font-family:'Courier New',monospace">${para(q.correction)}</span></p>` : ''}`;
   }).join('\n')}
 ${r.nextSteps?.length ? `<h3>Next</h3><ul>${r.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
 </body></html>`;
@@ -3950,7 +4050,7 @@ async function saveWork(noDrive = false) {
 
   const questions = r.questions.map((q) => ({ q: q.q, topicId: q.topicId || r.topicIds[0] || null, marks: Number(q.marks) || 0,
     maxMarks: Number(q.maxMarks) || 0, errorType: Number(q.marks) < Number(q.maxMarks) ? q.errorType || 'method' : null,
-    difficulty: q.difficulty || undefined, explanation: q.explanation, correction: q.correction }));
+    difficulty: q.difficulty || undefined, annotation: q.annotation || undefined, explanation: q.explanation, correction: q.correction }));
   const kind = r.mode === 'notes' ? 'notes' : r.mode === 'answers' ? 'answers' : r.kind;
   const attachmentId = newId('f');
   const understood = kind === 'notes' ? understoodOp(r) : undefined;
@@ -4250,6 +4350,7 @@ function attemptSheet(a, full, loading = false) {
           <div class="q-head"><span class="mono">${fmtN(q.marks)}/${fmtN(q.max)}</span>
             ${lost && q.type ? `<span class="kind">${esc(q.type)}</span>` : ''}
             ${q.topicId ? `<span class="slot-meta">${esc(topicOf(q.topicId)?.name || '')}</span>` : ''}</div>
+          ${q.annotation ? `<div class="annot">${esc(q.annotation)}</div>` : ''}
           ${lost ? `${q.explanation ? `<div class="q-text"><b>Why:</b> ${esc(q.explanation)}</div>` : ''}
             ${q.correction ? `<div class="working">${esc(q.correction)}</div>` : ''}
             ${qn.map((n) => `<div class="q-text" style="white-space:pre-wrap"><b>${n.kind === 'check' ? 'Your redo' : 'More'}:</b> ${esc(n.text)}</div>`).join('')}
@@ -4789,8 +4890,24 @@ document.addEventListener('click', (e) => {
     case 'route-reload': APP.routeError = null; loadRoute(); return render();
     case 'task-done': {
       const done = d.done.some((x) => x.id === t.dataset.id);
-      return send({ type: 'task.done', taskId: t.dataset.id, done: !done });
+      send({ type: 'task.done', taskId: t.dataset.id, done: !done });
+      // homework counts towards your level: ask how it went, unless marked work already says
+      const k = taskOf(t.dataset.id);
+      if (!done && k?.subjectId && !k.marked && !k.result && !k.packId) resultSheet(k.id);
+      return;
     }
+    case 'hr-open': return resultSheet(t.dataset.id);
+    case 'hr-save': {
+      const c = SHEET.ctx, r = readResultFields();
+      const marks = r.marks === '' ? null : Number(r.marks), max = r.max === '' ? null : Number(r.max);
+      const scored = max > 0 && marks !== null && marks >= 0 && marks <= max;
+      if (!r.topicIds.length) return toast('Pick the topics it practised.');
+      if (!scored && !r.rating) return toast(marks !== null || max !== null ? 'Check your mark and what it was out of.' : 'Give your mark or how it went.');
+      send({ type: 'task.result', taskId: c.id, topicIds: r.topicIds, ...(scored ? { marks, max } : {}), ...(r.rating ? { rating: r.rating } : {}) });
+      closeSheet();
+      return toast('Saved. It counts towards your level.');
+    }
+    case 'hr-clear': send({ type: 'task.result', taskId: SHEET.ctx.id, clear: true }); return closeSheet();
     case 'task-edit': return taskSheet(t.dataset.id);
     case 'task-save': {
       const id = SHEET.ctx.id;
@@ -5001,6 +5118,18 @@ document.addEventListener('click', (e) => {
 
   /* segmented controls inside sheets and the work form */
   const press = () => t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+  if (t.dataset.rtopic && SHEET.ctx?.kind === 'result') {
+    const r = readResultFields(), id = t.dataset.rtopic;
+    r.topicIds = r.topicIds.includes(id) ? r.topicIds.filter((x) => x !== id) : [...r.topicIds, id].slice(0, 6);
+    t.classList.toggle('on', r.topicIds.includes(id)); t.setAttribute('aria-pressed', String(r.topicIds.includes(id)));
+    return;
+  }
+  if (t.dataset.hrate && SHEET.ctx?.kind === 'result') {
+    const r = readResultFields(), k = Number(t.dataset.hrate);
+    r.rating = r.rating === k ? null : k;
+    t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hrate) === r.rating)));
+    return;
+  }
   if (t.dataset.wstopic && SHEET.ctx?.kind === 'wsnew') {
     const w = readWsFields();
     if (!w.topicIds.includes(t.dataset.wstopic) && w.topicIds.length < 8) w.topicIds.push(t.dataset.wstopic);
