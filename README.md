@@ -183,7 +183,10 @@ s.f. and ecf in physics; levels for content, range and accuracy in German writin
 Science (positive marking, mark points to a maximum, Cambridge pseudocode). Every part gets the examiner's annotation
 (*M1 A0 dM0 A0: sign error in line 2*), and the correction is the mark-scheme answer with each mark labelled. You see it
 in the review, in History and in the corrections saved to Drive. The same rules go to Claude in a chat and to the
-background reader, and booklets' mark schemes are written that way too.
+background reader, and booklets' mark schemes are written that way too. German is the second-language Pearson IAL,
+and a native speaker (German locked on the dashboard, or a native IGCSE row) is marked to exactly the same scheme. The
+feedback, the error types, the advice on Skills, booklets and explanations aim at what costs a native speaker marks:
+exam technique, formal register, das/dass and punctuation, exact translation.
 
 **Homework counts.** Marked work you add to a to-do counts towards your level. A to-do you tick off without it asks
 **How did it go?**: the topics it practised and your mark (the teacher's, say) or how it went from 1 to 5. A mark

@@ -1140,7 +1140,7 @@ What they did not get: ${c.text ? `"${c.text}"` : '(they did not say exactly: ex
 ${n ? `Their notes from the lesson, "${n.title}": ${n.summary || ''}${n.keyPoints?.length ? '\nKey points: ' + n.keyPoints.join('; ') : ''}` : ''}
 
 Explain it to them: the idea in plain words first, then one short worked example step by step, then the most common mistake to avoid.
-At most about 250 words. Maths in plain Unicode (x², √, ∫, π, ≤), no LaTeX. For German, explain in English with German examples.
+At most about 250 words. Maths in plain Unicode (x², √, ∫, π, ≤), no LaTeX. For German, explain in English with German examples${nativeIn(c.subjectId) ? ' (they are a native speaker: explain the exam technique or the formal rule, not the language)' : ''}.
 
 Reply with only this JSON: {"explain":"…"}`, { modelTier: APP.work.tier === 'careful' ? 'default' : 'quick' });
     const text = String(r?.explain || '').trim();
@@ -3236,8 +3236,17 @@ const BOARD_MARKING = {
 - Written tasks and essays: levels-based, best fit, as the official grids are — judge separately (a) content and response: relevance to the task and its bullet points, development, critical analysis and justified opinions; (b) range of language: vocabulary, complex structures and subordinate clauses; (c) accuracy: cases, verb forms and word order, genders, adjective endings, spelling. For each strand decide the level first, then the mark within it. Give each strand as its own part (q "Content", "Range", "Accuracy") with its maxMarks — from the task if it says, otherwise in proportion to the grid for that task.
 - Corrections for German writing: rewrite every sentence that has a mistake correctly, and name the rule for each mistake (e.g. "weil sends the verb to the end", "mit + dative: mit meinem Bruder").`,
 };
+// a native speaker taking German as a second-language A Level: the same scheme, different feedback
+const NATIVE_MARKING = `The student is a native German speaker taking this second-language A Level. Mark against exactly the same scheme as every candidate, no harsher and no kinder. In the feedback, aim at what costs a native speaker marks:
+- exam technique: every bullet point and the stimulus covered, the word limit kept, a clear structure, critical analysis with justified opinions and examples;
+- formal written register, not spoken German;
+- spelling and punctuation: das/dass, ss/ß, capital letters, commas before subordinate clauses;
+- translation: the exact meaning, not a paraphrase.
+A grammar slip is careless, not knowledge, unless the same rule goes wrong again and again. Don't teach grammar as to a learner: name the slip and the rule in a few words.`;
+const nativeIn = (sid) => Boolean(subjectOf(sid)?.native);
+const ruleFor = (sid) => BOARD_MARKING[sid] + (nativeIn(sid) ? '\n' + NATIVE_MARKING : '');
 // the rules for one subject, or for all of them when Claude decides the subject from the pages
-const boardRules = (sid) => (BOARD_MARKING[sid] ? BOARD_MARKING[sid] : `Use the conventions for the subject you choose:\n${Object.values(BOARD_MARKING).join('\n')}`);
+const boardRules = (sid) => (BOARD_MARKING[sid] ? ruleFor(sid) : `Use the conventions for the subject you choose:\n${Object.keys(BOARD_MARKING).map(ruleFor).join('\n')}`);
 const EXAMINER = (sid) => `Mark as an official examiner for the board, not a friendly teacher: be exactly as strict and as generous as the published mark scheme would be.
 ${boardRules(sid)}
 For every part also give annotation: the marks as the examiner writes them on the script, e.g. "M1 A1 dM1 A0" (maths), "MP1 ✓ MP2 ✗ MP3 ✓" (physics, CS), "Content L3, Range L2, Accuracy L2" (German writing), with a few words where a mark is lost (e.g. "A0 cso: sign error in line 3").`;
