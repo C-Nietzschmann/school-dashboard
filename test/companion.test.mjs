@@ -324,6 +324,72 @@ test('a test comes first: its teacher worksheets, then one booklet sized to the 
   assert.ok(!p.testPlans.some((x) => x.testId === 'far'));
 });
 
+test("didn't get it in class: Re-learn tops the free periods, Claude explains, got it closes it", async () => {
+  const S = fixture();
+  const store = memStore();
+  // class notes saved as not understood, and one typed in without photos
+  await applyOps(S, [
+    { id: 'n1', type: 'work.save', understood: { level: 'no', text: 'why completing the square works' },
+      attachment: { id: 'fn', title: 'Quadratics lesson', subjectId: 'maths', topicIds: ['t002'], kind: 'notes', where: 'class' },
+      notes: { summary: 'completing the square', keyPoints: ['(x+a)² − a²'] } },
+    { id: 'c1', type: 'confusion.add', confusion: { id: 'cq', subjectId: 'physics', topicIds: ['t071'], text: 'what a moment is', level: 'partly' } },
+    { id: 'c2', type: 'confusion.add', confusion: { text: 'no subject' } },
+  ], { date: MONDAY, store });
+  assert.equal(S.attachments.find((a) => a.id === 'fn').understood, 'no');
+  const fromNotes = S.confusions.find((c) => c.attachmentId === 'fn');
+  assert.deepEqual([fromNotes.subjectId, fromNotes.topicIds, fromNotes.level, fromNotes.text], ['maths', ['t002'], 'no', 'why completing the square works']);
+  assert.equal(S.confusions.length, 2, 'a confusion needs a subject or topic');
+
+  // both are Re-learn options, the one not understood at all first
+  let p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  const first = p.studyPeriods.map((x) => x.options[0].id);
+  assert.ok(first.includes(`relearn:${fromNotes.id}`));
+  const opt = p.studyPeriods.flatMap((x) => x.options).find((o) => o.id === `relearn:${fromNotes.id}`);
+  assert.equal(opt.kind, 'relearn');
+  assert.match(opt.why, /didn't get it today · “why completing the square works”/);
+  assert.equal(p.confusions.find((c) => c.id === fromNotes.id).notesTitle, 'Quadratics lesson');
+  assert.equal(summarize(p).didntGetInClass.length, 2);
+  assert.ok(summarize(p).waitingToBeRead.some((x) => x.id === 'explain'));
+
+  // the reader is asked to explain them, then sends confusion.update
+  const ask = JSON.parse((await readQueue(S, { date: MONDAY }, store))[0].text);
+  assert.equal(ask.request.kind, 'explain');
+  assert.deepEqual(ask.items.map((x) => x.confusionId).sort(), [fromNotes.id, 'cq'].sort());
+  assert.equal(ask.items.find((x) => x.confusionId === fromNotes.id).notes.title, 'Quadratics lesson');
+  assert.match(ask.ask, /"type": "confusion.update"/);
+  await applyOps(S, [
+    { id: 'e1', type: 'confusion.update', confusionId: fromNotes.id, patch: { explain: 'Think of it as making a perfect square…' } },
+    { id: 'e2', type: 'confusion.update', confusionId: 'cq', patch: { explain: 'A moment is force × perpendicular distance…' } },
+  ], { date: MONDAY });
+  assert.match((await readQueue(S, { date: MONDAY }, store))[0].text, /Nothing is waiting/);
+
+  // a test on the topic puts it in the plan, right after the worksheets
+  await applyOps(S, [{ id: 't1', type: 'test.add', test: { id: 'qt', title: 'Quadratics test', subjectId: 'maths', date: '2026-10-02', topicIds: ['t002'] } }], { date: MONDAY });
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  const plan = p.testPlans.find((x) => x.testId === 'qt');
+  assert.equal(plan.confused, 1);
+  assert.equal(plan.steps[0].kind, 'relearn');
+  assert.match(p.studyPeriods.flatMap((x) => x.options).find((o) => o.id === `relearn:${fromNotes.id}`).why, /Quadratics test in 4 days · you didn't get this in class/);
+
+  // done in a free period with low confidence: still open; with confidence: got it
+  const slot = p.studyPeriods.find((x) => x.options.some((o) => o.id === `relearn:${fromNotes.id}`));
+  const option = slot.options.find((o) => o.id === `relearn:${fromNotes.id}`);
+  await applyOps(S, [{ id: 's1', type: 'study.choose', date: MONDAY, key: slot.key, option },
+    { id: 's2', type: 'study.done', date: MONDAY, key: slot.key, confidence: 2 }], { date: MONDAY });
+  assert.equal(fromNotes.resolved, null);
+  await applyOps(S, [{ id: 's3', type: 'study.undo', date: MONDAY, key: slot.key },
+    { id: 's4', type: 'study.done', date: MONDAY, key: slot.key, confidence: 4 }], { date: MONDAY });
+  assert.equal(fromNotes.resolved, MONDAY);
+
+  // the quick one: resolved by hand, reopened, and the same notes saved again as understood close theirs
+  await applyOps(S, [{ id: 'r1', type: 'confusion.resolve', confusionId: 'cq' }], { date: MONDAY });
+  assert.equal(S.confusions.find((c) => c.id === 'cq').resolved, MONDAY);
+  await applyOps(S, [{ id: 'r2', type: 'confusion.resolve', confusionId: 'cq', resolved: false }], { date: MONDAY });
+  assert.equal(S.confusions.find((c) => c.id === 'cq').resolved, null);
+  p = todayPayload(S, { date: MONDAY, time: '08:00' });
+  assert.deepEqual(p.confusions.map((c) => [c.id, Boolean(c.resolved)]), [['cq', false], [fromNotes.id, true]], 'open first, then the ones you got');
+});
+
 test('a question pack arrives with its own to-do, and goes when either is deleted', async () => {
   const S = fixture();
   const pack = { title: 'Quadratics', subjectId: 'maths', difficulty: 'hard', due: '2026-10-02', priority: 'high',
