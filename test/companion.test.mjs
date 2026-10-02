@@ -188,6 +188,28 @@ test('homework counts towards your level: a mark or a rating on its topics, unle
   assert.equal(S.homework.find((x) => x.id === 'hg').result, undefined);
 });
 
+test('a native speaker taking German as a second-language A Level gets advice on exam technique, not flashcards', async () => {
+  const S = fixture();
+  const store = memStore();
+  const de = S.subjects.find((x) => x.id === 'german') || (S.subjects.push({ id: 'german', name: 'German', slot: 5 }), S.subjects.at(-1));
+  delete de.locked;
+  if (!S.topics.some((t) => t.id === 'tde')) S.topics.push({ id: 'tde', subjectId: 'german', unit: 'Grammar', name: 'Cases and declension' });
+  await applyOps(S, [{ id: 'w', type: 'work.save', attachment: { title: 'Essay', subjectId: 'german', topicIds: ['tde'], kind: 'answers' },
+    marking: { questions: [{ q: 'Accuracy', topicId: 'tde', marks: 2, maxMarks: 5, errorType: 'knowledge' }] } }], { date: MONDAY, store });
+  let p = todayPayload(S, { date: MONDAY });
+  assert.ok(!p.subjects.find((x) => x.id === 'german').native);
+  assert.match(p.mastery.subjects.german.advice, /knowledge gaps/);
+  de.locked = true;                         // the dashboard's own sign: German locked at A* for a native speaker
+  p = todayPayload(S, { date: MONDAY });
+  assert.equal(p.subjects.find((x) => x.id === 'german').native, true);
+  assert.match(p.mastery.subjects.german.advice, /native speaker.*exam technique/);
+  assert.ok(!p.subjects.find((x) => x.id === 'maths').native);
+  // or an IGCSE row saying so
+  delete de.locked;
+  S.igcse = [...(S.igcse || []), { subject: 'German', grade: 9, native: true, maps: ['german'] }];
+  assert.equal(todayPayload(S, { date: MONDAY }).subjects.find((x) => x.id === 'german').native, true);
+});
+
 test('fixing mistakes and correcting the marks both raise your level', async () => {
   const S = fixture();
   const store = memStore();
