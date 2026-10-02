@@ -606,6 +606,34 @@ test('a worksheet added by name gets its questions from the first marking', asyn
   assert.deepEqual([p.done, p.left], [3, 0]);
 });
 
+test('a paper worksheet with typed-in questions: planned now, marked later from photos of the sheet and the answers', async () => {
+  const S = fixture();
+  const store = memStore();
+  await applyOps(S, [{ id: 'a', type: 'worksheet.add', worksheet: { id: 'wpp', title: 'Quadratics sheet (paper)', subjectId: 'maths', topicIds: ['t002', 't001'], pending: true },
+    questions: [{ q: '1', maxMarks: 3, topicId: 't002', text: 'Solve x² − 5x + 6 = 0' }, { q: '2', maxMarks: 0, topicId: 't001' }, { q: '3', maxMarks: 4, topicId: 't002' }] }], { date: MONDAY, store });
+  let w = S.worksheets.find((x) => x.id === 'wpp');
+  assert.equal(w.pending, true, 'typed-in questions keep it waiting for the sheet itself');
+  assert.deepEqual([w.questionCount, w.maxMarks, w.topicIds], [3, 7, ['t002', 't001']]);
+  assert.equal(store.m.get('ws-wpp').questions[1].maxMarks, 0, 'marks not known yet stay 0');
+
+  // marked from the photos: the marks come from the sheet, what was typed in stays
+  await applyOps(S, [{ id: 'm', type: 'work.save', attachment: { title: 'Answers', kind: 'answers', worksheetId: 'wpp' },
+    marking: { questions: [{ q: '1', marks: 3, maxMarks: 3, topicId: 't001' }, { q: '2', marks: 1, maxMarks: 2 }, { q: '3', marks: 2, maxMarks: 4 }] } }], { date: MONDAY, store });
+  w = S.worksheets.find((x) => x.id === 'wpp');
+  assert.equal(w.pending, undefined);
+  assert.deepEqual([w.questionCount, w.maxMarks], [3, 9]);
+  const qs = store.m.get('ws-wpp').questions;
+  assert.deepEqual(qs.map((q) => [q.q, q.maxMarks, q.topicId, q.text]),
+    [['1', 3, 't002', 'Solve x² − 5x + 6 = 0'], ['2', 2, 't001', ''], ['3', 4, 't002', '']]);
+
+  // edited before it is done: the name, the topics and the questions
+  await applyOps(S, [{ id: 'b', type: 'worksheet.add', worksheet: { id: 'wq', title: 'Sheet', subjectId: 'maths', pending: true }, questions: [] },
+    { id: 'c', type: 'worksheet.update', worksheetId: 'wq', patch: { title: 'Surds sheet', topicIds: ['t001'] }, questions: [{ q: '1', maxMarks: 2, topicId: 't001' }, { q: '2', maxMarks: 2 }] }],
+  { date: MONDAY, store });
+  w = S.worksheets.find((x) => x.id === 'wq');
+  assert.deepEqual([w.title, w.topicIds, w.questionCount, w.maxMarks, w.pending], ['Surds sheet', ['t001'], 2, 4, true]);
+});
+
 test('worksheet questions count by number: parts are one question, and saved sheets can be recounted', async () => {
   const S = fixture();
   const store = memStore();

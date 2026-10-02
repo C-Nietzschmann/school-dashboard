@@ -238,6 +238,12 @@ section.tab.on{display:block}
 .conf-ex{margin-top:6px}
 .conf-ex summary{cursor:pointer;color:var(--accent);font-size:13.5px}
 .conf-ex-body{white-space:pre-wrap;font-size:14px;line-height:1.5;margin-top:6px;padding:10px 12px;border-radius:10px;background:var(--surface-2);overflow-wrap:anywhere}
+.wq-list{display:grid;gap:8px;margin-top:4px}
+.wq{display:grid;grid-template-columns:56px 74px minmax(0,1fr) auto;gap:6px;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.wq input,.wq select{min-width:0}
+.wq-t{grid-column:1 / -1}
+.wq-head{border-bottom:0;padding-bottom:0;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.chip.pick{cursor:pointer;color:var(--accent);border-color:var(--line-strong)}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -983,7 +989,8 @@ function testPlanCard(x) {
     ? `<ul class="tp-list">${x.worksheets.map((w) => `<li><span class="${w.done ? 'ok' : 'todo'}" aria-label="${w.done ? 'done' : 'to do'}">${w.done ? '✓' : '○'}</span>
         <button class="linkbtn" data-act="open-ws" data-id="${esc(w.worksheetId)}">${esc(w.title)}</button>
         ${w.questions ? `<span class="muted mono">${w.done ? w.questions : w.doneCount}/${w.questions}</span>` : ''}</li>`).join('')}</ul>`
-    : '<div class="tp-note">None saved for it. A worksheet your teacher gives you goes here first: save it in Work.</div>';
+    : `<div class="tp-note">None saved for it. A worksheet your teacher gives you goes here first.</div>
+      <div class="row" style="margin-top:6px"><button class="btn sm" data-act="ws-new" data-subject="${esc(x.subjectId)}">+ Paper worksheet</button></div>`;
   const bookletNote = {
     later: `When the worksheets are done, Claude writes you one: about ${b.questions} questions (~${b.minutes} min) on your weak spots, then very hard and extremely hard exam questions.`,
     wanted: asked ? `Claude is writing it now: ${b.questions} questions, ~${b.minutes} min.`
@@ -1887,7 +1894,10 @@ function viewWork() {
       <p class="muted" style="font-size:13.5px;margin:12px 0 0">A worksheet over several pages? Add each page — they stay together.
         To scan a page as a clean PDF: <b>File or scan</b>, then <b>⋯</b> → <b>Scan Documents</b>.</p>`}
     </div>
-    ${w.pages.length ? workForm(w, canMark) : ''}
+    ${w.pages.length ? workForm(w, canMark) : `<div class="card"><div class="row" style="justify-content:space-between">
+      <div style="flex:1;min-width:200px"><b>A worksheet on paper?</b><div class="muted" style="font-size:13.5px">Add it now with its topics and questions,
+        plan it, and photograph the sheet and your answers together when you've done it.</div></div>
+      <button class="btn" data-act="ws-new">+ Paper worksheet</button></div></div>`}
   </div>`;
 }
 
@@ -2742,20 +2752,72 @@ const wsProgress = (w) => (w?.questionCount ? `${w.done || 0} of ${w.questionCou
 // Worksheets not finished yet: any of them can go into a study period.
 const openWorksheets = () => worksheetList().filter((w) => (w.questionCount ? (w.left ?? w.questionCount) > 0 : !w.attempts?.length));
 const wsButton = (at, add = false) => `<button class="btn ghost sm" data-act="study-ws" ${add ? 'data-add="1" ' : ''}${at}>Worksheet…</button>`;
-// A worksheet by name only — a question booklet, say — to plan now and upload
-// later together with your answers. Claude reads its questions when marking.
-function newWsSheet() {
-  const c = SHEET.ctx?.kind === 'wspick' ? SHEET.ctx : null;
-  SHEET.ctx = { kind: 'wsnew', from: c };
-  openSheet(`<div class="sheet-h"><h2>New worksheet</h2><button class="btn ghost sm" data-act="close">Close</button></div>
+// A worksheet on paper, added by name: its subject, topics and questions typed
+// in, so it can be planned and counted now. When you have done it, Add my answers
+// and photograph the sheet and your answers together: Claude marks them in one go.
+function newWsSheet(preset = {}) {
+  const from = SHEET.ctx?.kind === 'wspick' ? SHEET.ctx : null;
+  SHEET.ctx = { kind: 'wsnew', from, edit: Boolean(preset.edit),
+    ws: { id: preset.id || newId('w'), title: preset.title || '', subjectId: preset.subjectId ?? (lessonSubjectNow() || ''),
+      topicIds: [...(preset.topicIds || [])],
+      questions: (preset.questions || []).map((q) => ({ q: String(q.q ?? ''), maxMarks: q.maxMarks || '', topicId: q.topicId || '', text: q.text || '' })) } };
+  renderWsSheet();
+}
+function renderWsSheet() {
+  const c = SHEET.ctx, w = c.ws;
+  const ts = (APP.data?.topics || []).filter((t) => t.subjectId === w.subjectId);
+  const now = ts.filter((t) => t.started && !t.finished && !w.topicIds.includes(t.id));
+  const rest = ts.filter((t) => !(t.started && !t.finished) && !w.topicIds.includes(t.id));
+  const chip = (t) => `<button type="button" class="chip pick" data-wstopic="${esc(t.id)}">+ ${esc(t.name)}</button>`;
+  const choices = w.topicIds.length ? w.topicIds : ts.map((t) => t.id);
+  const marks = w.questions.reduce((a, q) => a + (Number(q.maxMarks) || 0), 0);
+  const row = (q, i) => `<div class="wq">
+      <input class="wq-n" data-wq="q" data-i="${i}" value="${esc(q.q)}" aria-label="Question number">
+      <input class="wq-m" type="number" min="0" max="100" step="0.5" inputmode="decimal" data-wq="maxMarks" data-i="${i}" value="${esc(q.maxMarks)}" placeholder="?" aria-label="Marks">
+      <select class="wq-s" data-wq="topicId" data-i="${i}" aria-label="Topic"><option value="">Topic…</option>${choices.map((id) =>
+        `<option value="${esc(id)}" ${id === q.topicId ? 'selected' : ''}>${esc(topicOf(id)?.name || id)}</option>`).join('')}</select>
+      <button type="button" class="btn ghost sm wq-x" data-act="wsq-remove" data-i="${i}" aria-label="Remove question ${esc(q.q)}">×</button>
+      <input class="wq-t" data-wq="text" data-i="${i}" value="${esc(q.text)}" placeholder="the question (optional)" aria-label="Question text">
+    </div>`;
+  openSheet(`<div class="sheet-h"><h2>${c.edit ? 'Edit worksheet' : 'Paper worksheet'}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <div class="fields">
-      <label class="field"><span>Name</span><input id="nwTitle" placeholder="e.g. P1 Ch3 question booklet"></label>
-      <label class="field"><span>Subject</span><select id="nwSubj">${subjectOptions('', 'None')}</select></label>
-      <label class="field"><span>How many questions (optional)</span><input type="number" id="nwCount" min="1" max="200" inputmode="numeric"></label>
-      <div class="muted" style="font-size:13px">Nothing to upload now. When you've done it, open it and tap <b>Add my answers</b>, then photograph the booklet and your answers together — Claude reads the questions and marks them in one go.</div>
-      <button class="btn primary" data-act="ws-new-save">${c ? 'Add it and plan it' : 'Add it'}</button>
+      <label class="field"><span>Name</span><input id="nwTitle" value="${esc(w.title)}" placeholder="e.g. P1 Ch3 question booklet"></label>
+      <label class="field"><span>Subject</span><select id="nwSubj">${subjectOptions(w.subjectId, 'Choose…')}</select></label>
+      <div class="field"><span>Topics</span>
+        <div class="row">${w.topicIds.map((id) => `<span class="chip">${esc(topicOf(id)?.name || id)}<button data-act="wst-remove" data-id="${esc(id)}" aria-label="Remove">×</button></span>`).join('')
+          || '<span class="muted" style="font-size:13px">none yet</span>'}</div>
+        ${!w.subjectId ? '<div class="muted" style="font-size:13px;margin-top:4px">Choose the subject first.</div>' : `
+          ${now.length ? `<div class="eyebrow" style="margin:8px 0 4px">Being taught now</div><div class="row">${now.map(chip).join('')}</div>` : ''}
+          ${rest.length ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px;cursor:pointer">${now.length ? 'Other topics' : 'All topics'} (${rest.length})</summary>
+            <div class="row" style="margin-top:6px">${rest.map(chip).join('')}</div></details>` : ''}`}
+      </div>
+      <div class="field"><span>Questions${w.questions.length ? ` · ${w.questions.length}${marks ? ` · ${fmtN(marks)} marks` : ''}` : ''}</span>
+        ${w.questions.length ? `<div class="wq-list"><div class="wq wq-head" aria-hidden="true"><span>No.</span><span>Marks</span><span>Topic</span><span></span></div>${w.questions.map(row).join('')}</div>` : ''}
+        <div class="row" style="margin-top:8px">
+          <input type="number" id="nwCount" min="1" max="80" inputmode="numeric" placeholder="how many" style="width:104px" aria-label="How many questions">
+          <button type="button" class="btn sm" data-act="wsq-fill">${w.questions.length ? 'Set the number' : 'Make the questions'}</button>
+          <button type="button" class="btn sm ghost" data-act="wsq-add">+ One more</button></div>
+        <div class="muted" style="font-size:12.5px;margin-top:4px">For each: its number (1a, 2…), marks and topic. The question itself is optional: Claude reads it from your photos when it marks. Leave marks empty if you don't know them.</div>
+      </div>
+      <div class="muted" style="font-size:13px">When you've done it: open it, tap <b>Add my answers</b>, and photograph the sheet and your answers together. Claude marks them in one go.</div>
+      <button class="btn primary" data-act="ws-new-save">${c.edit ? 'Save changes' : c.from ? 'Add it and plan it' : 'Add it'}</button>
     </div>`);
 }
+function readWsFields() {
+  const w = SHEET.ctx.ws;
+  w.title = $('#nwTitle')?.value.trim() ?? w.title;
+  document.querySelectorAll('#sheet [data-wq]').forEach((el) => { const q = w.questions[Number(el.dataset.i)]; if (q) q[el.dataset.wq] = el.value; });
+  return w;
+}
+// the next question's number: 1, 2, 3… or after 3b, 4
+const nextQ = (qs) => String((Math.max(0, ...qs.map((q) => parseInt(q.q, 10)).filter((n) => n > 0)) || 0) + 1);
+async function editWorksheet(id) {
+  const w = worksheetOf(id);
+  if (!w) return;
+  const full = await loadWorksheet(id).catch(() => ({ questions: [] }));
+  newWsSheet({ edit: true, id: w.id, title: w.title, subjectId: w.subjectId || '', topicIds: w.topicIds || [], questions: full.questions || [] });
+}
+
 const todoButton = (at, add = false) => ((APP.data?.tasks || []).length
   ? `<button class="btn ghost sm" data-act="study-todo" ${add ? 'data-add="1" ' : ''}${at}>To-do…</button>` : '');
 // What is already in a period, so the pickers don't offer it twice.
@@ -2806,7 +2868,7 @@ function wsPickSheet(date, key, add) {
   const groups = {}, taken = takenIn(sp);
   for (const w of openWorksheets()) if (!taken.has('ws:' + w.id)) (groups[w.subjectId || ''] ||= []).push(w);
   openSheet(`<div class="sheet-h"><h2>${add ? 'Which worksheet did you do?' : `Worksheet for ${esc(sp.start)}`}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
-    <button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ New worksheet (upload later)</button>
+    <button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ Paper worksheet (add the photos later)</button>
     ${Object.entries(groups).map(([sid, list]) => `<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px">
       <span class="dot" style="--c:${colourOf(sid)}"></span> ${esc(subjectName(sid))}</div><div class="opts" style="margin:0">${list.map((w) => {
         const next = (w.planned || []).find((p) => !p.done && p.date >= nowISO());
@@ -3241,7 +3303,7 @@ ${PROMPT_SUBJECTS}
 This is ${subjectName(ws.subjectId)}: the worksheet "${ws.title}"${topics ? `, on ${topics}` : ''}.
 ${qs.length ? `
 THE WORKSHEET'S QUESTIONS (q · marks · topic id · question)
-${qs.map((q) => `${q.q} · ${q.maxMarks} · ${q.topicId || '-'} · ${q.text || '(see the sheet)'}`).join('\n')}
+${qs.map((q) => `${q.q} · ${q.maxMarks || '?'} · ${q.topicId || '-'} · ${q.text || '(see the sheet)'}`).join('\n')}${qs.some((q) => !q.maxMarks) ? '\nWhere the marks show ?, use the marks printed on the sheet.' : ''}
 ` : '\nThe questions were not written down when the worksheet was saved — read them from the sheet.\n'}
 ${sheetPages ? `The first ${sheetPages === 1 ? 'image is' : `${sheetPages} images are`} the worksheet itself; the rest are the student's answer pages, in order.`
   : ws.pending ? 'The images are the question booklet and the student\'s answer pages together, in any order: read each question from the booklet, then mark the student\'s answer to it. Use the booklet\'s own question labels and printed marks.'
@@ -4030,7 +4092,7 @@ function viewHistory() {
           <span class="mono late">−${fmtN(m.marksLost)}</span></button>`).join('')}</div>`;
     }).join('') : '<div class="empty">No open mistakes. Anything you get wrong in marked work lands here until you fix it.</div>';
   } else if (h.view === 'worksheets') {
-    body = '<button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ New worksheet (upload later)</button>' + (wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
+    body = '<button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ Paper worksheet (add the photos later)</button>' + (wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
       ${list.map((w) => `<button class="attempt" data-act="open-ws" data-id="${esc(w.id)}">
         <span><span class="t">${esc(w.title)}</span><span class="task-meta">${topicNames(w.topicIds) || 'no topic'} · ${esc(fmtDay(w.date))}
           ${wsProgress(w) ? `· ${esc(wsProgress(w))}` : ''}${w.attempts?.length > 1 ? ` · answered ${w.attempts.length}×` : ''}</span></span>
@@ -4088,7 +4150,8 @@ function worksheetSheet(w, full, loading = false) {
       : '<div class="empty" style="padding:4px 0 8px">Not answered yet.</div>'}
     <div class="row" style="margin:8px 0 16px">
       ${isArrow(w) ? arrowLink(w, 'btn primary sm') : `<button class="btn primary sm" data-act="ws-answers" data-id="${esc(w.id)}">${atts.length ? 'Add answers again' : 'Add my answers'}</button>`}
-      <button class="btn sm" data-act="ws-plan" data-id="${esc(w.id)}">Plan into a study period</button></div>
+      <button class="btn sm" data-act="ws-plan" data-id="${esc(w.id)}">Plan into a study period</button>
+      ${!isArrow(w) && !atts.length ? `<button class="btn sm ghost" data-act="ws-edit" data-id="${esc(w.id)}">Edit</button>` : ''}</div>
     ${planned.length ? `<div class="eyebrow">Planned</div><div style="margin:4px 0 14px;font-size:14px">${planned.map((p) =>
       `${esc(fmtDay(p.date))} ${esc(String(p.key).replace(/^x/, ''))}${p.done ? ' ✓' : ''}`).join(' · ')}</div>` : ''}
     <details${(qs.length && !atts.length) || isArrow(w) ? ' open' : ''}><summary class="eyebrow" style="cursor:pointer">Questions · ${w.questionCount ?? qs.length}${w.maxMarks ? ` · ${fmtN(w.maxMarks)} marks` : ''}</summary>
@@ -4098,7 +4161,7 @@ function worksheetSheet(w, full, loading = false) {
             const d = isArrow(w) ? w.doneQuestions?.[q.q] : null;
             const label = isArrow(w) && w.fileUrl ? `<a class="q-label" href="${esc(arrowHref(w, q.q))}" target="_blank" rel="noopener">${esc(q.q)}</a>` : `<div class="q-label">${esc(q.q)}</div>`;
             return `<div class="q">${label}
-            <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}${d
+            <div><div class="q-text" style="margin:0">${esc(q.text || '—')}</div><div class="slot-meta">${!Number(q.maxMarks) && w.pending ? 'marks ?' : `${fmtN(q.maxMarks)} mark${Number(q.maxMarks) === 1 ? '' : 's'}`}${q.topicId && w.topicIds?.length > 1 ? ` · ${esc(topicOf(q.topicId)?.name || '')}` : ''}${d
               ? ` · <span class="aa-done">✓ done${d.max ? ` · ${fmtN(d.marks)}/${fmtN(d.max)}` : ''}</span>` : isArrow(w) && q.q === arrowNext(w) ? ' · next' : ''}</div></div></div>`;
           }).join('')}</div>`
         : w.pending ? `<div class="muted" style="font-size:13px;margin-top:6px">Not uploaded yet. When you've done it, tap <b>Add my answers</b> and photograph the booklet and your answers together.</div>`
@@ -4640,17 +4703,38 @@ document.addEventListener('click', (e) => {
     case 'study-ws': return wsPickSheet(t.dataset.date, t.dataset.key, t.dataset.add);
     case 'ws-pick': return pickWorksheet(t.dataset.id);
     case 'study-todo': return todoPickSheet(t.dataset.date, t.dataset.key, t.dataset.add);
-    case 'ws-new': return newWsSheet();
+    case 'ws-new': return newWsSheet(t.dataset.subject ? { subjectId: t.dataset.subject } : {});
+    case 'ws-edit': return editWorksheet(t.dataset.id);
+    case 'wsq-fill': {
+      const w = readWsFields(), n = Math.min(80, Number($('#nwCount')?.value) || 0);
+      if (!n) return $('#nwCount')?.focus();
+      w.questions = w.questions.slice(0, n);
+      while (w.questions.length < n) w.questions.push({ q: nextQ(w.questions), maxMarks: '', topicId: w.topicIds[0] || '', text: '' });
+      return renderWsSheet();
+    }
+    case 'wsq-add': { const w = readWsFields(); w.questions.push({ q: nextQ(w.questions), maxMarks: '', topicId: w.topicIds[0] || '', text: '' }); return renderWsSheet(); }
+    case 'wsq-remove': { const w = readWsFields(); w.questions.splice(Number(t.dataset.i), 1); return renderWsSheet(); }
+    case 'wst-remove': { const w = readWsFields(); w.topicIds = w.topicIds.filter((x) => x !== t.dataset.id); return renderWsSheet(); }
     case 'ws-new-save': {
-      const c = SHEET.ctx, title = $('#nwTitle')?.value.trim();
-      if (!title) return $('#nwTitle')?.focus();
-      const id = newId('w'), count = Number($('#nwCount')?.value) || 0;
-      send({ type: 'worksheet.add', worksheet: { id, title, subjectId: $('#nwSubj')?.value || '', topicIds: [], pending: true,
-        ...(count ? { questionCount: count } : {}) }, questions: [] });
+      const c = SHEET.ctx, w = readWsFields();
+      if (!w.title) return $('#nwTitle')?.focus();
+      const subjectTopics = new Set((APP.data?.topics || []).filter((x) => x.subjectId === w.subjectId).map((x) => x.id));
+      const questions = w.questions.map((q, i) => ({ q: String(q.q || '').trim() || String(i + 1), maxMarks: Number(q.maxMarks) || 0,
+        topicId: subjectTopics.has(q.topicId) ? q.topicId : w.topicIds[0] || null, text: String(q.text || '').trim() }));
+      const count = Number($('#nwCount')?.value) || 0, id = w.id;
+      if (c.edit) {
+        send({ type: 'worksheet.update', worksheetId: id, patch: { title: w.title, subjectId: w.subjectId, topicIds: w.topicIds },
+          ...(questions.length ? { questions } : {}) });
+        delete APP.sheets[id];
+        closeSheet();
+        return toast('Saved.');
+      }
+      send({ type: 'worksheet.add', worksheet: { id, title: w.title, subjectId: w.subjectId || '', topicIds: w.topicIds, pending: true,
+        ...(!questions.length && count ? { questionCount: count } : {}) }, questions });
       const ws = worksheetOf(id);
       if (c?.from && ws) return putInPeriod(c.from.date, c.from.key, worksheetOption(ws), c.from.add);
       closeSheet();
-      return toast(`Added “${title}”. Plan it from any study period.`);
+      return toast(`Added “${w.title}”. Plan it from any study period.`);
     }
     case 'todo-pick': return pickTodo(t.dataset.id);
     case 'custom-save': {
@@ -4917,6 +5001,12 @@ document.addEventListener('click', (e) => {
 
   /* segmented controls inside sheets and the work form */
   const press = () => t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+  if (t.dataset.wstopic && SHEET.ctx?.kind === 'wsnew') {
+    const w = readWsFields();
+    if (!w.topicIds.includes(t.dataset.wstopic) && w.topicIds.length < 8) w.topicIds.push(t.dataset.wstopic);
+    for (const q of w.questions) if (!q.topicId) q.topicId = w.topicIds[0];
+    return renderWsSheet();
+  }
   if (t.dataset.clevel && SHEET.ctx?.kind === 'confusion') { readConfusionFields(); SHEET.ctx.c.level = t.dataset.clevel; return press(); }
   if (t.dataset.und && APP.work.review) {
     const r = APP.work.review;
@@ -4980,6 +5070,14 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'wSheet') { APP.work.worksheetId = el.value; APP.work.already = null; return; }
   if (el.id === 'hSubj') { APP.history.subject = el.value; return render(); }
   if (el.id === 'pSubj') { APP.papers.subject = el.value; return render(); }
+  if (el.id === 'nwSubj' && SHEET.ctx?.kind === 'wsnew') {
+    const w = readWsFields();
+    w.subjectId = el.value;
+    const keep = new Set((APP.data?.topics || []).filter((x) => x.subjectId === el.value).map((x) => x.id));
+    w.topicIds = w.topicIds.filter((x) => keep.has(x));
+    for (const q of w.questions) if (!keep.has(q.topicId)) q.topicId = w.topicIds[0] || '';
+    return renderWsSheet();
+  }
   if (el.id === 'cSubj' && SHEET.ctx?.kind === 'confusion') { readConfusionFields(); SHEET.ctx.c.topicId = ''; return renderConfusionSheet(); }
   if (el.id === 'xSubj' && SHEET.ctx?.kind === 'test') { readTestFields(); SHEET.ctx.test.topicIds = []; return renderTestSheet(); }
   if (!r) return;
