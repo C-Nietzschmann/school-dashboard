@@ -177,6 +177,13 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Paper worksheets.** A worksheet you get on paper can be added by name before you do it, with no photos:
+**+ Paper worksheet** on Work (also in History → Worksheets, a free period's Worksheet… and a test's plan).
+Give it its name, subject and topics, and its questions: their numbers (1a, 2…), marks and topics, plus the
+question itself if you like. It is planned, counted and put in test plans like any other. When you have done it,
+**Add my answers** and photograph the sheet and your answers together: Claude marks them in one go. The marks
+printed on the sheet fill in any you left empty, and what you typed stays. Until it is answered, **Edit** changes it.
+
 **Didn't get it.** When you save class notes, say whether you got it (*Got it*, *Partly* or *Didn't get it*) and what
 you didn't get. Or tap **I didn't get something** on Today, with or without photos. Claude writes you an explanation:
 the idea in plain words, one worked example and the usual mistake. The companion does it at once when it can talk to
