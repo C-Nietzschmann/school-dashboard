@@ -177,6 +177,18 @@ It reaches the dashboard two ways: inside Claude through a custom connector
 server at `/companion`. Both use the same small API in `lib/companion.mjs`; the planning
 rules live in `lib/plan.mjs`, which the dashboard page shares.
 
+**Marked like the exam board.** Work is marked the way the board's own examiners mark: Pearson Edexcel IAL for
+Maths, Further Maths, Physics and German (M1/A1/B1/dM1 with ft, cao, cso, awrt and isw in maths; mark points, units,
+s.f. and ecf in physics; levels for content, range and accuracy in German writing), and Cambridge 9618 for Computer
+Science (positive marking, mark points to a maximum, Cambridge pseudocode). Every part gets the examiner's annotation
+(*M1 A0 dM0 A0: sign error in line 2*), and the correction is the mark-scheme answer with each mark labelled. You see it
+in the review, in History and in the corrections saved to Drive. The same rules go to Claude in a chat and to the
+background reader, and booklets' mark schemes are written that way too.
+
+**Homework counts.** Marked work you add to a to-do counts towards your level. A to-do you tick off without it asks
+**How did it go?**: the topics it practised and your mark (the teacher's, say) or how it went from 1 to 5. A mark
+counts like marked work, and a rating a little. You can change it from the to-do later.
+
 **Paper worksheets.** A worksheet you get on paper can be added by name before you do it, with no photos:
 **+ Paper worksheet** on Work (also in History → Worksheets, a free period's Worksheet… and a test's plan).
 Give it its name, subject and topics, and its questions: their numbers (1a, 2…), marks and topics, plus the
