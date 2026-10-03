@@ -375,6 +375,7 @@ test('a test comes first: its teacher worksheets, then one booklet sized to the 
   assert.match(b.ask, /extremely hard/);
   assert.match(b.ask, /"testId":"qt"/);
   assert.match(b.ask, /"due":"2026-10-01"/, 'due the day before the test');
+  assert.doesNotMatch(b.ask, /the student's own notes/, 'no notes, no line');
 
   // it arrives: a high-priority to-do that tops the free periods, and no second request
   const { results: [made] } = await applyOps(S, [{ id: 'booklet-qt', type: 'pack.add', pack: { id: 'bk-qt', testId: 'qt', title: 'Booklet: Quadratics test',
@@ -393,6 +394,15 @@ test('a test comes first: its teacher worksheets, then one booklet sized to the 
   assert.equal(todayPayload(S, { date: MONDAY }).testPlans[0].booklet.status, 'done');
   await applyOps(S, [{ id: 'd2', type: 'pack.delete', packId: 'bk-qt' }], { date: MONDAY });
   assert.equal(todayPayload(S, { date: MONDAY }).testPlans[0].booklet.status, 'removed');
+
+  // a test's own notes (a competition's format, say) go with the ask and win over the board style
+  await applyOps(S, [{ id: 'tn', type: 'test.add', test: { id: 'smc', title: 'Maths Challenge', subjectId: 'fmaths', date: '2026-10-03',
+    notes: 'Multiple choice problem solving, 25 questions in 90 minutes' } }], { date: MONDAY });
+  const smc = JSON.parse((await readQueue(S, { date: MONDAY }, memStore()))[0].text);
+  assert.equal(smc.request.id, 'booklet-smc');
+  assert.equal(smc.test.notes, 'Multiple choice problem solving, 25 questions in 90 minutes');
+  assert.match(smc.ask, /student's own notes.*Multiple choice problem solving/);
+  await applyOps(S, [{ id: 'tn2', type: 'test.delete', testId: 'smc' }], { date: MONDAY });
 
   // a test today has no time for a booklet; a test four weeks away does not take over yet
   await applyOps(S, [

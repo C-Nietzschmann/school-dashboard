@@ -214,7 +214,8 @@ the mistakes you have not fixed, then very difficult and extremely hard ones. It
 (your free periods and study sessions until the test, plus 40 minutes an evening, shared with any other test,
 about 9 minutes a question, 4 to 30 questions). The background reader writes it through `read_queue` (kind
 `booklet`). The companion starts one straight away when it is open in Claude, or **Write it now** does. It arrives as a
-high-priority question pack due the day before, and the last two days go over your weakest topics. Today shows the plan:
+high-priority question pack due the day before, and the last two days go over your weakest topics. A test's own
+notes (a competition's format, say) go with the booklet request and win over the board's style. Today shows the plan:
 the worksheets with ticks, the booklet's state, and which free period does what until the test.
 
 **Papers.** The Papers tab is a log of every past paper, school test and mock you sat, at school or at home:
