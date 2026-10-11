@@ -39,7 +39,7 @@ html = html.replace(/<title>[^<]*<\/title>/, `<title>${site ? 'Assignment Arrow'
 // yours: the lesson exercises, the terminal and fair marking (lab.js), and the dashboard (bridge.js)
 const OWN = ['lessons-plus.js', 'lab.js', 'bridge.js'];
 for (const f of ['autoMark', 'markSplit', 'stripComments', 'markReportHtml', 'buildProgram', 'codeBlock', 'wireEditor', 'refreshEditor',
-  'renderLesson', 'activeLessons', 'lessonPos', 'openPractice']) {
+  'renderLesson', 'activeLessons', 'lessonPos', 'openPractice', 'renderExamSetup', 'startExam', 'inLevel']) {
   if (!new RegExp(`function ${f}\\s*\\(`).test(html)) throw new Error(`index.html has no ${f}(): Assignment Arrow changed — update arrow/lab.js`);
 }
 html = html.trimEnd() + '\n\n<!-- yours: lesson exercises, the terminal, fair marking (arrow/lab.js), and your A Level dashboard (arrow/bridge.js) -->\n'

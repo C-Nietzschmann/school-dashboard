@@ -171,8 +171,42 @@
   }
   const plainText = (html) => String(html || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;|&#\d+;/g, ' ').replace(/\s+/g, ' ').trim();
 
+  /* Exam mode by chapter and by syllabus unit: Cambridge 9618 units 9-12 (AS, Paper 2)
+     and 19-20 (A Level, Paper 4), and 0478 units 7-8 (IGCSE). */
+  const UNITS = {
+    7: 'Algorithm design and problem-solving', 8: 'Programming',
+    9: 'Algorithm design and problem-solving', 10: 'Data types and structures', 11: 'Programming', 12: 'Software development',
+    19: 'Computational thinking and problem-solving', 20: 'Further programming',
+  };
+  function unitOf(q) {
+    const t = q && q.topic, lv = (q && q.level) || 'as';
+    if (lv === 'igcse') return t === 'Tracing' || t === 'Debugging' ? 7 : 8;
+    if (t === 'Algorithms') return lv === 'a2' ? 19 : 9;
+    if (t === 'OOP' || (t === 'Files' && (lv === 'a2' || Number(q.paper) === 4))) return 20;
+    if (t === 'Arrays' || t === 'Files' || t === 'Records') return 10;
+    if (t === 'Tracing' || t === 'Debugging') return 12;
+    return 11;
+  }
+  // the chapters and units of a pool of questions, with how many questions and marks each has
+  function examChoices(pool) {
+    const chapters = new Map(), units = new Map();
+    for (const q of pool || []) {
+      const c = chapters.get(q.topic) || { topic: q.topic, n: 0, marks: 0, units: new Set() };
+      c.n++; c.marks += Number(q.marks) || 0; c.units.add(unitOf(q));
+      chapters.set(q.topic, c);
+      const u = unitOf(q);
+      const x = units.get(u) || { unit: u, name: UNITS[u] || '', n: 0, topics: new Set() };
+      x.n++; x.topics.add(q.topic);
+      units.set(u, x);
+    }
+    return {
+      chapters: [...chapters.values()].map((c) => ({ topic: c.topic, n: c.n, marks: c.marks, units: [...c.units].sort((a, b) => a - b) })),
+      units: [...units.values()].sort((a, b) => a.unit - b.unit).map((u) => ({ unit: u.unit, name: u.name, n: u.n, topics: [...u.topics] })),
+    };
+  }
+
   const core = { lev, isPrompt, sameOutput, runInteractive, transcript, checkFill, checkPredict, checkWrite, checkMcq, blanks, filled, lessonExercises, plainText,
-    withOutput, tryPlans };
+    withOutput, tryPlans, UNITS, unitOf, examChoices };
   root.ArrowLab = core;
   if (typeof document === 'undefined' || typeof root.PseudoRun !== 'function') return;
 
@@ -531,6 +565,95 @@
   }
   // an exercise asked for by a link (#L6.2): scrolled to once the lesson is drawn
   root.ArrowLabShow = (id) => { const el = document.querySelector(`[data-ex="${CSS.escape(id)}"]`); if (el) el.scrollIntoView({ block: 'center' }); };
+
+  /* ---- Exam mode: a paper from the chapters and units you choose ---- */
+  const PICK = 'aaLab.examPick';
+  const examPick = () => { try { return new Set(JSON.parse(localStorage.getItem(PICK)) || []); } catch { return new Set(); } };
+  const savePick = (s) => { try { localStorage.setItem(PICK, JSON.stringify([...s])); } catch { /* this visit only */ } };
+  // the questions Exam mode would draw from with the paper and difficulty chosen above
+  function examPool() {
+    const paper = document.getElementById('exPaper')?.value || 'all', band = document.getElementById('exDiff')?.value || 'all';
+    const all = typeof QUESTIONS !== 'undefined' ? QUESTIONS : [];                                   // eslint-disable-line no-undef
+    const inLv = typeof root.inLevel === 'function' ? root.inLevel : () => true;
+    return all.filter((q) => inLv(q) && (paper === 'all' || String(q.paper) === paper)
+      && !(band === 'low' && q.diff > 2) && !(band === 'mid' && q.diff !== 3) && !(band === 'high' && q.diff < 4));
+  }
+  // the chapters you picked that this paper has; none picked means every chapter
+  const activePick = () => { const have = new Set(examPool().map((q) => q.topic)); return new Set([...examPick()].filter((t) => have.has(t))); };
+  function paintExamPick() {
+    const start = document.getElementById('exStart');
+    if (!start) return;
+    let box = document.getElementById('exPick');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'exPick';
+      box.style.cssText = 'display:grid;gap:12px;margin-bottom:18px';
+      const panel = start.closest('.panel'), note = panel?.querySelector('.note');
+      if (!panel) return;
+      panel.insertBefore(box, note || start.closest('.btn-row'));
+      box.addEventListener('click', onExamPick);
+    }
+    const { chapters, units } = examChoices(examPool());
+    const pick = activePick();
+    const on = (t) => pick.has(t);
+    const unitOn = (u) => u.topics.every(on);
+    const picked = examPick();
+    const chosen = picked.size ? examPool().filter((q) => pick.has(q.topic)) : examPool();
+    box.innerHTML = `<div><div class="label" style="margin-bottom:6px">Units</div><div class="chips">${units.map((u) =>
+        `<button class="chip" data-exunit="${u.unit}" aria-pressed="${pick.size > 0 && unitOn(u)}" title="${escape(u.name)}">Unit ${u.unit} · ${escape(u.name)}</button>`).join('')}</div></div>
+      <div><div class="label" style="margin-bottom:6px">Chapters</div><div class="chips">${chapters.map((c) =>
+        `<button class="chip" data-exch="${escape(c.topic)}" aria-pressed="${on(c.topic)}">${escape(c.topic)} <span style="opacity:.6">${c.n}</span></button>`).join('')}</div></div>
+      <div class="runinfo" style="margin:0">${picked.size && !pick.size ? `None of your chapters (${escape([...picked].join(', '))}) has questions for this paper and difficulty.`
+        : `${pick.size ? `${escape([...pick].join(', '))}: ` : 'Every chapter: '}${chosen.length} question${chosen.length === 1 ? '' : 's'}, ${chosen.reduce((a, q) => a + (Number(q.marks) || 0), 0)} marks to draw from.`}
+        ${picked.size ? ' <button class="btn btn-sm btn-ghost" data-exall="1">All chapters</button>' : ''}</div>`;
+  }
+  function onExamPick(e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const pick = examPick();
+    if (b.dataset.exall) pick.clear();
+    else if (b.dataset.exch) { if (pick.has(b.dataset.exch)) pick.delete(b.dataset.exch); else pick.add(b.dataset.exch); }
+    else if (b.dataset.exunit) {
+      const u = examChoices(examPool()).units.find((x) => String(x.unit) === b.dataset.exunit);
+      if (!u) return;
+      if (u.topics.every((t) => pick.has(t))) u.topics.forEach((t) => pick.delete(t)); else u.topics.forEach((t) => pick.add(t));
+    } else return;
+    savePick(pick);
+    paintExamPick();
+  }
+  document.addEventListener('change', (e) => { if (['exPaper', 'exDiff'].includes(e.target?.id)) paintExamPick(); });
+  // Start the paper: Assignment Arrow's own startExam, drawing only from the chapters picked
+  if (typeof root.startExam === 'function' && !root.startExam.aaPick) {
+    const origStart = root.startExam;
+    const startPicked = function () {
+      const pick = activePick();
+      if (!examPick().size) return origStart.apply(this, arguments);
+      // too few to make a paper: said here (Assignment Arrow's alert does not show inside Claude)
+      if (examPool().filter((q) => pick.has(q.topic)).length < 3) {
+        const box = document.getElementById('exPick');
+        if (box) box.insertAdjacentHTML('beforeend', '<div class="note note-exam" style="margin:0"><p>Fewer than 3 questions in those chapters for this paper and difficulty. Add a chapter or choose Any difficulty.</p></div>');
+        return;
+      }
+      const origIn = root.inLevel;
+      root.inLevel = (q) => origIn(q) && pick.has(q.topic);
+      try { origStart.apply(this, arguments); } finally { root.inLevel = origIn; }
+      try {                                                                                     // eslint-disable-next-line no-undef
+        if (typeof EXAM !== 'undefined' && EXAM && !EXAM.finished) EXAM.paper = `${EXAM.paper} · ${[...pick].join(', ')}`.slice(0, 60);
+      } catch { /* the label is a nicety */ }
+    };
+    startPicked.aaPick = true;
+    root.startExam = startPicked;
+  }
+  if (typeof root.renderExamSetup === 'function' && !root.renderExamSetup.aaPick) {
+    const origSetup = root.renderExamSetup;
+    const setupPicked = function () { origSetup.apply(this, arguments); paintExamPick(); };
+    setupPicked.aaPick = true;
+    root.renderExamSetup = setupPicked;
+    // the setup was drawn before this script loaded: draw it again, so Start uses the picked chapters
+    let running = false;
+    try { running = typeof EXAM !== 'undefined' && Boolean(EXAM); } catch { /* not there */ }   // eslint-disable-line no-undef
+    if (!running && document.getElementById('exStart')) root.renderExamSetup();
+  }
 
   const obs = new MutationObserver((list) => {
     for (const m of list) {
