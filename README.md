@@ -245,7 +245,7 @@ The companion lists each chapter's questions under Assignment Arrow's own number
 once done, and names the next one ("next: Q10"). Each number, and the **Open Q10** button, is a link that
 opens that question in Assignment Arrow (`#Q10`; `#arrays` opens a chapter).
 
-Your copies also get `arrow/lab.js` and `arrow/lessons-plus.js`, which change three things from outside,
+Your copies also get `arrow/lab.js` and `arrow/lessons-plus.js`, which change four things from outside,
 leaving Assignment Arrow's files as they are:
 
 - **A terminal.** Run it shows the output as the program goes and asks for each INPUT in the terminal itself.
@@ -261,6 +261,11 @@ leaving Assignment Arrow's files as they are:
   like a question, and is a worksheet on the dashboard whose questions are its exercises (`L6.1`, `L6.2`, …), so
   the companion can plan it into a study period and links straight to it (`#L6`, `#L6.2`). `test/lab.test.mjs`
   runs every exercise through the interpreter.
+- **Exam by chapter and unit.** Exam mode's setup gets **Units** and **Chapters** chips: pick a syllabus unit
+  (9618's 10 Data types and structures, 11 Programming, 12 Software development, and for A2 19 and 20) to take all
+  its chapters, or pick chapters one by one. Counts follow the paper and difficulty you chose, the paper is drawn
+  only from those chapters and is named after them ("2 · Arrays, Files"), and **All chapters** goes back to the
+  usual paper. With fewer than 3 questions to draw from it says so instead of starting.
 
 ```
 git clone --depth 1 https://github.com/C-Nietzschmann/assignment-arrow /tmp/aa
@@ -268,7 +273,7 @@ node arrow/build.mjs /tmp/aa out/arrow [its artifact link]
 ```
 
 Publish `out/arrow/index.html` as an artifact, with the other files next to it, and give it `db`, `sample` and
-the A Level Dashboard connector's `get_today` and `apply_changes`.
+the A Level Dashboard connector's `get_today`, `get_week` and `apply_changes`.
 
 **As an app of its own.** An artifact lives on claude.ai, so it can't be added to the Dock or the Home Screen by
 itself. The dashboard also serves the same copy at **`/arrow/`**, with its own name, icon and web-app manifest.

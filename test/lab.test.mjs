@@ -167,3 +167,23 @@ test('every lesson exercise works: predictions run, gaps fill in to working code
   }
   assert.ok(n >= 55, `${n} exercises`);
 });
+
+test('exam mode by chapter and unit: each chapter in its 9618 or 0478 unit, with its questions and marks', () => {
+  assert.equal(Lab.unitOf({ topic: 'Arrays', level: 'as', paper: 2 }), 10);
+  assert.equal(Lab.unitOf({ topic: 'Files', level: 'as', paper: 2 }), 10);
+  assert.equal(Lab.unitOf({ topic: 'Files', level: 'a2', paper: 4 }), 20, 'file processing at A Level is unit 20');
+  assert.equal(Lab.unitOf({ topic: 'Iteration', level: 'as' }), 11);
+  assert.equal(Lab.unitOf({ topic: 'Tracing', level: 'as' }), 12);
+  assert.equal(Lab.unitOf({ topic: 'Algorithms', level: 'a2' }), 19);
+  assert.equal(Lab.unitOf({ topic: 'OOP', level: 'a2' }), 20);
+  assert.equal(Lab.unitOf({ topic: 'Tracing', level: 'igcse' }), 7);
+  assert.equal(Lab.unitOf({ topic: 'Arrays', level: 'igcse' }), 8);
+  const c = plain(Lab.examChoices([
+    { topic: 'Arrays', level: 'as', paper: 2, marks: 5 }, { topic: 'Arrays', level: 'as', paper: 2, marks: 3 },
+    { topic: 'Files', level: 'as', paper: 2, marks: 4 }, { topic: 'Selection', level: 'as', paper: 2, marks: 2 },
+  ]));
+  assert.deepEqual(c.chapters.map((x) => [x.topic, x.n, x.marks, x.units]), [['Arrays', 2, 8, [10]], ['Files', 1, 4, [10]], ['Selection', 1, 2, [11]]]);
+  assert.deepEqual(c.units.map((u) => [u.unit, u.name, u.n, u.topics]), [[10, 'Data types and structures', 3, ['Arrays', 'Files']], [11, 'Programming', 1, ['Selection']]]);
+  // every chapter in the bank has a unit
+  for (const q of [].concat(ctx.QUESTIONS_ALEVEL || [], ctx.QUESTIONS_IGCSE || [], ctx.QUESTIONS_EXTRA || [])) assert.ok(Lab.UNITS[Lab.unitOf(q)], q.id);
+});
