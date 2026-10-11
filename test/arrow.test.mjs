@@ -226,3 +226,34 @@ test('on the dashboard: chapter worksheets, study logged once per chapter, one s
     .filter((o) => o.worksheetId?.startsWith('aa-'));
   assert.ok(new Set(ws.map((o) => o.worksheetId)).size <= 1);
 });
+
+test('My plan: lessons in order, chapters under way first, each with what is done, next and planned', () => {
+  const ws = [
+    { id: 'al-l2', source: 'arrow', title: 'Assignment Arrow · Lesson 2: Variables', questionCount: 5, done: 5, labels: ['L2.1'], planned: [] },
+    { id: 'al-l10', source: 'arrow', title: 'Assignment Arrow · Lesson 10: File handling', questionCount: 4, done: 0, labels: ['L10.1', 'L10.2'], planned: [] },
+    { id: 'al-l9', source: 'arrow', title: 'Assignment Arrow · Lesson 9: Trace tables', questionCount: 4, done: 1, labels: ['L9.1', 'L9.2'],
+      doneQuestions: { 'L9.1': {} }, planned: [{ date: '2026-10-12', key: '08:55', done: false }, { date: '2026-10-01', key: '08:55', done: true }] },
+    { id: 'aa-arrays', source: 'arrow', title: 'Assignment Arrow · Arrays', questionCount: 7, done: 0, labels: ['Q20'], planned: [] },
+    { id: 'aa-selection', source: 'arrow', title: 'Assignment Arrow · Selection', questionCount: 4, done: 1, labels: ['Q05', 'Q06'], doneQuestions: { Q05: {} }, planned: [] },
+    { id: 'aa-files', source: 'arrow', title: 'Assignment Arrow · Files', questionCount: 4, done: 0, labels: [], planned: [{ date: '2026-10-11', key: 'x10:00', done: false }] },
+    { id: 'w-school', title: 'Unit 10 workbook', questionCount: 7, done: 0 },
+  ];
+  const { lessons, chapters } = B.planRows(ws, '2026-10-10');
+  assert.deepEqual(lessons.map((r) => r.num), [2, 9, 10]);
+  assert.deepEqual((lessons.map((r) => [r.title, r.finished, r.next, r.link])),
+    [['Lesson 2: Variables', true, 'L2.1', '#L2'], ['Lesson 9: Trace tables', false, 'L9.2', '#L9'], ['Lesson 10: File handling', false, 'L10.1', '#L10']]);
+  assert.deepEqual(lessons[1].upcoming, [{ date: '2026-10-12', key: '08:55', done: false }], 'only what is still to come');
+  assert.deepEqual(chapters.map((r) => r.id), ['aa-selection', 'aa-files', 'aa-arrays'], 'under way, then planned, then the rest');
+  assert.equal(chapters[2].link, '#arrays');
+  assert.ok(!chapters.some((r) => r.id === 'w-school'), 'your school worksheets stay in the companion');
+
+  const days = [
+    { date: '2026-10-09', studyPeriods: [{ key: '08:55', start: '08:55', end: '09:50' }] },
+    { date: '2026-10-10', studyPeriods: [{ key: 'x09:00', start: '09:00', end: '09:30' }, { key: 'x18:00', start: '18:00', end: '19:00', chosen: { title: 'Worksheet: Physics' } }] },
+    { date: '2026-10-12', studyPeriods: [{ key: '08:55', start: '08:55', end: '09:50', title: 'Study period' }] },
+  ];
+  assert.deepEqual(B.freePeriods(days, '2026-10-10', '12:00'), [
+    { date: '2026-10-10', key: 'x18:00', start: '18:00', end: '19:00', title: 'Free period', chosen: 'Worksheet: Physics' },
+    { date: '2026-10-12', key: '08:55', start: '08:55', end: '09:50', title: 'Study period', chosen: null },
+  ]);
+});

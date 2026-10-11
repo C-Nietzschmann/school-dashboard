@@ -221,6 +221,42 @@
     const t = (questions || []).find((x) => x.topic && (slug(x.topic) === h || sheetId(x.topic) === h));
     return t ? { topic: t.topic } : null;
   }
+  // My plan: your dashboard's Assignment Arrow worksheets, lessons in order and chapters
+  // by what is under way, each with how much is done, the next question and when it is planned.
+  const SHORT = (t) => String(t || '').replace(/^Assignment Arrow · /, '');
+  function planRows(worksheets, today) {
+    const rows = (worksheets || []).filter((w) => w && w.source === 'arrow').map((w) => {
+      const total = Number(w.questionCount) || 0;
+      const done = Math.min(total, Number(w.done ?? w.doneCount) || 0);
+      const lesson = /^al-/.test(w.id);
+      const num = lesson ? lessonNumber(w.id) : null;
+      const dq = w.doneQuestions || {};
+      const next = (w.labels || []).find((q) => !dq[q]) || null;
+      const upcoming = (w.planned || []).filter((p) => !p.done && p.date >= today)
+        .sort((a, b) => (a.date + a.key).localeCompare(b.date + b.key));
+      return { id: w.id, lesson, num, title: SHORT(w.title), total, done, next, upcoming,
+        finished: total > 0 && done >= total, started: done > 0 && done < total,
+        link: lesson ? `#L${num}` : `#${String(w.id).replace(/^aa-/, '')}` };
+    });
+    const rank = (r) => (r.started ? 0 : r.upcoming.length ? 1 : 2);
+    return {
+      lessons: rows.filter((r) => r.lesson).sort((a, b) => a.num - b.num),
+      chapters: rows.filter((r) => !r.lesson).sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title)),
+    };
+  }
+  // the free periods and study sessions coming up, from the dashboard's week, for planning one in
+  function freePeriods(days, today, nowHm) {
+    const out = [];
+    for (const d of days || []) {
+      if (d.date < today) continue;
+      for (const p of d.studyPeriods || []) {
+        if (d.date === today && nowHm && p.end && p.end <= nowHm) continue;
+        out.push({ date: d.date, key: p.key, start: p.start || '', end: p.end || '', title: p.title || 'Free period',
+          chosen: p.chosen ? (p.chosen.title || '') : null });
+      }
+    }
+    return out.slice(0, 20);
+  }
   // Short, stable fingerprints: of the chapters, to notice a changed question bank.
   const hashOf = (txt) => {
     let h = 5381;
@@ -230,7 +266,7 @@
   const signature = (course, sheets) => hashOf(course + '|' + sheets.map((s) => s.id + ':' + s.questions.map((q) => q.q).join(',')).join(';'));
 
   const core = { CHAPTER_TOPIC, chapters, lessonSheets, minutesFor, pickPeriod, buildOps, doneCounts, doneByChapter, hashTarget, signature, sheetId, topicName,
-    hmOf, isoOf, timerMs, timerStop, timerRun, timerMinutes, completeItem, clock };
+    hmOf, isoOf, timerMs, timerStop, timerRun, timerMinutes, completeItem, clock, planRows, freePeriods };
   root.ArrowBridge = core;
   if (typeof document === 'undefined' || !root.localStorage) return;
 
@@ -479,6 +515,7 @@
   // a link from the companion: #Q10 opens that question, #arrays that chapter
   let wantLink = false;
   function go() {
+    if (/^#plan$/i.test(location.hash)) return showPlan();
     const target = hashTarget(location.hash, allQuestions(), lessonsNow());
     if (!target) return;
     if (!picked()) { wantLink = true; return; }
@@ -545,7 +582,130 @@
     paint();
     if (live && !queue.length) { clearTimeout(timer); timer = setTimeout(flush, 8000); }
   });
+  injectPlan();
   go();
+
+  /* ---- My plan: a tab of its own for what the dashboard has planned here ---- */
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayName = (iso, today) => (iso === today ? 'today' : `${DAYS[new Date(iso + 'T12:00:00').getDay()]} ${Number(iso.slice(8))}`);
+  const escH = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  var planData = null, planAt = 0, planOpen = null, planBusy = false;     // var: #plan can open the tab before this line runs
+  function injectPlan() {
+    const nav = document.getElementById('nav');
+    const main = document.querySelector('main.main');
+    if (!nav || !main || document.getElementById('view-plan')) return;
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn'; btn.dataset.view = 'plan';
+    btn.innerHTML = '<span class="n">06</span> My plan';
+    btn.addEventListener('click', () => showPlan());
+    nav.appendChild(btn);
+    const sec = document.createElement('section');
+    sec.className = 'view'; sec.id = 'view-plan';
+    sec.innerHTML = '<div class="wrap"><header class="page-head"><div class="label">Section 06</div><h1>My plan</h1>'
+      + '<p>Your lessons and practice chapters as they are on your A Level dashboard: how far you are, what is next and when it is planned. Plan one into a free period from here.</p></header>'
+      + '<div id="planBody"><p class="aa-plan-muted">Loading your plan…</p></div></div>';
+    const foot = main.querySelector('footer.foot');
+    main.insertBefore(sec, foot || null);
+    const css = document.createElement('style');
+    css.textContent = `
+      #planBody{display:grid;gap:22px}
+      .aa-plan-group h2{font-size:1.05rem;margin:0 0 8px}
+      .aa-plan-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line, #ddd)}
+      .aa-plan-row:first-of-type{border-top:0}
+      .aa-plan-t{font-weight:600}
+      .aa-plan-meta{font-size:.82rem;color:var(--muted, #777);margin-top:2px}
+      .aa-plan-bar{height:5px;border-radius:3px;background:var(--surface-2, #eee);margin-top:6px;overflow:hidden}
+      .aa-plan-bar span{display:block;height:100%;background:var(--pen, #c8322f)}
+      .aa-plan-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+      .aa-plan-periods{grid-column:1 / -1;display:flex;gap:6px;flex-wrap:wrap;padding:4px 0}
+      .aa-plan-muted{color:var(--muted, #777);font-size:.9rem}
+      .aa-plan-done summary{cursor:pointer;color:var(--muted, #777);font-size:.9rem;padding:6px 0}
+      .aa-plan-ok{color:var(--tick, #1a8a3a)}`;
+    document.head.appendChild(css);
+    sec.addEventListener('click', onPlanClick);
+  }
+  function showPlan() {
+    if (typeof root.show === 'function') root.show('plan');
+    else {
+      document.querySelectorAll('.view').forEach((v) => v.classList.toggle('is-active', v.id === 'view-plan'));
+      document.querySelectorAll('.nav-btn').forEach((b) => b.setAttribute('aria-current', String(b.dataset.view === 'plan')));
+    }
+    loadPlan();
+  }
+  async function loadPlan(force = false) {
+    const body = document.getElementById('planBody');
+    if (!body) return;
+    if (!live) { body.innerHTML = '<p class="aa-plan-muted">Your plan comes from your A Level dashboard: connect the A Level Dashboard connector (or open this from your dashboard) to see it.</p>'; return; }
+    if (!force && planData && Date.now() - planAt < 60e3) return renderPlan();
+    try {
+      const now = Date.now();
+      const [today, week] = await Promise.all([dash('get_today', { date: isoOf(now), time: hmOf(now), detail: 'full' }), weekOf(isoOf(now))]);
+      planData = { today: today?.date || isoOf(now), worksheets: today?.worksheets || [], days: week?.days || [] };
+      planAt = Date.now();
+      renderPlan();
+    } catch (e) {
+      body.innerHTML = `<p class="aa-plan-muted">Could not load your plan: ${escH(e?.message || 'the dashboard did not answer')}.</p>`;
+    }
+  }
+  async function weekOf(from) {
+    if (SITE) {
+      const r = await fetch('/api/app/week?' + new URLSearchParams({ from, days: 8 }), { credentials: 'same-origin' });
+      return r.ok ? r.json() : { days: [] };
+    }
+    return dash('get_week', { from, days: 8 });
+  }
+  function renderPlan() {
+    const body = document.getElementById('planBody');
+    if (!body || !planData) return;
+    const { lessons, chapters } = planRows(planData.worksheets, planData.today);
+    const periods = freePeriods(planData.days, planData.today, hmOf(Date.now()));
+    const row = (r) => `<div class="aa-plan-row">
+        <div><div class="aa-plan-t">${escH(r.title)}</div>
+          <div class="aa-plan-meta">${r.finished ? '<span class="aa-plan-ok">✓ done</span>' : `${r.done} of ${r.total} done${r.next ? ` · next: ${escH(r.next)}` : ''}`}
+            ${r.upcoming.length ? ` · planned ${r.upcoming.map((p) => `${dayName(p.date, planData.today)} ${escH(String(p.key).replace(/^x/, ''))}`).join(', ')}` : ''}</div>
+          ${r.total ? `<div class="aa-plan-bar"><span style="width:${Math.round(r.done / r.total * 100)}%"></span></div>` : ''}</div>
+        <div class="aa-plan-acts"><button class="btn btn-sm" data-plan-open="${escH(r.link)}">Open</button>
+          ${r.finished ? '' : `<button class="btn btn-sm btn-ghost" data-plan-pick="${escH(r.id)}">Plan</button>`}</div>
+        ${planOpen === r.id ? `<div class="aa-plan-periods">${periods.length ? periods.map((p) =>
+          `<button class="btn btn-sm${p.chosen ? ' btn-ghost' : ''}" data-plan-to="${escH(r.id)}" data-date="${p.date}" data-key="${escH(p.key)}"${p.chosen ? ' data-add="1"' : ''}
+            title="${p.chosen ? `Also in this period: ${escH(p.chosen)}` : 'Free'}">${dayName(p.date, planData.today)} ${escH(p.start)}${p.chosen ? ' +' : ''}</button>`).join('')
+          : '<span class="aa-plan-muted">No free periods or study sessions in the next week. Add a study session on your dashboard.</span>'}</div>` : ''}
+      </div>`;
+    const group = (title, list) => {
+      if (!list.length) return '';
+      const open = list.filter((r) => !r.finished), done = list.filter((r) => r.finished);
+      return `<div class="aa-plan-group"><h2>${title} <span class="aa-plan-muted">${done.length}/${list.length} done</span></h2>
+        ${open.map(row).join('') || '<p class="aa-plan-muted">All done.</p>'}
+        ${done.length ? `<details class="aa-plan-done"><summary>Done (${done.length})</summary>${done.map(row).join('')}</details>` : ''}</div>`;
+    };
+    body.innerHTML = (group('Lessons', lessons) + group('Practice chapters', chapters))
+      || '<p class="aa-plan-muted">Nothing from Assignment Arrow on your dashboard yet: pick your course on the start page, and its lessons and chapters appear here.</p>';
+  }
+  async function onPlanClick(e) {
+    const b = e.target.closest('button');
+    if (!b || planBusy) return;
+    if (b.dataset.planOpen) { location.hash = b.dataset.planOpen; return go(); }
+    if (b.dataset.planPick) { planOpen = planOpen === b.dataset.planPick ? null : b.dataset.planPick; return renderPlan(); }
+    if (b.dataset.planTo) {
+      const w = planData?.worksheets.find((x) => x.id === b.dataset.planTo);
+      if (!w) return;
+      planBusy = true;
+      const option = { id: 'ws:' + w.id, kind: 'worksheet', title: 'Worksheet: ' + w.title, why: 'planned in Assignment Arrow',
+        subjectId: 'cs', topicId: (w.topicIds || [])[0] || null, taskId: null, testId: null, worksheetId: w.id };
+      try {
+        const [res] = await apply([{ id: `aa-plan-${w.id}-${b.dataset.date}-${b.dataset.key}`, type: 'study.choose', date: b.dataset.date, key: b.dataset.key,
+          option, ...(b.dataset.add ? { add: true } : {}) }], b.dataset.date, hmOf(Date.now()));
+        if (res && !res.ok) say(`Not planned: ${res.error}`, true);
+        else say(`✓ ${SHORT(w.title)} planned for ${dayName(b.dataset.date, planData.today)} at ${String(b.dataset.key).replace(/^x/, '')}`);
+        planOpen = null;
+        await loadPlan(true);
+      } catch (err) {
+        say(`Not planned — ${err?.message || 'the dashboard did not answer'}.`, true);
+      } finally {
+        planBusy = false;
+      }
+    }
+  }
 
   /* ---- sending it to the dashboard ---- */
   async function dash(tool, input) {
@@ -659,6 +819,7 @@
   const start = () => {
     live = true;
     showQueue();
+    if (document.getElementById('view-plan')?.classList.contains('is-active')) loadPlan(true);
     flush();
     setInterval(() => { if (queue.length) flush(); }, 60e3);
   };

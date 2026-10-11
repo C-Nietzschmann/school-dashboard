@@ -247,6 +247,8 @@ section.tab.on{display:block}
 .chip.pick.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
 .seg.segwrap-in{display:flex;flex-wrap:wrap;max-width:100%}
 .annot{font-family:var(--mono);font-size:12.5px;color:var(--pen);margin:4px 0 2px;overflow-wrap:anywhere}
+.done-fold{margin-top:6px}
+.done-fold summary{cursor:pointer;font-size:13px;padding:4px 0}
 .task-files{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px;font-size:14px}
 .task-files li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-width:0}
 .task-files a{overflow-wrap:anywhere}
@@ -1874,6 +1876,17 @@ const worksheetOf = (id) => worksheetList().find((w) => w.id === id) || null;
 // Worksheets to answer: unanswered ones first, the ones planned soonest before the rest.
 // A chapter of Assignment Arrow: done and marked there, and logged here by it.
 const isArrow = (w) => w?.source === 'arrow';
+// finished: every question done, or answered and marked
+const wsDone = (w) => (w?.questionCount ? (w.left ?? w.questionCount) <= 0 : Boolean(w?.attempts?.length));
+// Assignment Arrow in one line: its chapters and lessons are in its own My plan tab
+function arrowCard(list) {
+  const done = list.filter(wsDone).length, url = list.find((w) => w.fileUrl)?.fileUrl;
+  const lessons = list.filter((w) => String(w.id).startsWith('al-')).length;
+  return `<div class="mistake-group"><h3><span class="dot" style="--c:${colourOf('cs')}"></span>Assignment Arrow<span class="count">${done}/${list.length} done</span></h3>
+    <div class="muted" style="font-size:13.5px;margin:2px 0 8px">${lessons} lessons and ${list.length - lessons} practice chapters of pseudocode. They are planned,
+      timed and ticked in My Assignment Arrow, on its <b>My plan</b> tab.</div>
+    ${url ? `<a class="btn sm" href="${esc(url.replace(/#.*$/, '') + '#plan')}" target="_blank" rel="noopener">Open My plan</a>` : ''}</div>`;
+}
 // the chapter's first question you have not done, by its name in Assignment Arrow
 const arrowNext = (w) => (isArrow(w) && (w.labels || []).find((q) => !w.doneQuestions?.[q])) || null;
 // Assignment Arrow opened at one question (#Q10), or at the chapter (#arrays)
@@ -2925,8 +2938,8 @@ function wsPickSheet(date, key, add) {
   const sp = studySlots(date).find((s) => s.key === key);
   if (!sp) return;
   SHEET.ctx = { kind: 'wspick', date, key, add: Boolean(add) };
-  const groups = {}, taken = takenIn(sp);
-  for (const w of openWorksheets()) if (!taken.has('ws:' + w.id)) (groups[w.subjectId || ''] ||= []).push(w);
+  const groups = {}, taken = takenIn(sp), arrow = [];
+  for (const w of openWorksheets()) if (!taken.has('ws:' + w.id)) (isArrow(w) ? arrow : (groups[w.subjectId || ''] ||= [])).push(w);
   openSheet(`<div class="sheet-h"><h2>${add ? 'Which worksheet did you do?' : `Worksheet for ${esc(sp.start)}`}</h2><button class="btn ghost sm" data-act="close">Close</button></div>
     <button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ Paper worksheet (add the photos later)</button>
     ${Object.entries(groups).map(([sid, list]) => `<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px">
@@ -2936,7 +2949,10 @@ function wsPickSheet(date, key, add) {
           <div class="opt-why">${[wsProgress(w),
             (w.topicIds || []).slice(0, 2).map((id) => topicOf(id)?.name).filter(Boolean).join(', '),
             next ? `planned ${next.date === nowISO() ? 'today' : fmtDay(next.date)} ${String(next.key).replace(/^x/, '')}` : ''].filter(Boolean).map(esc).join(' · ')}</div></button>`;
-      }).join('')}</div></div>`).join('') || '<div class="empty">No other unfinished worksheets — add a new one above.</div>'}`);
+      }).join('')}</div></div>`).join('') || '<div class="empty">No other unfinished worksheets. Add a new one above.</div>'}
+    ${arrow.length ? `<details class="done-fold"><summary class="muted">Assignment Arrow (${arrow.length})</summary><div class="opts" style="margin:6px 0 0">${arrow.map((w) =>
+      `<button class="opt" data-act="ws-pick" data-id="${esc(w.id)}"><div class="opt-title">${esc(String(w.title).replace(/^Assignment Arrow · /, ''))}</div>
+        <div class="opt-why">${esc(wsProgress(w))}</div></button>`).join('')}</div></details>` : ''}`);
 }
 function pickWorksheet(wid) {
   const c = SHEET.ctx, ws = worksheetOf(wid);
@@ -4183,7 +4199,7 @@ function viewHistory() {
   const seg = `<div class="segwrap"><div class="seg">
     <button data-act="hview" data-v="mistakes" aria-pressed="${h.view === 'mistakes'}">Mistakes<b>${ms.length}</b></button>
     <button data-act="hview" data-v="all" aria-pressed="${h.view === 'all'}">Marked<b>${atts.length}</b></button>
-    <button data-act="hview" data-v="worksheets" aria-pressed="${h.view === 'worksheets'}">Worksheets<b>${wss.length}</b></button>
+    <button data-act="hview" data-v="worksheets" aria-pressed="${h.view === 'worksheets'}">Worksheets<b>${wss.filter((w) => !isArrow(w) && !wsDone(w)).length}</b></button>
     <button data-act="hview" data-v="notes" aria-pressed="${h.view === 'notes'}">Notes<b>${notes.length}</b></button></div></div>`;
   const head = (sid, n) => `<h3><span class="dot" style="--c:${colourOf(sid)}"></span>${esc(subjectName(sid))}<span class="count">${n}</span></h3>`;
   const topicNames = (ids) => (ids || []).slice(0, 2).map((id) => esc(topicOf(id)?.name || '')).filter(Boolean).join(', ');
@@ -4201,12 +4217,20 @@ function viewHistory() {
           <span class="mono late">−${fmtN(m.marksLost)}</span></button>`).join('')}</div>`;
     }).join('') : '<div class="empty">No open mistakes. Anything you get wrong in marked work lands here until you fix it.</div>';
   } else if (h.view === 'worksheets') {
-    body = '<button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ Paper worksheet (add the photos later)</button>' + (wss.length ? bySubject(wss).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
-      ${list.map((w) => `<button class="attempt" data-act="open-ws" data-id="${esc(w.id)}">
+    // your own worksheets, unfinished first and the finished ones folded away; Assignment
+    // Arrow's chapters and lessons live in its own My plan tab, so here they are one line
+    const own = wss.filter((w) => !isArrow(w)), arrow = wss.filter(isArrow);
+    const row = (w) => `<button class="attempt" data-act="open-ws" data-id="${esc(w.id)}">
         <span><span class="t">${esc(w.title)}</span><span class="task-meta">${topicNames(w.topicIds) || 'no topic'} · ${esc(fmtDay(w.date))}
           ${wsProgress(w) ? `· ${esc(wsProgress(w))}` : ''}${w.attempts?.length > 1 ? ` · answered ${w.attempts.length}×` : ''}</span></span>
-        ${wsStatus(w)}</button>`).join('')}</div>`).join('')
-      : '<div class="empty">No worksheets yet. On the Work tab, add the pages and choose <b>Worksheet</b> — or add one by name above.</div>');
+        ${wsStatus(w)}</button>`;
+    body = '<button class="btn sm" data-act="ws-new" style="margin-bottom:12px">+ Paper worksheet (add the photos later)</button>' + (own.length ? bySubject(own).map(([sid, list]) => {
+      const open = list.filter((w) => !wsDone(w)), done = list.filter(wsDone);
+      return `<div class="mistake-group">${head(sid, open.length)}
+        ${open.map(row).join('') || '<div class="muted" style="font-size:13.5px;padding:4px 0">All done.</div>'}
+        ${done.length ? `<details class="done-fold"><summary class="muted">Done (${done.length})</summary>${done.map(row).join('')}</details>` : ''}</div>`;
+    }).join('') : '<div class="empty">No worksheets yet. On the Work tab, add the pages and choose <b>Worksheet</b>, or add one by name above.</div>')
+      + (arrow.length ? arrowCard(arrow) : '');
   } else if (h.view === 'notes') {
     body = notes.length ? bySubject(notes).map(([sid, list]) => `<div class="mistake-group">${head(sid, list.length)}
       ${list.map((n) => `<button class="attempt" data-act="open-note" data-id="${esc(n.id)}">

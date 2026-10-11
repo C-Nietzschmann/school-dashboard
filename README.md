@@ -235,7 +235,11 @@ into the study period you are in, or a study session of its own, as one entry pe
 questions ("Q01, Q03 · 6/8 marks"). You don't need to plan it in the companion first. A question you marked but
 never completed is completed for you when you open another one, or after half an hour. Exam mode logs a whole
 paper when it is marked, timed from Start. The chapter's topic level moves with your marks, and only one
-chapter at a time is suggested for a free period.
+chapter at a time is suggested for a free period. Its **My plan** tab (06) shows the lessons and practice chapters as your dashboard has them: how far you
+are, the next question, when each is planned, and a **Plan** button that puts one into a free period or study
+session in the coming week. In the companion they no longer fill the Computer Science worksheet lists: History shows
+your own worksheets (the finished ones folded under Done) and one line for Assignment Arrow, and a free period's
+Worksheet… keeps them in a folded group of their own.
 
 The companion lists each chapter's questions under Assignment Arrow's own numbers, ticked with your best marks
 once done, and names the next one ("next: Q10"). Each number, and the **Open Q10** button, is a link that
