@@ -582,7 +582,7 @@ body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 const COMPANION_HEAD = appHead('Companion', '/icons/icon-180.png', '/icons/companion.webmanifest');
 // Assignment Arrow, your copy (arrow/site, built by arrow/build.mjs --site): an app of its own at /arrow/
 const ARROW_HEAD = appHead('Arrow', '/icons/arrow-180.png', '/icons/arrow.webmanifest');
-const ARROW_OWN = ['bridge.js', 'lab.js', 'lessons-plus.js'];
+const ARROW_OWN = ['bridge.js', 'lab.js', 'lessons-plus.js', 'lessons-index.js'];
 
 const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
   '.applescript': 'text/plain' };

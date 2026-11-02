@@ -711,6 +711,8 @@ CLOSEFILE "Names.txt"
 OUTPUT Count, " records"`},
     {t:"p",html:`It must be <em class="term">WHILE</em>, not <em class="term">REPEAT</em> &mdash; an empty file has to read nothing. And it is <em class="term">NOT EOF(...)</em>: carry on <em>while it is not the end</em>.`},
 
+    {t:"note",kind:"warn",label:"If your notes show REPEAT ... UNTIL EOF",html:`<p>Some teaching material writes the read loop as <em class="term">REPEAT &hellip; UNTIL EOF(f)</em>. On a file with something in it that works, but <strong>on an empty file it breaks</strong>, because REPEAT reads before it tests and there is nothing to read. The <em class="term">WHILE NOT EOF</em> version above is safe in every case. Try both here with an empty file and watch what happens.</p>`},
+
     {t:"h",text:"Turning a question into an algorithm"},
     {t:"p",html:`Most marks are lost on long questions not because you cannot code, but because you start writing before you know what you are writing.`},
     {t:"list",items:[

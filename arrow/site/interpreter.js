@@ -29,7 +29,7 @@ const KW = ["DECLARE","CONSTANT","IF","THEN","ELSE","ENDIF","CASE","OF","OTHERWI
   "PROCEDURE","ENDPROCEDURE","FUNCTION","RETURNS","RETURN","ENDFUNCTION","CALL",
   "BYVAL","BYREF","INPUT","OUTPUT","ARRAY","TYPE","ENDTYPE","CLASS","ENDCLASS",
   "INHERITS","PRIVATE","PUBLIC","NEW","SUPER","OPENFILE","READFILE","WRITEFILE",
-  "CLOSEFILE","SEEK","GETRECORD","PUTRECORD","READ","WRITE","APPEND","RANDOM",
+  "CLOSEFILE","OPEN","SEEK","GETRECORD","PUTRECORD","READ","WRITE","APPEND","RANDOM",
   "AND","OR","NOT","TRUE","FALSE","INTEGER","REAL","CHAR","STRING","BOOLEAN","DATE"];
 const KWSET = new Set(KW);
 
@@ -211,7 +211,8 @@ Parser.prototype = {
         case "OUTPUT":    return this.sOutput();
         case "TYPE":      return this.sType();
         case "CLASS":     return this.sClass();
-        case "OPENFILE":  return this.sOpen();
+        case "OPENFILE":
+        case "OPEN":      return this.sOpen();
         case "READFILE":  return this.sReadFile();
         case "WRITEFILE": return this.sWriteFile();
         case "SEEK":      return this.sRecStmt("Seek");
@@ -576,7 +577,8 @@ Parser.prototype = {
   },
 
   sOpen(){
-    const ln = this.line; this.next();
+    const ln = this.line;
+    const opened = this.next().v;
     const f = this.expr();
     if (this.atKW("FOR") || (this.at("ID") && this.peek().v.toUpperCase() === "FOR")) this.next();
     const MODES = ["READ","WRITE","APPEND","RANDOM"];
@@ -586,7 +588,7 @@ Parser.prototype = {
     if (!mode) throw PErr(ln, "OPENFILE must say how the file is being opened.",
       'Write  OPENFILE "name.txt" FOR READ  (or FOR WRITE, FOR APPEND, FOR RANDOM).');
     this.endLine();
-    return { kind:"OpenFile", file:f, mode:mode, line:ln };
+    return { kind:"OpenFile", file:f, mode:mode, opened:opened, line:ln };
   },
   sReadFile(){
     const ln = this.line; this.next();
@@ -773,6 +775,19 @@ function fmt(v){
 
 function Interp(opts){
   this.level = (opts && opts.level) || null;
+  this.echo  = !!(opts && opts.echo);
+  /* A replay must reproduce the run exactly, so a caller that replays passes
+     a seed. A caller that does not is left with Math.random - which may itself
+     have been seeded by that caller for the length of the run. */
+  if (opts && opts.seed != null){
+    let seed = opts.seed >>> 0;
+    this.random = function(){
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+  } else {
+    this.random = function(){ return Math.random(); };
+  }
   opts = opts || {};
   this.out = [];
   this.warnings = [];
@@ -1163,7 +1178,7 @@ const BUILTIN = {
     return Math.round(v * m) / m; },
   RANDOM(n,s){ argCheck(this,n,s,0,"RANDOM");
     this.dialect(n.line, "igcse", "RANDOM", null);
-    return Math.random(); },
+    return this.random(); },
   DIV(n,s){ const a = argCheck(this,n,s,2,"DIV");
     needNum(this,a[0],n.line,"DIV","first value"); needNum(this,a[1],n.line,"DIV","second value");
     if (a[1] === 0) this.err(n.line, "DIV cannot divide by zero.");
@@ -1220,7 +1235,7 @@ const BUILTIN = {
   INT(n,s){ const a = argCheck(this,n,s,1,"INT");
     this.dialect(n.line, "alevel", "INT", null); return Math.trunc(needNum(this,a[0],n.line,"INT")); },
   RAND(n,s){ const a = argCheck(this,n,s,1,"RAND");
-    this.dialect(n.line, "alevel", "RAND", null); return Math.random() * needNum(this,a[0],n.line,"RAND"); },
+    this.dialect(n.line, "alevel", "RAND", null); return this.random() * needNum(this,a[0],n.line,"RAND"); },
   EOF(n,s){ const a = argCheck(this,n,s,1,"EOF");
     const name = String(a[0]);
     const f = this.files[name];
@@ -1405,17 +1420,24 @@ Interp.prototype.exec = function(n, scope){
         this.warn(n.line, "INPUT takes only a variable. Put the prompt on its own OUTPUT line above it.");
         this.emit(n.prompt, n.line);
       }
-      if (this.inPos >= this.inputs.length)
-        this.err(n.line, "The program asked for input but there is none left.",
-          "Type the values the program should read into the Input box, one per line, then run it again.");
+      if (this.inPos >= this.inputs.length){
+        /* Not a failure: the terminal catches this, asks the user for the
+           value and replays. Only a non-interactive caller treats it as an
+           error. */
+        const e = new Error("The program is waiting for you to type something.");
+        e.pseudo = true; e.line = n.line; e.needsInput = true;
+        e.hint = "Type a value below and press Enter.";
+        throw e;
+      }
       const raw = this.inputs[this.inPos++];
+      if (this.echo) this.out.push("\u0001" + raw);
       const ref = this.lval(n.target, scope);
       const t = (ref.box && ref.box.t) || null;
       let v = raw;
       if (t === "INTEGER" || t === "REAL"){
         if (raw.trim() === "" || isNaN(Number(raw)))
-          this.err(n.line, '"' + raw + '" was read from the Input box but \'' + ref.name + "' is a number.",
-            "Put one value on each line of the Input box, in the order the program asks for them.");
+          this.err(n.line, '"' + raw + '" was read but \'' + ref.name + "' is a number.",
+            "Enter a number when the program asks for one.");
         v = Number(raw);
       } else if (t === "BOOLEAN"){
         const u = raw.trim().toUpperCase();
@@ -1564,6 +1586,8 @@ Interp.prototype.exec = function(n, scope){
 
     /* ---- files ---- */
     case "OpenFile": {
+      if (n.opened === "OPEN")
+        this.warn(n.line, 'The pseudocode guide writes this as OPENFILE, not OPEN. Both run here, but write OPENFILE in the exam.');
       if (n.mode === "APPEND" || n.mode === "RANDOM")
         this.aboveIgcse(n.line, "Opening a file FOR " + n.mode);
       const name = String(this.ev(n.file, scope));
@@ -1628,7 +1652,15 @@ Interp.prototype.exec = function(n, scope){
       if (f.pos >= f.lines.length)
         this.err(n.line, '"' + name + '" has no more lines, but READFILE asked for another one.',
           "Guard the read with  WHILE NOT EOF(\"" + name + "\") DO  so it stops at the end.");
-      this.lval(n.target, scope).set(f.lines[f.pos++]);
+      /* The syllabus is explicit: a line is read into a STRING. Catching it
+         here gives the real rule instead of a confusing type-mismatch. */
+      const dest = this.lval(n.target, scope);
+      const dt = dest.box && dest.box.t;
+      if (dt && dt !== "STRING")
+        this.err(n.line, "READFILE reads a line of text, so '" + dest.name + "' must be a STRING, not " +
+          ("AEIOU".indexOf(dt[0]) === -1 ? "a " : "an ") + dt + ".",
+          "Read into a STRING first, then convert it: Value <- STRING_TO_NUM(Line)");
+      dest.set(f.lines[f.pos++]);
       return;
     }
     case "WriteFile": {
@@ -1637,7 +1669,11 @@ Interp.prototype.exec = function(n, scope){
       if (!f || (f.mode !== "WRITE" && f.mode !== "APPEND"))
         this.err(n.line, '"' + name + '" is not open for writing.',
           'Open it with FOR WRITE to start a new file, or FOR APPEND to add to the end of an existing one.');
-      f.lines.push(fmt(this.ev(n.value, scope)));
+      const val = this.ev(n.value, scope);
+      if (typeof val === "number")
+        this.warn(n.line, "WRITEFILE writes a line of text. Convert the number first: WRITEFILE " +
+          name + ", NUM_TO_STRING(Value)");
+      f.lines.push(fmt(val));
       return;
     }
     case "CloseFile": {
@@ -1681,7 +1717,8 @@ window.PseudoRun = function(src, opts){
                error:{ line:0, msg:"RETURN was used outside a function.",
                        hint:"RETURN belongs inside FUNCTION ... ENDFUNCTION. A procedure sends results back through BYREF parameters." } };
     if (e && e.pseudo)
-      return { ok:false, output:I.out, warnings:I.warnings, error:{ line:e.line, msg:e.message, hint:e.hint } };
+      return { ok:false, output:I.out, warnings:I.warnings, needsInput:!!e.needsInput,
+               error:{ line:e.line, msg:e.message, hint:e.hint, needsInput:!!e.needsInput } };
     if (e instanceof RangeError)
       return { ok:false, output:I.out, warnings:I.warnings,
                error:{ line:0, msg:"A subroutine called itself far too many times.",

@@ -550,39 +550,43 @@ table.ref td.d{ font-family:var(--prose); color:var(--ink-2); }
 .case-detail .note-small{ font-family:var(--prose); font-size:.86rem; color:var(--ink-3); margin:10px 0 0; }
 @media (max-width:640px){ .case-detail .wg{ grid-template-columns:1fr; } }
 
-/* ---------- run console ---------- */
+/* ---------- terminal ---------- */
 .runbar{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; }
 .runbar .runinfo{ font-size:.78rem; color:var(--ink-3); font-family:var(--display); }
-.inputs-wrap{ margin-top:10px; border:1px solid var(--rule); border-radius:5px; overflow:hidden; }
-.inputs-wrap > summary{
-  cursor:pointer; list-style:none; padding:7px 11px; background:var(--surface-2);
-  font-family:var(--display); font-size:.76rem; font-weight:700;
-  letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2);
-}
-.inputs-wrap > summary::-webkit-details-marker{ display:none; }
-.inputs-wrap textarea{
-  display:block; width:100%; min-height:76px; resize:vertical; border:0;
-  padding:9px 11px; background:var(--code-bg); color:var(--ink);
-  font-family:var(--mono); font-size:.82rem; line-height:1.6;
-}
-.inputs-wrap textarea:focus{ outline:none; box-shadow:inset 0 0 0 2px var(--pen); }
-.console{ margin-top:11px; border:1px solid var(--rule); border-radius:5px; overflow:hidden; }
-.console-head{
+
+.term{ margin-top:11px; border:1px solid var(--rule); border-radius:5px; overflow:hidden; }
+.term-head{
   display:flex; align-items:center; gap:8px; padding:6px 11px;
   background:var(--surface-2); border-bottom:1px solid var(--rule);
   font-family:var(--display); font-size:.74rem; font-weight:700;
   letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2);
 }
-.console-head .dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-3); flex:0 0 auto; }
-.console-head.ok .dot{ background:var(--ok); }
-.console-head.bad .dot{ background:var(--pen); }
-.console-body{
-  margin:0; padding:11px 13px; background:var(--code-bg);
+.term-head .dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-3); flex:0 0 auto; }
+.term-head.ok   .dot{ background:var(--ok); }
+.term-head.bad  .dot{ background:var(--pen); }
+.term-head.wait .dot{ background:var(--warn); animation:blink 1.1s steps(2,start) infinite; }
+@keyframes blink{ 50%{ opacity:.25; } }
+.term-head .term-status{ margin-left:auto; font-weight:500; letter-spacing:.04em; text-transform:none; color:var(--ink-3); }
+
+.term-body{
+  background:var(--code-bg); padding:11px 13px;
   font-family:var(--mono); font-size:.83rem; line-height:1.62;
-  white-space:pre-wrap; overflow-x:auto; max-height:320px; overflow-y:auto;
-  color:var(--ink);
+  max-height:340px; overflow-y:auto; cursor:text;
 }
-.console-body .muted{ color:var(--ink-3); font-style:italic; }
+.term-body .ln{ white-space:pre-wrap; word-break:break-word; }
+.term-body .ln.echo{ color:var(--syn-fn); }
+.term-body .ln.echo::before{ content:"› "; color:var(--ink-3); }
+.term-body .muted{ color:var(--ink-3); font-style:italic; }
+.term-prompt{ display:flex; align-items:baseline; gap:6px; margin-top:2px; }
+.term-prompt .arrow{ color:var(--pen); font-weight:700; flex:0 0 auto; }
+.term-prompt input{
+  flex:1; min-width:0; border:0; background:transparent; color:var(--ink);
+  font-family:var(--mono); font-size:.83rem; line-height:1.62; padding:0;
+  caret-color:var(--pen);
+}
+.term-prompt input:focus{ outline:none; }
+.term-end{ margin-top:6px; padding-top:6px; border-top:1px dashed var(--rule-soft); color:var(--ink-3); font-size:.78rem; font-family:var(--display); }
+
 .run-problem{ border-left:3px solid var(--pen); background:var(--pen-soft); padding:11px 14px; }
 .run-problem .rp-line{
   font-family:var(--display); font-size:.72rem; font-weight:700; letter-spacing:.09em;
@@ -919,6 +923,7 @@ table.ref td.d{ font-family:var(--prose); color:var(--ink-2); }
 <script src="interpreter.js"></script>
 <script src="lessons.js"></script>
 <script src="lessons-igcse.js"></script>
+<script src="lessons-extra.js"></script>
 <script src="bank.js"></script>
 <script src="bank-igcse.js"></script>
 <script src="bank-extra.js"></script>
@@ -930,7 +935,7 @@ table.ref td.d{ font-family:var(--prose); color:var(--ink-2); }
 "use strict";
 
 /* Data arrives from the files above. */
-const LESSONS    = (window.LESSONS_ALEVEL   || []).concat(window.LESSONS_IGCSE   || []);
+const LESSONS    = (window.LESSONS_ALEVEL   || []).concat(window.LESSONS_EXTRA || [], window.LESSONS_IGCSE || []);
 const QUESTIONS  = (window.QUESTIONS_ALEVEL || []).concat(window.QUESTIONS_IGCSE || [], window.QUESTIONS_EXTRA || []);
 const DIFFICULTY = Object.assign({}, window.DIFFICULTY_ALEVEL || {}, window.DIFFICULTY_IGCSE || {});
 const RUNSPECS   = Object.assign({}, window.RUNSPECS_ALEVEL   || {}, window.RUNSPECS_IGCSE   || {});
@@ -1537,14 +1542,7 @@ function renderQuestionCard(q, mode){
       h += '<div class="runbar">';
       h += '<button class="btn btn-primary btn-sm" data-run="' + idp + '">Run it</button>';
       h += '<button class="btn btn-sm" data-clearrun="' + idp + '">Clear</button>';
-      h += '<span class="runinfo">Run it as many times as you like. Fix what it tells you.</span></div>';
-      if (q.run && (q.run.inputs !== undefined)){
-        h += '<details class="inputs-wrap"><summary>Input box &mdash; the values INPUT will read, one per line</summary>';
-        h += '<textarea id="in_' + idp + '" spellcheck="false">' + esc(q.run.inputs || "") + "</textarea></details>";
-      } else {
-        h += '<details class="inputs-wrap"><summary>Input box &mdash; the values INPUT will read, one per line</summary>';
-        h += '<textarea id="in_' + idp + '" spellcheck="false"></textarea></details>';
-      }
+      h += '<span class="runinfo">It stops and waits when the program asks for input, just like the real thing.</span></div>';
       h += '<div id="con_' + idp + '"></div>';
     } else {
       h += '<div id="mk_' + idp + '"></div>';
@@ -1639,32 +1637,115 @@ function buildProgram(q, answer){
     files: spec.files
   };
 }
-function runAnswer(q, answer, inputText){
+function runAnswer(q, answer, inputText, opts){
   if (typeof window.PseudoRun !== "function")
     return { ok:false, output:[], warnings:[], error:{ line:0, msg:"The runner did not load.", hint:"" } };
   const prog = buildProgram(q, answer);
   const raw = (inputText !== undefined && inputText !== null) ? inputText : (prog.inputs || "");
   const lines = String(raw).replace(/\r/g,"").split("\n");
   while (lines.length && lines[lines.length-1] === "") lines.pop();
-  return window.PseudoRun(prog.src, { inputs:lines, files:prog.files, offset:prog.offset, level:STATE.level });
+  return window.PseudoRun(prog.src, { inputs:lines, files:prog.files, offset:prog.offset,
+    level:STATE.level, echo:!!(opts && opts.echo), seed:(opts && opts.seed) || 1 });
 }
+/* ----------------------------------------------------------------------------
+   THE TERMINAL
+   Pseudocode runs synchronously, so it cannot be paused half way through an
+   INPUT. Instead the run stops when it needs a value, the terminal asks for
+   one, and the program is replayed from the start with the answer appended.
+   Replays are invisible because the transcript is identical: every INPUT is
+   echoed into the output stream, and RANDOM is seeded per terminal.
+   -------------------------------------------------------------------------- */
+const TERMS = {};
+
+function renderTerm(t){
+  const box = document.getElementById("con_" + t.id);
+  if (!box) return;
+  const r = t.last;
+  const waiting = !!(r && r.needsInput);
+  const bad = r && !r.ok && !waiting;
+
+  let h = '<div class="term"><div class="term-head ' + (waiting ? "wait" : bad ? "bad" : "ok") + '">';
+  h += '<span class="dot"></span>' + (waiting ? "Waiting for input" : bad ? "It stopped" : "Output");
+  h += '<span class="term-status">' + (waiting ? "type a value and press Enter"
+        : bad ? "line " + r.error.line : "finished") + "</span></div>";
+  h += '<div class="term-body" id="tb_' + t.id + '">';
+
+  const lines = r ? r.output : [];
+  if (!lines.length && !waiting && !bad)
+    h += '<div class="muted">It ran, but nothing was output.</div>';
+  lines.forEach(function(l){
+    const echo = l.charCodeAt(0) === 1;
+    h += '<div class="ln' + (echo ? " echo" : "") + '">' + esc(echo ? l.slice(1) : l) + "</div>";
+  });
+
+  if (waiting){
+    h += '<div class="term-prompt"><span class="arrow">&rsaquo;</span>';
+    h += '<input type="text" id="ti_' + t.id + '" spellcheck="false" autocomplete="off" aria-label="program input"></div>';
+  } else if (bad){
+    h += '<div class="run-problem" style="margin-top:8px"><span class="rp-line">Line ' + r.error.line + "</span>";
+    h += '<span class="rp-msg">' + esc(r.error.msg) + "</span>";
+    if (r.error.hint) h += '<span class="rp-hint">' + esc(r.error.hint) + "</span>";
+    h += "</div>";
+  } else if (r){
+    h += '<div class="term-end">Program finished.' +
+         (t.typed.length ? " You entered " + t.typed.length + (t.typed.length === 1 ? " value." : " values.") : "") +
+         " Press Run to start again.</div>";
+  }
+  h += "</div>";
+  if (r && r.warnings && r.warnings.length)
+    h += '<div class="run-note"><b>Worth fixing</b>' + r.warnings.map(w => esc(w)).join("<br>") + "</div>";
+  h += "</div>";
+  box.innerHTML = h;
+
+  const body = document.getElementById("tb_" + t.id);
+  if (body) body.scrollTop = body.scrollHeight;
+
+  const inp = document.getElementById("ti_" + t.id);
+  if (inp){
+    inp.focus();
+    inp.addEventListener("keydown", function(e){
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      t.typed.push(inp.value);
+      stepTerm(t);
+    });
+    if (body) body.addEventListener("click", () => inp.focus());
+  }
+}
+
+function stepTerm(t){
+  t.last = runAnswer(t.q, t.answer, t.typed.join("\n"), { echo:true, seed:t.seed });
+  renderTerm(t);
+}
+
+function startTerm(idp, q, answer){
+  const t = TERMS[idp] = { id:idp, q:q, answer:answer, typed:[],
+                           seed:(Date.now() & 0xffff) || 1, last:null };
+  stepTerm(t);
+}
+
+/* Still used by the library, which shows a finished transcript rather than an
+   interactive one. */
 function consoleHtml(res){
-  let h = '<div class="console"><div class="console-head ' + (res.ok ? "ok" : "bad") + '">' +
-          '<span class="dot"></span>' + (res.ok ? "Output" : "It did not run") + "</div>";
+  let h = '<div class="term"><div class="term-head ' + (res.ok ? "ok" : "bad") + '">' +
+          '<span class="dot"></span>' + (res.ok ? "Output" : "It did not run") +
+          '<span class="term-status">' + (res.ok ? "finished" : "line " + res.error.line) + "</span></div>";
+  h += '<div class="term-body">';
+  if (!res.output.length)
+    h += '<div class="muted">' + (res.ok ? "It ran, but nothing was output." : "Nothing was output before it stopped.") + "</div>";
+  res.output.forEach(function(l){
+    const echo = l.charCodeAt(0) === 1;
+    h += '<div class="ln' + (echo ? " echo" : "") + '">' + esc(echo ? l.slice(1) : l) + "</div>";
+  });
+  h += "</div>";
   if (!res.ok){
-    h += '<div class="run-problem"><span class="rp-line">' +
-         (res.error.line ? "Line " + res.error.line : "Problem") + "</span>";
+    h += '<div class="run-problem"><span class="rp-line">Line ' + res.error.line + "</span>";
     h += '<span class="rp-msg">' + esc(res.error.msg) + "</span>";
     if (res.error.hint) h += '<span class="rp-hint">' + esc(res.error.hint) + "</span>";
     h += "</div>";
   }
-  const out = res.output && res.output.length
-    ? esc(res.output.join("\n"))
-    : '<span class="muted">' + (res.ok ? "It ran, but nothing was output." : "Nothing was output before it stopped.") + "</span>";
-  h += '<pre class="console-body">' + out + "</pre>";
-  if (res.warnings && res.warnings.length){
+  if (res.warnings && res.warnings.length)
     h += '<div class="run-note"><b>Worth fixing</b>' + res.warnings.map(w => esc(w)).join("<br>") + "</div>";
-  }
   return h + "</div>";
 }
 
@@ -1675,18 +1756,18 @@ function wireQuestionCard(q, root){
 
   const runBtn = root.querySelector('[data-run="' + idp + '"]');
   if (runBtn) runBtn.addEventListener("click", function(){
-    const box = root.querySelector("#con_" + idp);
     const answer = ta ? ta.value : "";
     if (!answer.trim()){
-      box.innerHTML = '<div class="console"><div class="console-head bad"><span class="dot"></span>Nothing to run</div>' +
-        '<pre class="console-body"><span class="muted">Write some pseudocode in the box above first.</span></pre></div>';
+      root.querySelector("#con_" + idp).innerHTML =
+        '<div class="term"><div class="term-head bad"><span class="dot"></span>Nothing to run</div>' +
+        '<div class="term-body"><span class="muted">Write some pseudocode above first.</span></div></div>';
       return;
     }
-    const inp = root.querySelector("#in_" + idp);
-    box.innerHTML = consoleHtml(runAnswer(q, answer, inp ? inp.value : ""));
+    startTerm(idp, q, answer);
   });
   const clearBtn = root.querySelector('[data-clearrun="' + idp + '"]');
   if (clearBtn) clearBtn.addEventListener("click", function(){
+    delete TERMS[idp];
     root.querySelector("#con_" + idp).innerHTML = "";
   });
 
@@ -2328,6 +2409,11 @@ function finishExam(auto){
       return;
     }
     const res = runAnswer(q, answer, undefined);
+    if (res.needsInput){
+      res.error = { line:res.error.line,
+        msg:"This asked for more input than the question supplies.",
+        hint:"Check how many INPUT statements the question actually needs, and where the loop stops." };
+    }
     if (!res.ok){
       EXAM.failed[q.id] = "error";
       failCount++;
@@ -2556,3 +2642,4 @@ showSyncNote(false);
 <script src="lessons-plus.js"></script>
 <script src="lab.js"></script>
 <script src="bridge.js"></script>
+<script src="lessons-index.js"></script>

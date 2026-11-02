@@ -84,7 +84,9 @@
     try { r = run(src, { inputs: inputs.slice(), files: opts.files, offset: opts.offset || 0, level: opts.level }); }
     finally { Math.random = real; }
     if (r.ok) return { state: 'done', output: r.output, warnings: r.warnings || [] };
-    if (NEEDS_INPUT.test(r.error?.msg || '')) return { state: 'input', output: r.output, warnings: r.warnings || [] };
+    // the flag where the interpreter sets it; the wording for older interpreters
+    if (r.needsInput || r.error?.needsInput || NEEDS_INPUT.test(r.error?.msg || ''))
+      return { state: 'input', output: r.output, warnings: r.warnings || [] };
     return { state: 'error', output: r.output, warnings: r.warnings || [], error: r.error };
   }
   /* The terminal's lines: the output, with each answer you typed where it was

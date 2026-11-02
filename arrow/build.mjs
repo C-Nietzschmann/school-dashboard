@@ -29,15 +29,15 @@ if (!src || !out) {
   process.exit(1);
 }
 // marking.js (its fair marking) is only in Assignment Arrow from Sept 2026 on; lab.js marks the same way without it
-const SCRIPTS = ['interpreter.js', 'lessons.js', 'lessons-igcse.js', 'bank.js', 'bank-igcse.js', 'bank-extra.js', 'library.js', 'tests.js', 'marking.js']
-  .filter((f) => f !== 'marking.js' || existsSync(join(src, f)));
+const SCRIPTS = ['interpreter.js', 'lessons.js', 'lessons-igcse.js', 'lessons-extra.js', 'bank.js', 'bank-igcse.js', 'bank-extra.js', 'library.js', 'tests.js', 'marking.js']
+  .filter((f) => (f !== 'marking.js' && f !== 'lessons-extra.js') || existsSync(join(src, f)));
 
 let html = readFileSync(join(src, 'index.html'), 'utf8');
 // the bridge wraps this one function; without it nothing would be logged
 if (!/function recordResult\s*\(/.test(html)) throw new Error('index.html has no recordResult(): Assignment Arrow changed how it saves marks — update arrow/bridge.js');
 html = html.replace(/<title>[^<]*<\/title>/, `<title>${site ? 'Assignment Arrow' : 'My Assignment Arrow'}</title>`);
 // yours: the lesson exercises, the terminal and fair marking (lab.js), and the dashboard (bridge.js)
-const OWN = ['lessons-plus.js', 'lab.js', 'bridge.js'];
+const OWN = ['lessons-plus.js', 'lab.js', 'bridge.js', 'lessons-index.js'];
 for (const f of ['autoMark', 'markSplit', 'stripComments', 'markReportHtml', 'buildProgram', 'codeBlock', 'wireEditor', 'refreshEditor',
   'renderLesson', 'activeLessons', 'lessonPos', 'openPractice', 'renderExamSetup', 'startExam', 'inLevel']) {
   if (!new RegExp(`function ${f}\\s*\\(`).test(html)) throw new Error(`index.html has no ${f}(): Assignment Arrow changed — update arrow/lab.js`);
