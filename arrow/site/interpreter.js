@@ -585,8 +585,8 @@ Parser.prototype = {
     let mode = null;
     if (this.at("KW") && MODES.indexOf(this.peek().v) !== -1) mode = this.next().v;
     else if (this.at("ID") && MODES.indexOf(this.peek().v.toUpperCase()) !== -1) mode = this.next().v.toUpperCase();
-    if (!mode) throw PErr(ln, "OPENFILE must say how the file is being opened.",
-      'Write  OPENFILE "name.txt" FOR READ  (or FOR WRITE, FOR APPEND, FOR RANDOM).');
+    if (!mode) throw PErr(ln, opened + " must say how the file is being opened.",
+      'Write  ' + opened + ' "name.txt" FOR READ  (or FOR WRITE, FOR APPEND, FOR RANDOM).');
     this.endLine();
     return { kind:"OpenFile", file:f, mode:mode, opened:opened, line:ln };
   },
@@ -1240,7 +1240,7 @@ const BUILTIN = {
     const name = String(a[0]);
     const f = this.files[name];
     if (!f) this.err(n.line, 'EOF was asked about "' + name + '", which has not been opened.',
-      'Open it first with  OPENFILE "' + name + '" FOR READ');
+      'Open it first with  ' + this.openWord() + ' "' + name + '" FOR READ');
     return f.pos >= f.lines.length; }
 };
 
@@ -1263,6 +1263,10 @@ Interp.prototype.evalArgs = function(sub, argNodes, scope){
 };
 /* Level-aware notation advice. Never an error - the code always runs.
    level "igcse" | "as" | "a2" | null (null = say nothing). */
+/* The statement that opens a file, as this course writes it: OPEN, as the
+   9618 coursebook does, and OPENFILE for IGCSE, as the 0478 guide does. */
+Interp.prototype.openWord = function(){ return this.level === "igcse" ? "OPENFILE" : "OPEN"; };
+
 Interp.prototype.dialect = function(line, family, used, instead){
   const lv = this.level;
   if (!lv) return;
@@ -1586,8 +1590,6 @@ Interp.prototype.exec = function(n, scope){
 
     /* ---- files ---- */
     case "OpenFile": {
-      if (n.opened === "OPEN")
-        this.warn(n.line, 'The pseudocode guide writes this as OPENFILE, not OPEN. Both run here, but write OPENFILE in the exam.');
       if (n.mode === "APPEND" || n.mode === "RANDOM")
         this.aboveIgcse(n.line, "Opening a file FOR " + n.mode);
       const name = String(this.ev(n.file, scope));
@@ -1605,7 +1607,7 @@ Interp.prototype.exec = function(n, scope){
       const f = this.files[name];
       if (!f || f.mode !== "RANDOM")
         this.err(n.line, '"' + name + '" is not open for random access.',
-          'Open it first with  OPENFILE "' + name + '" FOR RANDOM');
+          'Open it first with  ' + this.openWord() + ' "' + name + '" FOR RANDOM');
       const addr = this.ev(n.arg, scope);
       if (typeof addr !== "number" || addr !== Math.floor(addr) || addr < 1)
         this.err(n.line, "A record address must be a whole number of 1 or more.");
@@ -1618,7 +1620,7 @@ Interp.prototype.exec = function(n, scope){
       const f = this.files[name];
       if (!f || f.mode !== "RANDOM")
         this.err(n.line, '"' + name + '" is not open for random access.',
-          'Open it first with  OPENFILE "' + name + '" FOR RANDOM');
+          'Open it first with  ' + this.openWord() + ' "' + name + '" FOR RANDOM');
       const ref = this.lval(n.arg, scope);
       const stored = f.records[f.pos];
       if (stored === undefined){
@@ -1636,7 +1638,7 @@ Interp.prototype.exec = function(n, scope){
       const f = this.files[name];
       if (!f || f.mode !== "RANDOM")
         this.err(n.line, '"' + name + '" is not open for random access.',
-          'Open it first with  OPENFILE "' + name + '" FOR RANDOM');
+          'Open it first with  ' + this.openWord() + ' "' + name + '" FOR RANDOM');
       const v = this.ev(n.arg, scope);
       f.records[f.pos] = cloneRec(v);
       f.pos = f.pos + 1;
@@ -1648,7 +1650,7 @@ Interp.prototype.exec = function(n, scope){
       const f = this.files[name];
       if (!f || f.mode !== "READ")
         this.err(n.line, '"' + name + '" is not open for reading.',
-          'Open it first with  OPENFILE "' + name + '" FOR READ');
+          'Open it first with  ' + this.openWord() + ' "' + name + '" FOR READ');
       if (f.pos >= f.lines.length)
         this.err(n.line, '"' + name + '" has no more lines, but READFILE asked for another one.',
           "Guard the read with  WHILE NOT EOF(\"" + name + "\") DO  so it stops at the end.");

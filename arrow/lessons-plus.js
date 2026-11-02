@@ -167,14 +167,14 @@ L9: [
 
 L10: [
   { type: "fill", q: "Fill the gaps: read the whole file and output each line.",
-    code: "DECLARE Line : STRING\n{{OPENFILE}} \"Names.txt\" FOR {{READ}}\nWHILE NOT {{EOF}}(\"Names.txt\") DO\n    READFILE \"Names.txt\", Line\n    OUTPUT Line\nENDWHILE\n{{CLOSEFILE}} \"Names.txt\"",
+    code: "DECLARE Line : STRING\n{{OPEN|OPENFILE}} \"Names.txt\" FOR {{READ}}\nWHILE NOT {{EOF}}(\"Names.txt\") DO\n    READFILE \"Names.txt\", Line\n    OUTPUT Line\nENDWHILE\n{{CLOSEFILE}}(\"Names.txt\")",
     files: [{ name: "Names.txt", lines: ["Ana", "Ben", "Cai"] }],
     why: "Open, loop until EOF, read one line per pass, close." },
   { type: "write", q: "<code>Scores.txt</code> holds one whole number per line (it is there for you). Read it all and output how many lines it has and their total, e.g. <code>5 scores, total 312</code>.",
     files: [{ name: "Scores.txt", lines: ["56", "71", "48", "90", "47"] }],
     tests: [{}, { files: [{ name: "Scores.txt", lines: ["10", "20"] }] }],
     starter: "DECLARE Line : STRING\n",
-    model: "DECLARE Line : STRING\nDECLARE Count : INTEGER\nDECLARE Total : INTEGER\nCount <- 0\nTotal <- 0\nOPENFILE \"Scores.txt\" FOR READ\nWHILE NOT EOF(\"Scores.txt\") DO\n    READFILE \"Scores.txt\", Line\n    Count <- Count + 1\n    Total <- Total + STRING_TO_NUM(Line)\nENDWHILE\nCLOSEFILE \"Scores.txt\"\nOUTPUT Count, \" scores, total \", Total",
+    model: "DECLARE Line : STRING\nDECLARE Count : INTEGER\nDECLARE Total : INTEGER\nCount <- 0\nTotal <- 0\nOPEN \"Scores.txt\" FOR READ\nWHILE NOT EOF(\"Scores.txt\") DO\n    READFILE \"Scores.txt\", Line\n    Count <- Count + 1\n    Total <- Total + STRING_TO_NUM(Line)\nENDWHILE\nCLOSEFILE(\"Scores.txt\")\nOUTPUT Count, \" scores, total \", Total",
     require: [{ re: "EOF\\s*\\(", t: "an EOF loop" }, { re: "CLOSEFILE", t: "CLOSEFILE" }], rows: 10 },
   { type: "mcq", q: "You open an existing file <code>FOR WRITE</code>. What happens to what was in it?",
     options: ["It is kept, and new lines go on the end", "It is wiped: the file starts empty", "It causes an error", "Only the first line is replaced"], answer: 1,

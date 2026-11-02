@@ -726,25 +726,25 @@ OUTPUT X`,
 `// A file is only ever open in one mode at a time, so each is closed
 // before the next is opened.
 
-OPENFILE "Students.txt" FOR WRITE      // creates new, or wipes what is there
-CLOSEFILE "Students.txt"
+OPEN "Students.txt" FOR WRITE      // creates new, or wipes what is there
+CLOSEFILE("Students.txt")
 
-OPENFILE "Students.txt" FOR APPEND     // adds to the end, keeps what is there
-CLOSEFILE "Students.txt"
+OPEN "Students.txt" FOR APPEND     // adds to the end, keeps what is there
+CLOSEFILE("Students.txt")
 
-OPENFILE "Students.txt" FOR READ       // reads from the beginning
-CLOSEFILE "Students.txt"`},
+OPEN "Students.txt" FOR READ       // reads from the beginning
+CLOSEFILE("Students.txt")`},
     {t:"note",kind:"warn",label:"WRITE destroys data",html:`<p>Opening an existing file <em class="term">FOR WRITE</em> deletes its entire contents first. If the question says &ldquo;add a new record to the file&rdquo;, the answer is <em class="term">APPEND</em>. Choosing WRITE there loses the mark and, in reality, the data.</p>`},
 
     {t:"h",text:"Writing to a file"},
     {t:"code",src:
 `DECLARE Name : STRING
 
-OPENFILE "Students.txt" FOR APPEND
+OPEN "Students.txt" FOR APPEND
 OUTPUT "Enter student name: "
 INPUT Name
 WRITEFILE "Students.txt", Name
-CLOSEFILE "Students.txt"`},
+CLOSEFILE("Students.txt")`},
 
     {t:"h",text:"Reading until the end &mdash; the EOF loop"},
     {t:"p",html:`<em class="term">EOF(FileName)</em> returns TRUE once there is nothing left to read. Learn this exact shape; a large share of file marks are for reproducing it correctly.`},
@@ -754,7 +754,7 @@ DECLARE Count      : INTEGER
 
 Count <- 0
 
-OPENFILE "Students.txt" FOR READ
+OPEN "Students.txt" FOR READ
 
 WHILE NOT EOF("Students.txt") DO
     READFILE "Students.txt", LineOfText
@@ -762,7 +762,7 @@ WHILE NOT EOF("Students.txt") DO
     Count <- Count + 1
 ENDWHILE
 
-CLOSEFILE "Students.txt"
+CLOSEFILE("Students.txt")
 
 OUTPUT "The file holds ", Count, " records"`},
     {t:"note",kind:"warn",label:"A line is always read into a STRING",html:`<p>The syllabus is explicit about this: with both <em class="term">READFILE</em> and <em class="term">WRITEFILE</em>, the variable <strong>must be of data type STRING</strong>. A text file is lines of characters, so that is what comes out of it.</p>
@@ -781,10 +781,9 @@ OUTPUT "The file holds ", Count, " records"`},
 <p>On a file that has something in it, that works &mdash; it reads the last line, EOF becomes TRUE and the loop stops. <strong>On an empty file it breaks</strong>, because REPEAT reads before it tests, and there is nothing to read. Paste it into the editor with an empty file and this app will show you the exact error.</p>
 <p>The coursebook example uses the REPEAT form, which is why most teaching does. The worked example in the Cambridge pseudocode guide uses <em class="term">WHILE NOT EOF</em>, and that is the version that cannot fail. Write whichever your teacher marks &mdash; just know where the REPEAT one breaks.</p>`},
 
-    {t:"note",kind:"exam",label:"OPEN or OPENFILE?",html:`<p>Two sources disagree, and both are real.</p>
-<p>The <strong>Hodder coursebook</strong> (Watson &amp; Williams), which most 9618 teaching follows, writes <em class="term">OPEN myFile FOR WRITE</em>. If your notes say OPEN, your teacher is following the book, not making a mistake.</p>
-<p>The <strong>Cambridge pseudocode guide</strong>, which is what the exam papers themselves are printed from, writes <em class="term">OPENFILE</em>. Both close the same way, without brackets: <em class="term">CLOSEFILE myFile</em>.</p>
-<p>This app runs <em class="term">OPEN</em>, <em class="term">OPENFILE</em>, and <em class="term">CLOSEFILE(myFile)</em> with brackets, so you are never blocked by whose notation you learned. In the exam, <em class="term">OPENFILE</em> is the safer one &mdash; it is what the paper in front of you will use.</p>`},
+    {t:"note",kind:"exam",label:"OPEN or OPENFILE?",html:`<p>This course writes <em class="term">OPEN</em> and <em class="term">CLOSEFILE(myFile)</em>, the way the <strong>Hodder coursebook</strong> (Watson &amp; Williams) does, so the lessons match your notes.</p>
+<p>The <strong>Cambridge pseudocode guide</strong>, which the exam papers are printed from, spells the open statement <em class="term">OPENFILE</em> and closes without brackets. That is the spelling you will see on the paper itself.</p>
+<p>Answers are marked on the logic, not on one exact spelling, and this app accepts every one of these forms when it runs and marks your code.</p>`},
 
     {t:"h",text:"Searching a file"},
     {t:"code",src:
@@ -796,7 +795,7 @@ Found <- FALSE
 OUTPUT "Name to find: "
 INPUT Target
 
-OPENFILE "Students.txt" FOR READ
+OPEN "Students.txt" FOR READ
 
 WHILE NOT EOF("Students.txt") AND Found = FALSE DO
     READFILE "Students.txt", Line
@@ -805,7 +804,7 @@ WHILE NOT EOF("Students.txt") AND Found = FALSE DO
     ENDIF
 ENDWHILE
 
-CLOSEFILE "Students.txt"
+CLOSEFILE("Students.txt")
 
 IF Found THEN
     OUTPUT "Record located"
@@ -816,7 +815,7 @@ ENDIF`},
     {t:"h",text:"Random access files (Paper 4)"},
     {t:"p",html:`Serial and sequential files must be read from the start. A <strong>random</strong> file can jump straight to a record by its address, which is far faster for large files.`},
     {t:"code",src:
-`OPENFILE "Stock.dat" FOR RANDOM
+`OPEN "Stock.dat" FOR RANDOM
 
 SEEK "Stock.dat", 25                 // move to record address 25
 GETRECORD "Stock.dat", StockItem     // read it into a variable
@@ -825,7 +824,7 @@ StockItem.Quantity <- 40
 SEEK "Stock.dat", 25
 PUTRECORD "Stock.dat", StockItem     // write it back
 
-CLOSEFILE "Stock.dat"`},
+CLOSEFILE("Stock.dat")`},
 
     {t:"check",
       q:`A text file "Scores.txt" holds one integer per line. Read the whole file and output the largest value it contains.`,
@@ -838,7 +837,7 @@ DECLARE First   : BOOLEAN
 
 First <- TRUE
 
-OPENFILE "Scores.txt" FOR READ
+OPEN "Scores.txt" FOR READ
 
 WHILE NOT EOF("Scores.txt") DO
     READFILE "Scores.txt", Line
@@ -854,7 +853,7 @@ WHILE NOT EOF("Scores.txt") DO
     ENDIF
 ENDWHILE
 
-CLOSEFILE "Scores.txt"
+CLOSEFILE("Scores.txt")
 
 OUTPUT "Largest score was ", Largest`,
       run:{ files:[{name:"Scores.txt", lines:["41","88","23"]}] }}

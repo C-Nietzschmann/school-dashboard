@@ -152,7 +152,7 @@
      front of lines that are only expressions ("LENGTH(Word) // 8"); after the
      examples above it, which it builds on; or, for a fragment, completed by
      you first. A template ("IF <condition> THEN") gets nothing. */
-  const KEYWORD = /^(DECLARE|CONSTANT|IF|ELSE|ENDIF|CASE|OTHERWISE|ENDCASE|FOR|NEXT|WHILE|ENDWHILE|REPEAT|UNTIL|PROCEDURE|ENDPROCEDURE|FUNCTION|ENDFUNCTION|RETURN|CALL|OUTPUT|INPUT|OPENFILE|READFILE|WRITEFILE|CLOSEFILE|TYPE|ENDTYPE|CLASS|ENDCLASS|PUBLIC|PRIVATE|SEEK|GETRECORD|PUTRECORD)\b/i;
+  const KEYWORD = /^(DECLARE|CONSTANT|IF|ELSE|ENDIF|CASE|OTHERWISE|ENDCASE|FOR|NEXT|WHILE|ENDWHILE|REPEAT|UNTIL|PROCEDURE|ENDPROCEDURE|FUNCTION|ENDFUNCTION|RETURN|CALL|OUTPUT|INPUT|OPEN|OPENFILE|READFILE|WRITEFILE|CLOSEFILE|TYPE|ENDTYPE|CLASS|ENDCLASS|PUBLIC|PRIVATE|SEEK|GETRECORD|PUTRECORD)\b/i;
   const withOutput = (src) => String(src).split('\n').map((l) => {
     const t = l.replace(/\/\/.*$/, '').trim();
     return !t || KEYWORD.test(t) || /<-|←|^[A-Za-z]\w*\s*:/.test(t) ? l : l.replace(t, 'OUTPUT ' + t);

@@ -268,7 +268,7 @@ ENDTYPE
 
 DECLARE Item : StockItem
 
-OPENFILE "Stock.dat" FOR RANDOM
+OPEN "Stock.dat" FOR RANDOM
 
 SEEK "Stock.dat", 12                  // go straight to record 12
 GETRECORD "Stock.dat", Item
@@ -278,7 +278,7 @@ Item.Quantity <- Item.Quantity - 1
 SEEK "Stock.dat", 12                  // reading moved the position: go back
 PUTRECORD "Stock.dat", Item
 
-CLOSEFILE "Stock.dat"`},
+CLOSEFILE("Stock.dat")`},
     {t:"note",kind:"warn",label:"SEEK twice",html:`<p>Reading a record moves the file position past it. If you read a record, change it and write it back, you must <em class="term">SEEK</em> again before <em class="term">PUTRECORD</em> &mdash; otherwise you overwrite the record <em>after</em> the one you meant.</p>`},
 
     {t:"h",text:"Hashing"},
@@ -330,7 +330,7 @@ DECLARE Rejected : INTEGER
 Total    <- 0
 Rejected <- 0
 
-OPENFILE "Readings.txt" FOR READ
+OPEN "Readings.txt" FOR READ
 
 WHILE NOT EOF("Readings.txt") DO
     READFILE "Readings.txt", Line
@@ -344,7 +344,7 @@ WHILE NOT EOF("Readings.txt") DO
     ENDIF
 ENDWHILE
 
-CLOSEFILE "Readings.txt"
+CLOSEFILE("Readings.txt")
 
 OUTPUT "Total ", Total, " from the valid lines, ", Rejected, " skipped"`},
     {t:"p",html:`One bad line in a thousand does not lose the other nine hundred and ninety-nine. That is the whole idea.`},
