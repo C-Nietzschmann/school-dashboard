@@ -228,6 +228,15 @@ test('fixing mistakes and correcting the marks both raise your level', async () 
   assert.equal(P.mastery(MONDAY).subjects.maths.dominant, null, 'no lost marks left, so no error pattern');
 });
 
+test('week.set fixes which rota week a date is in', async () => {
+  const S = fixture();
+  await applyOps(S, [{ id: 'w', type: 'week.set', date: '2026-11-11', week: 'A' }], { date: MONDAY, store: memStore() });
+  assert.equal(S.profile.weekAStart, '2026-11-09');
+  assert.deepEqual([at(S).weekOf('2026-11-09'), at(S).weekOf('2026-11-16'), at(S).weekOf('2026-11-23')], ['A', 'B', 'A']);
+  await applyOps(S, [{ id: 'w2', type: 'week.set', date: '2026-11-09', week: 'B' }], { date: MONDAY, store: memStore() });
+  assert.equal(at(S).weekOf('2026-11-09'), 'B');
+});
+
 test('archiving an old mistake clears the queue without crediting a fix', async () => {
   const S = fixture();
   const store = memStore();

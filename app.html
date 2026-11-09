@@ -1425,7 +1425,8 @@ views.timetable = () => {
         <div class="hint" style="margin:0">You are in <b>week ${now}</b>. Week A is the one containing
           ${esc(fmtFull(S.profile.weekAStart))}, and they alternate from there — across holidays too.
           Mark free periods and the dashboard tells you what to revise in them.</div></div>
-      <button class="btn sm" id="notifyAsk">Enable notifications</button>
+      <div class="row" style="gap:6px"><button class="btn sm" id="weekSwap" title="If the school's A/B week is off, flip it">Make this week ${now === 'A' ? 'B' : 'A'}</button>
+        <button class="btn sm" id="notifyAsk">Enable notifications</button></div>
     </div>
     ${(() => {
       const bad = timetableCheck();
@@ -2989,6 +2990,8 @@ document.addEventListener('click', (e) => {
     dismissedId = lastAlertId; $('#lessonAlert').hidden = true; return;
   }
   if (t.id === 'notifyAsk') return askNotifications(t);
+  // moving the week-A anchor by a week flips A and B for every week, past and future
+  if (t.id === 'weekSwap') { S.profile.weekAStart = addDays(S.profile.weekAStart || S.profile.termStart, 7); save(); return renderAll(); }
   if (t.id === 'ttAdd') {
     const day = $('#ttDay').value;
     const wk = $('#ttWeek').value;

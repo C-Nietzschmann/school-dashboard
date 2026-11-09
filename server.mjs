@@ -407,7 +407,7 @@ const mcp = createMcpServer({
         + 'annotation? (the examiner\'s marks on the script: "M1 A1 B0" for Pearson maths, "MP1 ✓ MP2 ✗" for physics and Cambridge CS, levels for German writing), '
         + 'explanation, correction (the mark-scheme answer, marks labelled)}], summary, nextSteps}} — mark as the board\'s examiners do: Pearson Edexcel IAL '
         + 'for maths, further maths, physics and German, Cambridge 9618 for computer science; attempt.update {attemptId, patch?, questions?}; '
-        + 'mistake.resolve {attemptId, q, how: self|checked|archived — archived = older work kept as data, no fix credit}; attempt.note {attemptId, q?, text}; '
+        + 'mistake.resolve {attemptId, q, how: self|checked|archived — archived = older work kept as data, no fix credit}; attempt.note {attemptId, q?, text}; week.set {date, week: A|B} (which rota week that date is in); '
         + 'attempt.delete {attemptId}; attachment.delete {attachmentId}; '
         + 'pack.add {pack:{title, subjectId, topicIds?, difficulty?: warm-up|exam|hard|stretch, minutes?, '
         + 'source?, due?: YYYY-MM-DD, priority?: high|normal|low, questions:[{n, text, marks: 1-30, topicId?, '
